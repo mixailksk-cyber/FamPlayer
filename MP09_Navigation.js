@@ -12,18 +12,10 @@ export default function AppNavigator({ rootFolder, settings = {} }) {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!rootFolder ? (
-          <Stack.Screen name="Settings" component={MP05_SettingsScreen} initialParams={{ settings }} />
-        ) : (
-          <>
-            <Stack.Screen name="Playlists">
-              {props => <MP06_PlaylistsScreen {...props} rootFolder={rootFolder} settings={settings} />}
-            </Stack.Screen>
-            <Stack.Screen name="Folder" component={MP07_FolderScreen} />
-            <Stack.Screen name="Settings" component={MP05_SettingsScreen} initialParams={{ settings }} />
-            <Stack.Screen name="Search" component={MP20_SearchScreen} initialParams={{ settings }} />
-          </>
-        )}
+        <Stack.Screen name="Settings" component={MP05_SettingsScreen} initialParams={{ settings }} />
+        <Stack.Screen name="Playlists" component={MP06_PlaylistsScreen} />
+        <Stack.Screen name="Folder" component={MP07_FolderScreen} />
+        <Stack.Screen name="Search" component={MP20_SearchScreen} initialParams={{ settings }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
