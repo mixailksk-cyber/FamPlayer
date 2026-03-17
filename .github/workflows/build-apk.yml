@@ -18,11 +18,11 @@ jobs:
         with:
           node-version: '20'
           
-      - name: Install dependencies
+      - name: Install dependencies with legacy peer deps
         run: |
-          npm install
+          npm install --legacy-peer-deps
           npx expo install --fix
-      
+          
       - name: Setup Expo and EAS
         uses: expo/expo-github-action@v8
         with:
@@ -37,8 +37,6 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
