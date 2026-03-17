@@ -1,10 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Platform, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from './MP02_FileSystem';
 import { Header, EmailFooter } from './MP04_Components';
 import { getBrandColor, AUTHOR_EMAIL, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
+
+// Система логирования
+const Logger = {
+  log: (tag, message, data = '') => {
+    const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+    console.log(`[${timestamp}] [${tag}] ${message}`, data);
+  },
+  error: (tag, message, error = '') => {
+    const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+    console.error(`[${timestamp}] [${tag}] ❌ ${message}`, error);
+  },
+  success: (tag, message, data = '') => {
+    const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+    console.log(`[${timestamp}] [${tag}] ✅ ${message}`, data);
+  },
+  warn: (tag, message, data = '') => {
+    const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+    console.warn(`[${timestamp}] [${tag}] ⚠️ ${message}`, data);
+  }
+};
 
 export default function SettingsScreen({ navigation, route }) {
   const settings = route?.params?.settings || {};
@@ -12,43 +32,84 @@ export default function SettingsScreen({ navigation, route }) {
   const [checkingPermission, setCheckingPermission] = useState(true);
   const [hasPermission, setHasPermission] = useState(false);
   const [loadingMusic, setLoadingMusic] = useState(false);
+  const [debugInfo, setDebugInfo] = useState([]);
   const brandColor = getBrandColor(settings);
 
+  const addDebug = (message, type = 'info') => {
+    const timestamp = new Date().toLocaleTimeString();
+    setDebugInfo(prev => [...prev, { timestamp, message, type }]);
+    Logger.log('Settings', message);
+  };
+
   useEffect(() => {
+    addDebug('🔧 Компонент SettingsScreen загружен');
     checkPermissions();
   }, []);
 
   const checkPermissions = async () => {
+    addDebug('📋 Проверка разрешений...');
+    
     if (IS_WEB_STUB) {
+      addDebug('🌐 Web режим, пропускаем проверку');
       setCheckingPermission(false);
       setHasPermission(true);
       return;
     }
 
     try {
-      const { status } = await MediaLibrary.getPermissionsAsync();
-      console.log('Permission status:', status);
-      setHasPermission(status === 'granted');
+      addDebug('📱 Проверка через MediaLibrary.getPermissionsAsync()');
+      const { status, canAskAgain, granted } = await MediaLibrary.getPermissionsAsync();
+      
+      addDebug(`📊 Статус разрешений: status=${status}, canAskAgain=${canAskAgain}, granted=${granted}`);
+      
+      if (status === 'granted') {
+        addDebug('✅ Разрешения уже предоставлены');
+        setHasPermission(true);
+      } else {
+        addDebug(`❌ Разрешения не предоставлены: ${status}`);
+        setHasPermission(false);
+      }
     } catch (error) {
-      console.error('Error checking permissions:', error);
+      addDebug(`🔥 Ошибка при проверке разрешений: ${error.message}`, 'error');
+      Logger.error('Settings', 'Error checking permissions', error);
     } finally {
       setCheckingPermission(false);
     }
   };
 
   const requestPermission = async () => {
+    addDebug('🔐 Запрос разрешений через MediaLibrary.requestPermissionsAsync()');
     setLoading(true);
+    
     try {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      console.log('Permission requested, status:', status);
-      setHasPermission(status === 'granted');
+      const { status, canAskAgain, granted } = await MediaLibrary.requestPermissionsAsync();
+      
+      addDebug(`📊 Результат запроса: status=${status}, canAskAgain=${canAskAgain}, granted=${granted}`);
       
       if (status === 'granted') {
-        // После получения разрешений сразу переходим к музыке
+        addDebug('✅ Разрешения успешно получены');
+        setHasPermission(true);
+        // Автоматически переходим к музыке после получения разрешений
         handleGoToMusic();
+      } else {
+        addDebug(`❌ Пользователь отклонил разрешения: ${status}`);
+        
+        if (!canAskAgain) {
+          addDebug('⚠️ Пользователь выбрал "Больше не спрашивать"');
+          Alert.alert(
+            'Доступ запрещен',
+            'Вы отклонили разрешения и выбрали "Больше не спрашивать". Пожалуйста, включите доступ вручную в настройках приложения.',
+            [
+              { text: 'Отмена' },
+              { text: 'Открыть настройки', onPress: () => openAppSettings() }
+            ]
+          );
+        }
+        setHasPermission(false);
       }
     } catch (error) {
-      console.error('Error requesting permission:', error);
+      addDebug(`🔥 Ошибка при запросе разрешений: ${error.message}`, 'error');
+      Logger.error('Settings', 'Error requesting permission', error);
       Alert.alert('Ошибка', 'Не удалось запросить разрешения');
     } finally {
       setLoading(false);
@@ -56,38 +117,73 @@ export default function SettingsScreen({ navigation, route }) {
   };
 
   const handleGoToMusic = async () => {
+    addDebug('🎵 Нажата кнопка "Перейти к музыке"');
     setLoadingMusic(true);
     
     try {
-      // Проверяем разрешения еще раз
-      const { status } = await MediaLibrary.getPermissionsAsync();
+      addDebug('📋 Проверка разрешений перед переходом...');
+      const { status, granted } = await MediaLibrary.getPermissionsAsync();
+      
+      addDebug(`📊 Статус разрешений: status=${status}, granted=${granted}`);
       
       if (status !== 'granted') {
+        addDebug('❌ Нет разрешений, запрашиваем...');
         Alert.alert('Ошибка', 'Нет доступа к музыке');
         setLoadingMusic(false);
         return;
       }
 
-      // Пытаемся получить список песен (просто для проверки)
+      addDebug('✅ Разрешения есть, загружаем музыку...');
+      
+      // Получаем список песен
+      addDebug('📀 Вызов MediaLibrary.getAssetsAsync() с mediaType=audio');
       const media = await MediaLibrary.getAssetsAsync({
         mediaType: 'audio',
-        first: 1,
+        first: 1000,
       });
       
-      console.log('Found', media.totalCount, 'audio files');
+      addDebug(`📊 Найдено ${media.totalCount} аудиофайлов, получено ${media.assets.length} в первой партии`);
       
-      // Переходим к экрану плейлистов
+      if (media.assets.length > 0) {
+        addDebug(`🎵 Примеры файлов: ${media.assets.slice(0, 3).map(a => a.filename).join(', ')}`);
+      }
+      
+      // Проверяем, есть ли экран Playlists в навигации
+      addDebug('🧭 Проверка навигации...');
+      const navigatorState = navigation.getState();
+      addDebug(`📊 Текущий навигатор: ${navigatorState?.routes?.map(r => r.name).join(', ') || 'неизвестно'}`);
+      
+      addDebug('🚀 Переход на экран Playlists...');
       navigation.replace('Playlists', { 
         rootFolder: 'media://library', 
         settings,
-        songsCount: media.totalCount 
+        songsCount: media.totalCount,
+        initialSongs: media.assets
       });
       
+      addDebug('✅ Успешно перешли на Playlists');
+      
     } catch (error) {
-      console.error('Error accessing music:', error);
-      Alert.alert('Ошибка', 'Не удалось получить доступ к музыке');
+      addDebug(`🔥 Ошибка при доступе к музыке: ${error.message}`, 'error');
+      addDebug(`📋 Stack: ${error.stack}`, 'error');
+      Logger.error('Settings', 'Error accessing music', error);
+      Alert.alert('Ошибка', `Не удалось получить доступ к музыке: ${error.message}`);
     } finally {
       setLoadingMusic(false);
+    }
+  };
+
+  const openAppSettings = async () => {
+    addDebug('⚙️ Открытие настроек приложения');
+    try {
+      const { IntentLauncher } = await import('expo-intent-launcher');
+      await IntentLauncher.startActivityAsync(
+        IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS,
+        { data: 'package:com.mkhailksk.musikplayer' }
+      );
+      addDebug('✅ Настройки открыты');
+    } catch (error) {
+      addDebug(`🔥 Ошибка открытия настроек: ${error.message}`, 'error');
     }
   };
 
@@ -119,60 +215,83 @@ export default function SettingsScreen({ navigation, route }) {
         </View>
       )}
       
-      <View style={styles.content}>
-        <MaterialIcons name="library-music" size={64} color={brandColor} style={styles.icon} />
-        
-        <Text style={styles.title}>Доступ к музыке</Text>
-        
-        <Text style={styles.subtitle}>
-          Приложению нужен доступ к музыкальным файлам на вашем устройстве
-        </Text>
-        
-        {!hasPermission ? (
-          <View style={styles.permissionContainer}>
-            <TouchableOpacity 
-              style={[styles.permissionButton, { backgroundColor: brandColor }]} 
-              onPress={requestPermission} 
-              disabled={loading}
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
+          <MaterialIcons name="library-music" size={64} color={brandColor} style={styles.icon} />
+          
+          <Text style={styles.title}>Доступ к музыке</Text>
+          
+          <Text style={styles.subtitle}>
+            Приложению нужен доступ к музыкальным файлам на вашем устройстве
+          </Text>
+          
+          {!hasPermission ? (
+            <View style={styles.permissionContainer}>
+              <TouchableOpacity 
+                style={[styles.permissionButton, { backgroundColor: brandColor }]} 
+                onPress={requestPermission} 
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <MaterialIcons name="perm-media" size={24} color="white" />
+                    <Text style={styles.permissionButtonText}>Предоставить доступ</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              
+              <Text style={styles.hint}>
+                Приложение запросит доступ к медиафайлам. 
+                Нажмите "Разрешить" в системном диалоге.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.permissionContainer}>
+              <TouchableOpacity 
+                style={[styles.selectButton, { backgroundColor: brandColor }]} 
+                onPress={handleGoToMusic}
+                disabled={loadingMusic}
+              >
+                {loadingMusic ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <MaterialIcons name="playlist-play" size={24} color="white" />
+                    <Text style={styles.selectButtonText}>Перейти к музыке</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              
+              <Text style={styles.successText}>
+                ✅ Доступ к музыке предоставлен
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Панель отладки */}
+        <View style={styles.debugPanel}>
+          <Text style={styles.debugTitle}>🔍 Отладочная информация:</Text>
+          {debugInfo.map((item, index) => (
+            <Text 
+              key={index} 
+              style={[
+                styles.debugLine,
+                item.type === 'error' ? styles.debugError : 
+                item.type === 'warn' ? styles.debugWarn : 
+                styles.debugInfo
+              ]}
             >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <MaterialIcons name="perm-media" size={24} color="white" />
-                  <Text style={styles.permissionButtonText}>Предоставить доступ</Text>
-                </>
-              )}
-            </TouchableOpacity>
-            
-            <Text style={styles.hint}>
-              Приложение запросит доступ к медиафайлам. 
-              Нажмите "Разрешить" в системном диалоге.
+              {item.timestamp} - {item.message}
             </Text>
-          </View>
-        ) : (
-          <View style={styles.permissionContainer}>
-            <TouchableOpacity 
-              style={[styles.selectButton, { backgroundColor: brandColor }]} 
-              onPress={handleGoToMusic}
-              disabled={loadingMusic}
-            >
-              {loadingMusic ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <MaterialIcons name="playlist-play" size={24} color="white" />
-                  <Text style={styles.selectButtonText}>Перейти к музыке</Text>
-                </>
-              )}
-            </TouchableOpacity>
-            
-            <Text style={styles.successText}>
-              ✅ Доступ к музыке предоставлен
-            </Text>
-          </View>
-        )}
-      </View>
+          ))}
+          {debugInfo.length === 0 && (
+            <Text style={styles.debugLine}>Ожидание действий...</Text>
+          )}
+        </View>
+      </ScrollView>
       
       <EmailFooter email={AUTHOR_EMAIL} />
     </View>
@@ -184,8 +303,10 @@ const styles = StyleSheet.create({
     flex: 1, 
     backgroundColor: '#FFFFFF' 
   },
+  scrollView: {
+    flex: 1,
+  },
   content: { 
-    flex: 1, 
     justifyContent: 'center', 
     alignItems: 'center', 
     padding: 20 
@@ -277,5 +398,33 @@ const styles = StyleSheet.create({
     marginTop: 16,
     color: '#666',
     fontSize: 14,
+  },
+  debugPanel: {
+    backgroundColor: '#1E1E1E',
+    margin: 16,
+    padding: 12,
+    borderRadius: 8,
+    maxHeight: 300,
+  },
+  debugTitle: {
+    color: '#FFA500',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  debugLine: {
+    color: '#0F0',
+    fontSize: 11,
+    fontFamily: 'monospace',
+    marginVertical: 2,
+  },
+  debugError: {
+    color: '#FF6B6B',
+  },
+  debugWarn: {
+    color: '#FFA500',
+  },
+  debugInfo: {
+    color: '#0F0',
   },
 });
