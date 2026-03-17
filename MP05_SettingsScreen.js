@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from './MP02_FileSystem';
 import { Header, EmailFooter } from './MP04_Components';
 import { getBrandColor, AUTHOR_EMAIL, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
