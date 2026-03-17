@@ -1,4 +1,4 @@
-// Добавьте эту функцию в MP02_FileSystem.js
+// Добавьте эти функции в конец MP02_FileSystem.js
 export const saveSongsList = async (songs) => {
   try {
     await AsyncStorage.setItem('songs_list', JSON.stringify(songs));
