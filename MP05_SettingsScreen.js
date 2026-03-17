@@ -19,10 +19,6 @@ const Logger = {
   success: (tag, message, data = '') => {
     const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
     console.log(`[${timestamp}] [${tag}] ✅ ${message}`, data);
-  },
-  warn: (tag, message, data = '') => {
-    const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
-    console.warn(`[${timestamp}] [${tag}] ⚠️ ${message}`, data);
   }
 };
 
@@ -89,27 +85,13 @@ export default function SettingsScreen({ navigation, route }) {
       if (status === 'granted') {
         addDebug('✅ Разрешения успешно получены');
         setHasPermission(true);
-        // Автоматически переходим к музыке после получения разрешений
         handleGoToMusic();
       } else {
         addDebug(`❌ Пользователь отклонил разрешения: ${status}`);
-        
-        if (!canAskAgain) {
-          addDebug('⚠️ Пользователь выбрал "Больше не спрашивать"');
-          Alert.alert(
-            'Доступ запрещен',
-            'Вы отклонили разрешения и выбрали "Больше не спрашивать". Пожалуйста, включите доступ вручную в настройках приложения.',
-            [
-              { text: 'Отмена' },
-              { text: 'Открыть настройки', onPress: () => openAppSettings() }
-            ]
-          );
-        }
         setHasPermission(false);
       }
     } catch (error) {
       addDebug(`🔥 Ошибка при запросе разрешений: ${error.message}`, 'error');
-      Logger.error('Settings', 'Error requesting permission', error);
       Alert.alert('Ошибка', 'Не удалось запросить разрешения');
     } finally {
       setLoading(false);
@@ -147,18 +129,22 @@ export default function SettingsScreen({ navigation, route }) {
       if (media.assets.length > 0) {
         addDebug(`🎵 Примеры файлов: ${media.assets.slice(0, 3).map(a => a.filename).join(', ')}`);
       }
-      
-      // Проверяем, есть ли экран Playlists в навигации
-      addDebug('🧭 Проверка навигации...');
-      const navigatorState = navigation.getState();
-      addDebug(`📊 Текущий навигатор: ${navigatorState?.routes?.map(r => r.name).join(', ') || 'неизвестно'}`);
+
+      // Сохраняем найденные песни в глобальное состояние или передаем через параметры
+      addDebug('💾 Сохраняем список песен в AsyncStorage');
+      await FileSystem.saveSongsList(media.assets);
       
       addDebug('🚀 Переход на экран Playlists...');
-      navigation.replace('Playlists', { 
+      
+      // Проверяем доступность экрана Playlists
+      const routes = navigation.getState()?.routes.map(r => r.name) || [];
+      addDebug(`📋 Доступные экраны: ${routes.join(', ')}`);
+      
+      // Используем navigate вместо replace для начала
+      navigation.navigate('Playlists', { 
         rootFolder: 'media://library', 
         settings,
-        songsCount: media.totalCount,
-        initialSongs: media.assets
+        songsCount: media.totalCount
       });
       
       addDebug('✅ Успешно перешли на Playlists');
@@ -170,20 +156,6 @@ export default function SettingsScreen({ navigation, route }) {
       Alert.alert('Ошибка', `Не удалось получить доступ к музыке: ${error.message}`);
     } finally {
       setLoadingMusic(false);
-    }
-  };
-
-  const openAppSettings = async () => {
-    addDebug('⚙️ Открытие настроек приложения');
-    try {
-      const { IntentLauncher } = await import('expo-intent-launcher');
-      await IntentLauncher.startActivityAsync(
-        IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS,
-        { data: 'package:com.mkhailksk.musikplayer' }
-      );
-      addDebug('✅ Настройки открыты');
-    } catch (error) {
-      addDebug(`🔥 Ошибка открытия настроек: ${error.message}`, 'error');
     }
   };
 
@@ -280,16 +252,12 @@ export default function SettingsScreen({ navigation, route }) {
               style={[
                 styles.debugLine,
                 item.type === 'error' ? styles.debugError : 
-                item.type === 'warn' ? styles.debugWarn : 
                 styles.debugInfo
               ]}
             >
               {item.timestamp} - {item.message}
             </Text>
           ))}
-          {debugInfo.length === 0 && (
-            <Text style={styles.debugLine}>Ожидание действий...</Text>
-          )}
         </View>
       </ScrollView>
       
@@ -299,132 +267,26 @@ export default function SettingsScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#FFFFFF' 
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: { 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    padding: 20 
-  },
-  centerContent: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    padding: 20 
-  },
-  icon: { 
-    marginBottom: 20 
-  },
-  title: { 
-    fontSize: 24, 
-    fontWeight: 'bold', 
-    marginBottom: 10, 
-    textAlign: 'center', 
-    color: '#333' 
-  },
-  subtitle: { 
-    fontSize: 16, 
-    color: '#666', 
-    textAlign: 'center', 
-    marginBottom: 40, 
-    lineHeight: 22 
-  },
-  permissionContainer: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  permissionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderRadius: 10,
-    width: '100%',
-    elevation: 3,
-  },
-  permissionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 10,
-  },
-  selectButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 10,
-    width: '100%',
-    elevation: 3,
-  },
-  selectButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 10,
-  },
-  hint: {
-    marginTop: 16,
-    color: '#999',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  successText: {
-    marginTop: 16,
-    color: '#4CAF50',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  demoBanner: { 
-    backgroundColor: '#FFD700', 
-    padding: 10, 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'center' 
-  },
-  demoText: { 
-    color: '#333', 
-    fontSize: 12, 
-    fontWeight: '600' 
-  },
-  permissionText: {
-    marginTop: 16,
-    color: '#666',
-    fontSize: 14,
-  },
-  debugPanel: {
-    backgroundColor: '#1E1E1E',
-    margin: 16,
-    padding: 12,
-    borderRadius: 8,
-    maxHeight: 300,
-  },
-  debugTitle: {
-    color: '#FFA500',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  debugLine: {
-    color: '#0F0',
-    fontSize: 11,
-    fontFamily: 'monospace',
-    marginVertical: 2,
-  },
-  debugError: {
-    color: '#FF6B6B',
-  },
-  debugWarn: {
-    color: '#FFA500',
-  },
-  debugInfo: {
-    color: '#0F0',
-  },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  scrollView: { flex: 1 },
+  content: { justifyContent: 'center', alignItems: 'center', padding: 20 },
+  centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  icon: { marginBottom: 20 },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 10, textAlign: 'center', color: '#333' },
+  subtitle: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 40, lineHeight: 22 },
+  permissionContainer: { width: '100%', alignItems: 'center' },
+  permissionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 15, borderRadius: 10, width: '100%', elevation: 3 },
+  permissionButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '600', marginLeft: 10 },
+  selectButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 10, width: '100%', elevation: 3 },
+  selectButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '600', marginLeft: 10 },
+  hint: { marginTop: 16, color: '#999', fontSize: 14, textAlign: 'center' },
+  successText: { marginTop: 16, color: '#4CAF50', fontSize: 14, textAlign: 'center' },
+  demoBanner: { backgroundColor: '#FFD700', padding: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  demoText: { color: '#333', fontSize: 12, fontWeight: '600' },
+  permissionText: { marginTop: 16, color: '#666', fontSize: 14 },
+  debugPanel: { backgroundColor: '#1E1E1E', margin: 16, padding: 12, borderRadius: 8, maxHeight: 300 },
+  debugTitle: { color: '#FFA500', fontSize: 14, fontWeight: 'bold', marginBottom: 8 },
+  debugLine: { color: '#0F0', fontSize: 11, fontFamily: 'monospace', marginVertical: 2 },
+  debugError: { color: '#FF6B6B' },
+  debugInfo: { color: '#0F0' },
 });
