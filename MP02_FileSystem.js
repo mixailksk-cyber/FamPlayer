@@ -4,6 +4,7 @@ import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
+import * as IntentLauncher from 'expo-intent-launcher';
 import { APP_FAVORITES_NAME, TRASH_FOLDER_NAME, IS_WEB_STUB } from './MP01_Core';
 
 // Демо-данные для Snack
@@ -48,7 +49,7 @@ export const requestMediaPermissions = async () => {
           'Пожалуйста, включите доступ к файлам в настройках приложения',
           [
             { text: 'Отмена' },
-            { text: 'Открыть настройки', onPress: () => openAppSettings() }
+            { text: 'Открыть настройки', onPress: openAppSettings }
           ]
         );
       }
@@ -267,7 +268,6 @@ export const getAllSongs = async () => {
 
 // Открытие настроек приложения
 const openAppSettings = async () => {
-  import * as IntentLauncher from 'expo-intent-launcher';
   await IntentLauncher.startActivityAsync(
     IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS,
     { data: 'package:com.mkhailksk.musikplayer' }
