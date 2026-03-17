@@ -11,6 +11,7 @@ export default function SettingsScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [checkingPermission, setCheckingPermission] = useState(true);
   const [hasPermission, setHasPermission] = useState(false);
+  const [loadingMusic, setLoadingMusic] = useState(false);
   const brandColor = getBrandColor(settings);
 
   useEffect(() => {
@@ -24,26 +25,69 @@ export default function SettingsScreen({ navigation, route }) {
       return;
     }
 
-    // Проверяем разрешения через MediaLibrary
-    const { status } = await MediaLibrary.getPermissionsAsync();
-    setHasPermission(status === 'granted');
-    setCheckingPermission(false);
+    try {
+      const { status } = await MediaLibrary.getPermissionsAsync();
+      console.log('Permission status:', status);
+      setHasPermission(status === 'granted');
+    } catch (error) {
+      console.error('Error checking permissions:', error);
+    } finally {
+      setCheckingPermission(false);
+    }
   };
 
   const requestPermission = async () => {
     setLoading(true);
-    const granted = await FileSystem.requestMediaPermissions();
-    setHasPermission(granted);
-    setLoading(false);
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      console.log('Permission requested, status:', status);
+      setHasPermission(status === 'granted');
+      
+      if (status === 'granted') {
+        // После получения разрешений сразу переходим к музыке
+        handleGoToMusic();
+      }
+    } catch (error) {
+      console.error('Error requesting permission:', error);
+      Alert.alert('Ошибка', 'Не удалось запросить разрешения');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSelectFolder = async () => {
-    // Для MediaLibrary не нужно выбирать папку
-    // Просто проверяем разрешения и переходим к плейлистам
-    const granted = await FileSystem.requestMediaPermissions();
+  const handleGoToMusic = async () => {
+    setLoadingMusic(true);
     
-    if (granted) {
-      navigation.replace('Playlists', { rootFolder: 'media://library', settings });
+    try {
+      // Проверяем разрешения еще раз
+      const { status } = await MediaLibrary.getPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert('Ошибка', 'Нет доступа к музыке');
+        setLoadingMusic(false);
+        return;
+      }
+
+      // Пытаемся получить список песен (просто для проверки)
+      const media = await MediaLibrary.getAssetsAsync({
+        mediaType: 'audio',
+        first: 1,
+      });
+      
+      console.log('Found', media.totalCount, 'audio files');
+      
+      // Переходим к экрану плейлистов
+      navigation.replace('Playlists', { 
+        rootFolder: 'media://library', 
+        settings,
+        songsCount: media.totalCount 
+      });
+      
+    } catch (error) {
+      console.error('Error accessing music:', error);
+      Alert.alert('Ошибка', 'Не удалось получить доступ к музыке');
+    } finally {
+      setLoadingMusic(false);
     }
   };
 
@@ -107,13 +151,26 @@ export default function SettingsScreen({ navigation, route }) {
             </Text>
           </View>
         ) : (
-          <TouchableOpacity 
-            style={[styles.selectButton, { backgroundColor: brandColor }]} 
-            onPress={handleSelectFolder}
-          >
-            <MaterialIcons name="playlist-play" size={24} color="white" />
-            <Text style={styles.selectButtonText}>Перейти к музыке</Text>
-          </TouchableOpacity>
+          <View style={styles.permissionContainer}>
+            <TouchableOpacity 
+              style={[styles.selectButton, { backgroundColor: brandColor }]} 
+              onPress={handleGoToMusic}
+              disabled={loadingMusic}
+            >
+              {loadingMusic ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <MaterialIcons name="playlist-play" size={24} color="white" />
+                  <Text style={styles.selectButtonText}>Перейти к музыке</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            
+            <Text style={styles.successText}>
+              ✅ Доступ к музыке предоставлен
+            </Text>
+          </View>
         )}
       </View>
       
@@ -195,6 +252,12 @@ const styles = StyleSheet.create({
   hint: {
     marginTop: 16,
     color: '#999',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  successText: {
+    marginTop: 16,
+    color: '#4CAF50',
     fontSize: 14,
     textAlign: 'center',
   },
