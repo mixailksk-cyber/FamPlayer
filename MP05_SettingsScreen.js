@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Platform, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as FileSystem from './MP02_FileSystem';
 import { Header, EmailFooter } from './MP04_Components';
@@ -10,54 +10,61 @@ export default function SettingsScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [checkingPermission, setCheckingPermission] = useState(true);
   const [hasPermission, setHasPermission] = useState(false);
+  const [diagnosis, setDiagnosis] = useState(null);
+  const [errorDetails, setErrorDetails] = useState('');
   const brandColor = getBrandColor(settings);
 
-  // Проверка разрешений при загрузке
+  // Подробная диагностика при загрузке
   useEffect(() => {
-    checkPermissions();
+    runFullDiagnosis();
   }, []);
 
-  const checkPermissions = async () => {
-    if (IS_WEB_STUB) {
-      setCheckingPermission(false);
-      setHasPermission(true);
-      return;
-    }
-
-    // Для Android 11+ проверяем специальное разрешение
-    if (Platform.OS === 'android' && Platform.Version >= 30) {
-      const hasAccess = await FileSystem.checkAllFilesAccess();
-      setHasPermission(hasAccess);
-    } else {
-      // Для старых версий считаем что доступ есть
-      setHasPermission(true);
-    }
+  const runFullDiagnosis = async () => {
+    setCheckingPermission(true);
     
-    setCheckingPermission(false);
+    try {
+      // Запускаем диагностику
+      const diag = await FileSystem.diagnosePermissions();
+      setDiagnosis(diag);
+      setHasPermission(diag.hasFileAccess);
+      
+      // Собираем дополнительную информацию
+      let errorMsg = '';
+      if (!diag.hasFileAccess) {
+        errorMsg = '❌ Нет доступа к файлам\n';
+        if (diag.isAndroid11Plus) {
+          errorMsg += 'На Android 11+ нужно включить "Разрешить управление всеми файлами"\n';
+        } else {
+          errorMsg += 'Попробуйте запросить разрешения через системный диалог\n';
+        }
+      } else {
+        errorMsg = '✅ Доступ к файлам есть\n';
+      }
+      
+      errorMsg += `\n📱 Устройство: Android ${diag.androidVersion}`;
+      setErrorDetails(errorMsg);
+      
+    } catch (error) {
+      setErrorDetails(`Ошибка диагностики: ${error.message}`);
+    } finally {
+      setCheckingPermission(false);
+    }
   };
 
   const handleSelectFolder = async () => {
-    if (IS_WEB_STUB) {
-      const folderUri = await FileSystem.pickFolder();
-      if (folderUri) {
-        navigation.replace('Playlists', { rootFolder: folderUri, settings });
-      }
+    setLoading(true);
+    
+    // Сначала проверяем доступ
+    const hasAccess = await FileSystem.checkAllFilesAccess();
+    
+    if (!hasAccess) {
+      setLoading(false);
+      // Показываем подробную диагностику
+      FileSystem.showPermissionInstructions(diagnosis);
       return;
     }
 
-    // Для Android 11+ проверяем разрешение перед выбором папки
-    if (Platform.OS === 'android' && Platform.Version >= 30) {
-      const hasAccess = await FileSystem.checkAllFilesAccess();
-      
-      if (!hasAccess) {
-        // Показываем инструкцию по включению доступа
-        FileSystem.showPermissionInstructions();
-        return;
-      }
-    }
-
-    // Если разрешение есть - выбираем папку
-    setLoading(true);
+    // Если доступ есть - выбираем папку
     const folderUri = await FileSystem.pickFolder();
     
     if (folderUri) {
@@ -68,6 +75,14 @@ export default function SettingsScreen({ navigation, route }) {
     setLoading(false);
   };
 
+  const handleDiagnoseAgain = () => {
+    runFullDiagnosis();
+  };
+
+  const handleOpenSettings = () => {
+    FileSystem.openAllFilesSettings();
+  };
+
   // Экран проверки разрешений
   if (checkingPermission) {
     return (
@@ -75,58 +90,13 @@ export default function SettingsScreen({ navigation, route }) {
         <Header title="Настройки" showBack onBack={() => navigation.goBack()} settings={settings} />
         <View style={styles.centerContent}>
           <ActivityIndicator size="large" color={brandColor} />
-          <Text style={styles.permissionText}>Проверка разрешений...</Text>
+          <Text style={styles.permissionText}>Диагностика доступа...</Text>
         </View>
       </View>
     );
   }
 
-  // Экран для Android 11+ без разрешений
-  if (!hasPermission && Platform.OS === 'android' && Platform.Version >= 30) {
-    return (
-      <View style={styles.container}>
-        <Header title="Настройки" showBack onBack={() => navigation.goBack()} settings={settings} />
-        
-        <View style={styles.centerContent}>
-          <MaterialIcons name="folder-open" size={64} color={brandColor} style={styles.icon} />
-          
-          <Text style={styles.title}>Требуется доступ к файлам</Text>
-          
-          <Text style={styles.instructions}>
-            На Android 11 и выше необходимо включить разрешение 
-            "Разрешить управление всеми файлами":
-          </Text>
-          
-          <View style={styles.stepsContainer}>
-            <Text style={styles.step}>1. Нажмите "Открыть настройки"</Text>
-            <Text style={styles.step}>2. Выберите "Разрешения"</Text>
-            <Text style={styles.step}>3. Включите "Разрешить управление всеми файлами"</Text>
-            <Text style={styles.step}>4. Вернитесь и нажмите "Повторить"</Text>
-          </View>
-          
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity 
-              style={[styles.settingsButton]} 
-              onPress={FileSystem.openAllFilesSettings}
-            >
-              <Text style={styles.settingsButtonText}>Открыть настройки</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.retryButton, { backgroundColor: brandColor }]} 
-              onPress={checkPermissions}
-            >
-              <Text style={styles.retryButtonText}>Повторить</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        
-        <EmailFooter email={AUTHOR_EMAIL} />
-      </View>
-    );
-  }
-
-  // Основной экран выбора папки
+  // Экран с диагностикой и инструкцией
   return (
     <View style={styles.container}>
       <Header 
@@ -143,27 +113,84 @@ export default function SettingsScreen({ navigation, route }) {
         </View>
       )}
       
-      <View style={styles.content}>
-        <MaterialIcons name="folder-open" size={64} color={brandColor} style={styles.icon} />
-        
-        <Text style={styles.title}>Выберите корневую папку</Text>
-        
-        <Text style={styles.subtitle}>
-          В этой папке должны находиться папки с альбомами или исполнителями
-        </Text>
-        
-        <TouchableOpacity 
-          style={[styles.selectButton, { backgroundColor: brandColor }]} 
-          onPress={handleSelectFolder} 
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.selectButtonText}>Выбрать папку</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.diagnosticCard}>
+          <Text style={styles.diagnosticTitle}>🔍 Диагностика доступа</Text>
+          <Text style={styles.diagnosticText}>{errorDetails}</Text>
+          
+          {diagnosis && (
+            <View style={styles.diagnosticDetails}>
+              <Text style={styles.detailText}>Платформа: {diagnosis.platform}</Text>
+              <Text style={styles.detailText}>Android версия: {diagnosis.androidVersion}</Text>
+              <Text style={styles.detailText}>Android 11+: {diagnosis.isAndroid11Plus ? 'Да' : 'Нет'}</Text>
+              <Text style={styles.detailText}>Доступ к файлам: {diagnosis.hasFileAccess ? '✅' : '❌'}</Text>
+            </View>
           )}
-        </TouchableOpacity>
-      </View>
+          
+          <View style={styles.buttonRow}>
+            <TouchableOpacity 
+              style={[styles.diagnoseButton]} 
+              onPress={handleDiagnoseAgain}
+            >
+              <MaterialIcons name="refresh" size={20} color="#007AFF" />
+              <Text style={styles.diagnoseButtonText}>Повторить диагностику</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {!hasPermission && (
+          <View style={styles.instructionCard}>
+            <MaterialIcons name="info" size={32} color={brandColor} style={styles.instructionIcon} />
+            <Text style={styles.instructionTitle}>Требуется доступ к файлам</Text>
+            
+            <View style={styles.stepsContainer}>
+              <Text style={styles.step}>1️⃣ Нажмите "Открыть настройки Android"</Text>
+              <Text style={styles.step}>2️⃣ Выберите "Разрешения"</Text>
+              <Text style={styles.step}>3️⃣ Включите "Разрешить управление всеми файлами"</Text>
+              <Text style={styles.step}>4️⃣ Вернитесь и нажмите "Повторить диагностику"</Text>
+            </View>
+            
+            <TouchableOpacity 
+              style={[styles.settingsButton, { backgroundColor: brandColor }]} 
+              onPress={handleOpenSettings}
+            >
+              <MaterialIcons name="settings" size={24} color="white" />
+              <Text style={styles.settingsButtonText}>Открыть настройки Android</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <View style={styles.content}>
+          <MaterialIcons name="folder-open" size={64} color={brandColor} style={styles.icon} />
+          
+          <Text style={styles.title}>Выберите корневую папку</Text>
+          
+          <Text style={styles.subtitle}>
+            В этой папке должны находиться папки с альбомами или исполнителями
+          </Text>
+          
+          <TouchableOpacity 
+            style={[styles.selectButton, { backgroundColor: brandColor }]} 
+            onPress={handleSelectFolder} 
+            disabled={loading || !hasPermission}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <MaterialIcons name="folder" size={24} color="white" />
+                <Text style={styles.selectButtonText}>Выбрать папку</Text>
+              </>
+            )}
+          </TouchableOpacity>
+          
+          {!hasPermission && (
+            <Text style={styles.warningText}>
+              ⚠️ Кнопка выбора папки станет доступна после включения разрешений
+            </Text>
+          )}
+        </View>
+      </ScrollView>
       
       <EmailFooter email={AUTHOR_EMAIL} />
     </View>
@@ -175,17 +202,109 @@ const styles = StyleSheet.create({
     flex: 1, 
     backgroundColor: '#FFFFFF' 
   },
-  content: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    padding: 20 
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
   },
   centerContent: { 
     flex: 1, 
     justifyContent: 'center', 
     alignItems: 'center', 
-    paddingHorizontal: 30 
+    padding: 20 
+  },
+  diagnosticCard: {
+    backgroundColor: '#F0F8FF',
+    margin: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#B0E0FF',
+  },
+  diagnosticTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0066CC',
+    marginBottom: 12,
+  },
+  diagnosticText: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  diagnosticDetails: {
+    backgroundColor: '#E6F3FF',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  detailText: {
+    fontSize: 13,
+    color: '#004999',
+    marginVertical: 2,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  diagnoseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    backgroundColor: '#E6F3FF',
+    borderRadius: 8,
+  },
+  diagnoseButtonText: {
+    color: '#007AFF',
+    marginLeft: 8,
+    fontWeight: '600',
+  },
+  instructionCard: {
+    backgroundColor: '#FFF3E0',
+    margin: 16,
+    padding: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFB066',
+  },
+  instructionIcon: {
+    marginBottom: 12,
+  },
+  instructionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FF8C00',
+    marginBottom: 16,
+  },
+  stepsContainer: {
+    alignSelf: 'stretch',
+    marginBottom: 20,
+  },
+  step: {
+    fontSize: 14,
+    color: '#333',
+    marginVertical: 4,
+    paddingLeft: 8,
+  },
+  settingsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 15,
+    borderRadius: 10,
+    width: '100%',
+  },
+  settingsButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  content: { 
+    alignItems: 'center', 
+    padding: 20 
   },
   icon: { 
     marginBottom: 20 
@@ -201,71 +320,32 @@ const styles = StyleSheet.create({
     fontSize: 16, 
     color: '#666', 
     textAlign: 'center', 
-    marginBottom: 40, 
-    lineHeight: 22 
-  },
-  instructions: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 30, 
     lineHeight: 22,
-  },
-  stepsContainer: {
-    backgroundColor: '#F5F5F5',
-    padding: 20,
-    borderRadius: 10,
-    marginBottom: 30,
-    width: '100%',
-  },
-  step: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 8,
-    lineHeight: 20,
-  },
-  buttonContainer: {
-    width: '100%',
-    gap: 12,
+    paddingHorizontal: 20,
   },
   selectButton: { 
+    flexDirection: 'row',
     paddingHorizontal: 30, 
     paddingVertical: 15, 
     borderRadius: 10, 
-    minWidth: 200, 
     alignItems: 'center', 
-    elevation: 3 
+    justifyContent: 'center',
+    elevation: 3,
+    opacity: 1,
   },
   selectButtonText: { 
     color: '#FFFFFF', 
     fontSize: 18, 
-    fontWeight: '600' 
-  },
-  settingsButton: {
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 10,
-    minWidth: 200,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#007AFF',
-  },
-  settingsButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
     fontWeight: '600',
+    marginLeft: 10,
   },
-  retryButton: {
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 10,
-    minWidth: 200,
-    alignItems: 'center',
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+  warningText: {
+    marginTop: 16,
+    color: '#FF6B6B',
+    fontSize: 14,
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
   demoBanner: { 
     backgroundColor: '#FFD700', 
