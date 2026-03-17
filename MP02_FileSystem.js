@@ -38,8 +38,7 @@ export const pickFolder = async () => {
   }
 
   try {
-    // Используем системный выбор папки через DocumentPicker
-    // Для Android 11+ это даст URI папки
+    // Используем DocumentPicker для выбора файла, затем извлекаем путь к папке
     const result = await DocumentPicker.getDocumentAsync({
       type: '*/*',
       copyToCacheDirectory: false,
@@ -48,21 +47,8 @@ export const pickFolder = async () => {
     if (result.canceled) return null;
     
     const uri = result.assets[0].uri;
-    
-    // Преобразуем URI документа в URI папки
-    // content://com.android.externalstorage.documents/document/primary%3AMusic%2Fsong.mp3
-    // -> content://com.android.externalstorage.documents/tree/primary%3AMusic
-    let folderUri = uri;
-    
-    if (uri.includes('/document/')) {
-      // Это URI файла, нужно получить URI папки
-      const parts = uri.split('/document/');
-      if (parts.length === 2) {
-        const path = parts[1];
-        const folderPath = path.substring(0, path.lastIndexOf('%2F'));
-        folderUri = `${parts[0]}/tree/${folderPath}`;
-      }
-    }
+    // Получаем путь к папке (убираем имя файла)
+    const folderUri = uri.substring(0, uri.lastIndexOf('/'));
     
     console.log('Selected folder URI:', folderUri);
     return folderUri;
@@ -75,7 +61,7 @@ export const pickFolder = async () => {
 };
 
 // ==========================================
-// СКАНИРОВАНИЕ ПАПКИ (новый API)
+// СКАНИРОВАНИЕ ПАПКИ (совместимый способ)
 // ==========================================
 
 export const scanFolder = async (folderUri) => {
@@ -84,84 +70,50 @@ export const scanFolder = async (folderUri) => {
   try {
     console.log('Scanning folder:', folderUri);
     
-    // Для content:// URI нужно использовать другой подход
-    if (folderUri.startsWith('content://')) {
-      return await scanContentUri(folderUri);
-    } else {
-      return await scanFileUri(folderUri);
+    // Очищаем URI от префикса file:// если есть
+    const cleanPath = folderUri.replace('file://', '');
+    
+    // Читаем содержимое директории
+    const items = await FileSystem.readDirectoryAsync(cleanPath);
+    
+    const audioExtensions = ['.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac'];
+    const folders = [];
+    const songs = [];
+    
+    for (const item of items) {
+      const itemPath = `${cleanPath}/${item}`;
+      const info = await FileSystem.getInfoAsync(itemPath);
+      
+      if (info.isDirectory) {
+        folders.push({
+          id: itemPath,
+          name: item,
+          uri: `file://${itemPath}`,
+        });
+      } else {
+        const ext = item.substring(item.lastIndexOf('.')).toLowerCase();
+        if (audioExtensions.includes(ext)) {
+          songs.push({
+            id: itemPath,
+            title: item.replace(/\.[^/.]+$/, ""),
+            filename: item,
+            uri: `file://${itemPath}`,
+            addedAt: Date.now(),
+          });
+        }
+      }
     }
+    
+    return { folders, songs };
     
   } catch (error) {
     console.error('Error scanning folder:', error);
-    throw error;
+    throw new Error(`Не удалось просканировать папку: ${error.message}`);
   }
 };
 
 // ==========================================
-// СКАНИРОВАНИЕ CONTENT URI (Android SAF)
-// ==========================================
-
-const scanContentUri = async (folderUri) => {
-  console.log('Using SAF for content URI');
-  
-  // Для Android Storage Access Framework нужно использовать
-  // MediaLibrary или другой подход
-  // Пока возвращаем заглушку
-  Alert.alert(
-    'Информация',
-    'Для папок из SAF сканирование пока в разработке. Используйте обычные пути.'
-  );
-  
-  return { folders: [], songs: [] };
-};
-
-// ==========================================
-// СКАНИРОВАНИЕ FILE URI (обычные пути)
-// ==========================================
-
-const scanFileUri = async (folderUri) => {
-  console.log('Using file system for file URI');
-  
-  const cleanPath = folderUri.replace('file://', '');
-  
-  // Используем новый API
-  const directory = FileSystem.directory(cleanPath);
-  
-  // Получаем содержимое
-  const entries = await directory.listAsync();
-  
-  const audioExtensions = ['.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac'];
-  const folders = [];
-  const songs = [];
-  
-  for (const entry of entries) {
-    const info = await entry.info();
-    
-    if (info.isDirectory) {
-      folders.push({
-        id: info.uri,
-        name: info.name,
-        uri: info.uri,
-      });
-    } else {
-      const ext = info.name.substring(info.name.lastIndexOf('.')).toLowerCase();
-      if (audioExtensions.includes(ext)) {
-        songs.push({
-          id: info.uri,
-          title: info.name.replace(/\.[^/.]+$/, ""),
-          filename: info.name,
-          uri: info.uri,
-          addedAt: Date.now(),
-        });
-      }
-    }
-  }
-  
-  return { folders, songs };
-};
-
-// ==========================================
-// ОСТАЛЬНЫЕ ФУНКЦИИ (без изменений)
+// СОХРАНЕНИЕ И ЗАГРУЗКА ДАННЫХ
 // ==========================================
 
 export const saveRootFolder = async (uri) => {
@@ -183,6 +135,45 @@ export const getRootFolder = async () => {
     return await AsyncStorage.getItem(ROOT_FOLDER_KEY);
   } catch { return null; }
 };
+
+export const saveSongsList = async (songs) => {
+  try {
+    await AsyncStorage.setItem('songs_list', JSON.stringify(songs));
+    console.log('Saved', songs.length, 'songs to storage');
+    return true;
+  } catch (error) {
+    console.error('Error saving songs:', error);
+    return false;
+  }
+};
+
+export const getSongsList = async () => {
+  try {
+    const songs = await AsyncStorage.getItem('songs_list');
+    return songs ? JSON.parse(songs) : [];
+  } catch (error) {
+    console.error('Error getting songs:', error);
+    return [];
+  }
+};
+
+export const saveFoldersList = async (folders) => {
+  try {
+    await AsyncStorage.setItem('folders_list', JSON.stringify(folders));
+    return true;
+  } catch { return false; }
+};
+
+export const getFoldersList = async () => {
+  try {
+    const folders = await AsyncStorage.getItem('folders_list');
+    return folders ? JSON.parse(folders) : [];
+  } catch { return []; }
+};
+
+// ==========================================
+// ОСТАЛЬНЫЕ ФУНКЦИИ (для совместимости)
+// ==========================================
 
 export const getPlaylistFolders = async () => {
   if (IS_WEB_STUB) return DEMO_FOLDERS;
@@ -241,25 +232,4 @@ export const setFolderColor = async (folderName, color) => {
 export const getAllSongs = async () => {
   if (IS_WEB_STUB) return DEMO_SONGS;
   return [];
-};
-
-export const saveSongsList = async (songs) => {
-  try {
-    await AsyncStorage.setItem('songs_list', JSON.stringify(songs));
-    console.log('Saved', songs.length, 'songs to storage');
-    return true;
-  } catch (error) {
-    console.error('Error saving songs:', error);
-    return false;
-  }
-};
-
-export const getSongsList = async () => {
-  try {
-    const songs = await AsyncStorage.getItem('songs_list');
-    return songs ? JSON.parse(songs) : [];
-  } catch (error) {
-    console.error('Error getting songs:', error);
-    return [];
-  }
 };
