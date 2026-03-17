@@ -1,9 +1,13 @@
 name: Build Android APK (Expo)
 
 on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+  workflow_dispatch:  # Только ручной запуск
+    inputs:
+      version:
+        description: 'Версия сборки'
+        required: false
+        default: 'latest'
+        type: string
 
 jobs:
   build:
@@ -17,8 +21,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
           
-      - name: Install dependencies with legacy peer deps
+      - name: Install dependencies
         run: |
           npm install --legacy-peer-deps
           npx expo install --fix
@@ -41,6 +46,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk
+          name: app-release-apk-${{ github.run_number }}
           path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
