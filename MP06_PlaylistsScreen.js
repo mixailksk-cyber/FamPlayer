@@ -1,53 +1,72 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, Text } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import * as MediaLibrary from 'expo-media-library';
-import * as FileSystem from './MP02_FileSystem';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Header, FolderItem } from './MP04_Components';
 import { IS_WEB_STUB, WEB_STUB_MESSAGE, getBrandColor, APP_FAVORITES_NAME } from './MP01_Core';
 
 export default function PlaylistsScreen({ navigation, route }) {
   const settings = route?.params?.settings || {};
+  const folders = route?.params?.folders || [];
+  const songs = route?.params?.songs || [];
   const songsCount = route?.params?.songsCount || 0;
-  const [loading, setLoading] = useState(true);
-  const [audioFiles, setAudioFiles] = useState([]);
+  const rootFolder = route?.params?.rootFolder || '';
+  
+  const [loading, setLoading] = useState(false);
+  const [folderSongsCount, setFolderSongsCount] = useState({});
   const brandColor = getBrandColor(settings);
 
   useEffect(() => {
-    loadAudioFiles();
+    calculateFolderSongsCount();
   }, []);
 
-  const loadAudioFiles = async () => {
-    if (IS_WEB_STUB) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const media = await MediaLibrary.getAssetsAsync({
-        mediaType: 'audio',
-        first: 100,
-      });
-      setAudioFiles(media.assets);
-    } catch (error) {
-      console.error('Error loading audio files:', error);
-    } finally {
-      setLoading(false);
-    }
+  const calculateFolderSongsCount = () => {
+    const counts = {};
+    
+    // Считаем сколько песен в каждой папке
+    songs.forEach(song => {
+      const songFolder = song.uri.substring(0, song.uri.lastIndexOf('/'));
+      counts[songFolder] = (counts[songFolder] || 0) + 1;
+    });
+    
+    setFolderSongsCount(counts);
   };
 
-  const openAllSongs = () => {
+  const openFolder = (folder) => {
+    // Фильтруем песни для этой папки
+    const folderSongs = songs.filter(song => 
+      song.uri.startsWith(folder.uri + '/')
+    );
+    
     navigation.navigate('Folder', {
-      folderUri: 'media://all',
-      folderName: 'Все песни',
+      folderUri: folder.uri,
+      folderName: folder.name,
       settings,
-      songs: audioFiles,
+      songs: folderSongs,
+      rootFolder: rootFolder
     });
   };
 
+  const openRoot = () => {
+    // Песни в корневой папке (не во вложенных папках)
+    const rootSongs = songs.filter(song => {
+      const songFolder = song.uri.substring(0, song.uri.lastIndexOf('/'));
+      return songFolder === rootFolder.replace('file://', '');
+    });
+    
+    navigation.navigate('Folder', {
+      folderUri: rootFolder,
+      folderName: APP_FAVORITES_NAME,
+      settings,
+      songs: rootSongs,
+      isRoot: true
+    });
+  };
+
+  // Создаем список для отображения
   const displayItems = [
-    { id: 'all', name: 'Все песни', uri: 'media://all', isSystem: true },
-    { id: 'favorites', name: APP_FAVORITES_NAME, uri: 'media://favorites', isSystem: true },
+    { id: 'root', name: APP_FAVORITES_NAME, uri: rootFolder, isRoot: true },
+    ...folders
   ];
 
   return (
@@ -60,35 +79,51 @@ export default function PlaylistsScreen({ navigation, route }) {
       )}
       
       <Header 
-        title="Моя музыка" 
+        title="Плейлисты" 
         rightIcon="settings"
         onRightPress={() => navigation.navigate('Settings', { settings })}
-        showSearch 
-        onSearchPress={() => navigation.navigate('Search', { settings, fromScreen: 'Playlists' })} 
+        showSearch={false}
         settings={settings} 
       />
       
       {loading ? (
         <View style={styles.center}>
-          <MaterialIcons name="library-music" size={48} color="#E0E0E0" />
-          <Text style={styles.loading}>Загрузка музыки...</Text>
+          <ActivityIndicator size="large" color={brandColor} />
+          <Text style={styles.loading}>Загрузка...</Text>
         </View>
       ) : (
         <FlatList
           data={displayItems}
           keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <FolderItem 
-              folder={{ ...item, color: brandColor }}
-              onPress={openAllSongs}
-              settings={settings}
-              songCount={item.id === 'all' ? audioFiles.length : 0}
-            />
-          )}
-          ListFooterComponent={
-            <Text style={styles.footer}>
-              Найдено {audioFiles.length} музыкальных файлов
-            </Text>
+          renderItem={({ item }) => {
+            let count = item.isRoot 
+              ? songs.filter(s => {
+                  const songFolder = s.uri.substring(0, s.uri.lastIndexOf('/'));
+                  return songFolder === rootFolder.replace('file://', '');
+                }).length
+              : folderSongsCount[item.uri.replace('file://', '')] || 0;
+            
+            return (
+              <FolderItem 
+                folder={{ ...item, color: brandColor }}
+                onPress={() => item.isRoot ? openRoot() : openFolder(item)}
+                settings={settings}
+                songCount={count}
+              />
+            );
+          }}
+          ListHeaderComponent={
+            <View style={styles.header}>
+              <Text style={styles.totalSongs}>
+                Всего песен: {songsCount}
+              </Text>
+            </View>
+          }
+          ListEmptyComponent={
+            <View style={styles.center}>
+              <MaterialIcons name="folder-off" size={64} color="#E0E0E0" />
+              <Text style={styles.empty}>Нет папок</Text>
+            </View>
           }
         />
       )}
@@ -108,10 +143,15 @@ const styles = StyleSheet.create({
   demoText: { color: '#333', fontSize: 12, fontWeight: '600' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   loading: { marginTop: 16, color: '#999', fontSize: 16 },
-  footer: {
-    textAlign: 'center',
-    padding: 20,
-    color: '#666',
+  empty: { fontSize: 20, fontWeight: '600', color: '#333', marginTop: 16 },
+  header: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  totalSongs: {
     fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
 });
