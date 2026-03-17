@@ -1,35 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, Text } from 'react-native';
+import { View, StyleSheet, FlatList, Text, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Header, FolderItem } from './MP04_Components';
-import { IS_WEB_STUB, WEB_STUB_MESSAGE, getBrandColor, APP_FAVORITES_NAME } from './MP01_Core';
+import { getBrandColor, APP_FAVORITES_NAME, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
+import * as FileSystem from './MP02_FileSystem';
 
 export default function PlaylistsScreen({ navigation, route }) {
   const settings = route?.params?.settings || {};
-  const folders = route?.params?.folders || [];
-  const songs = route?.params?.songs || [];
+  const rootFolder = route?.params?.rootFolder || 'media://library';
   const songsCount = route?.params?.songsCount || 0;
-  const rootFolder = route?.params?.rootFolder || '';
   
-  const [loading, setLoading] = useState(false);
-  const [folderSongsCount, setFolderSongsCount] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [songs, setSongs] = useState([]);
+  const [folders, setFolders] = useState([]);
   const brandColor = getBrandColor(settings);
 
   useEffect(() => {
-    calculateFolderSongsCount();
+    loadData();
   }, []);
 
-  const calculateFolderSongsCount = () => {
-    const counts = {};
+  const loadData = async () => {
+    setLoading(true);
     
-    // Считаем сколько песен в каждой папке
-    songs.forEach(song => {
-      const songFolder = song.uri.substring(0, song.uri.lastIndexOf('/'));
-      counts[songFolder] = (counts[songFolder] || 0) + 1;
-    });
+    // Загружаем сохраненные песни
+    const savedSongs = await FileSystem.getSongsList();
+    setSongs(savedSongs);
     
-    setFolderSongsCount(counts);
+    // Здесь можно добавить логику для получения папок
+    // Пока просто демо-данные
+    setFolders([
+      { id: 'folder1', name: 'Папка 1', uri: 'file:///storage/folder1' },
+      { id: 'folder2', name: 'Папка 2', uri: 'file:///storage/folder2' },
+    ]);
+    
+    setLoading(false);
   };
 
   const openFolder = (folder) => {
@@ -48,22 +53,15 @@ export default function PlaylistsScreen({ navigation, route }) {
   };
 
   const openRoot = () => {
-    // Песни в корневой папке (не во вложенных папках)
-    const rootSongs = songs.filter(song => {
-      const songFolder = song.uri.substring(0, song.uri.lastIndexOf('/'));
-      return songFolder === rootFolder.replace('file://', '');
-    });
-    
     navigation.navigate('Folder', {
       folderUri: rootFolder,
       folderName: APP_FAVORITES_NAME,
       settings,
-      songs: rootSongs,
+      songs: songs,
       isRoot: true
     });
   };
 
-  // Создаем список для отображения
   const displayItems = [
     { id: 'root', name: APP_FAVORITES_NAME, uri: rootFolder, isRoot: true },
     ...folders
@@ -95,27 +93,18 @@ export default function PlaylistsScreen({ navigation, route }) {
         <FlatList
           data={displayItems}
           keyExtractor={item => item.id}
-          renderItem={({ item }) => {
-            let count = item.isRoot 
-              ? songs.filter(s => {
-                  const songFolder = s.uri.substring(0, s.uri.lastIndexOf('/'));
-                  return songFolder === rootFolder.replace('file://', '');
-                }).length
-              : folderSongsCount[item.uri.replace('file://', '')] || 0;
-            
-            return (
-              <FolderItem 
-                folder={{ ...item, color: brandColor }}
-                onPress={() => item.isRoot ? openRoot() : openFolder(item)}
-                settings={settings}
-                songCount={count}
-              />
-            );
-          }}
+          renderItem={({ item }) => (
+            <FolderItem 
+              folder={{ ...item, color: brandColor }}
+              onPress={() => item.isRoot ? openRoot() : openFolder(item)}
+              settings={settings}
+              songCount={item.isRoot ? songs.length : 0}
+            />
+          )}
           ListHeaderComponent={
             <View style={styles.header}>
               <Text style={styles.totalSongs}>
-                Всего песен: {songsCount}
+                Всего песен: {songs.length}
               </Text>
             </View>
           }
