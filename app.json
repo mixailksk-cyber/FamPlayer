@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Musik Player",
-    "slug": "musik-player",
+    "name": "FamPlayer",
+    "slug": "famplayer",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -29,25 +29,17 @@
       "permissions": [
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.INTERNET",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
-      ],
-      "package": "com.mkhailksk.musikplayer"
+        "READ_MEDIA_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-media-library",
       "expo-file-system",
+      "expo-intent-launcher",
       "expo-av"
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "2cd52c5c-f5b2-4309-bec3-82df85f2f39e"
-      }
-    }
+    ]
   }
 }
