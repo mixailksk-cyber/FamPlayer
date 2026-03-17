@@ -1,27 +1,40 @@
-name: Сборка APK
-on: [push]
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:  # позволяет запускать вручную
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          
-      - name: Clean install dependencies
-        run: |
-          rm -f package-lock.json
-          npm install --force
-          
-      - name: Setup Expo and EAS
-        uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.FAMPLAYER }}
-          
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+      
       - name: Build APK
-        run: eas build --platform android --profile preview --non-interactive
+        run: cd android && ./gradlew assembleRelease
+      
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
