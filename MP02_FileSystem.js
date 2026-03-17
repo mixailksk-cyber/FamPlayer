@@ -39,11 +39,12 @@ export const checkAllFilesAccess = async () => {
   if (!isAndroid11OrHigher()) return true; // Для старых Android считаем что доступ есть
   
   try {
-    // Пытаемся прочитать корневую папку storage
-    const testPath = `${FileSystem.documentDirectory}test`;
-    await FileSystem.readDirectoryAsync(FileSystem.documentDirectory);
+    // Пытаемся прочитать корневую папку
+    const testPath = FileSystem.documentDirectory;
+    await FileSystem.readDirectoryAsync(testPath);
     return true; // Если успешно - разрешение есть
   } catch (error) {
+    console.log('No file access permission:', error);
     return false; // Если ошибка - разрешения нет
   }
 };
@@ -56,7 +57,7 @@ export const openAllFilesSettings = async () => {
     // Открываем страницу настроек приложения
     await IntentLauncher.startActivityAsync(
       IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS,
-      { data: 'package:com.mkhailksk.musikplayer' } // замените на ваш package
+      { data: 'package:com.mkhailksk.musikplayer' }
     );
   } catch (error) {
     console.error('Error opening settings:', error);
@@ -103,7 +104,7 @@ export const getRootFolder = async () => {
   } catch { return null; }
 };
 
-// Выбор папки через системный диалог (работает на всех Android)
+// Выбор папки через системный диалог
 export const pickFolder = async () => {
   if (IS_WEB_STUB) {
     Alert.alert('Демо-режим', 'Выбор папки работает только на устройстве');
@@ -111,7 +112,6 @@ export const pickFolder = async () => {
   }
   
   try {
-    // Используем DocumentPicker для выбора любого файла
     const result = await DocumentPicker.getDocumentAsync({
       type: '*/*',
       copyToCacheDirectory: false,
@@ -119,14 +119,8 @@ export const pickFolder = async () => {
     
     if (result.canceled) return null;
     
-    // Получаем URI выбранного файла
     const fileUri = result.assets[0].uri;
-    
-    // Извлекаем путь к папке (убираем имя файла)
     const folderPath = fileUri.substring(0, fileUri.lastIndexOf('/'));
-    
-    // Сохраняем выбранную папку
-    await saveRootFolder(folderPath);
     
     return folderPath;
   } catch (error) {
