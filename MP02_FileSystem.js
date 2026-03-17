@@ -267,7 +267,7 @@ export const getAllSongs = async () => {
 
 // Открытие настроек приложения
 const openAppSettings = async () => {
-  const { IntentLauncher } = require('expo-intent-launcher');
+  import * as IntentLauncher from 'expo-intent-launcher';
   await IntentLauncher.startActivityAsync(
     IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS,
     { data: 'package:com.mkhailksk.musikplayer' }
