@@ -29,6 +29,7 @@ export default function SettingsScreen({ navigation, route }) {
   const [hasPermission, setHasPermission] = useState(false);
   const [loadingMusic, setLoadingMusic] = useState(false);
   const [debugInfo, setDebugInfo] = useState([]);
+  const [appReady, setAppReady] = useState(false);
   const brandColor = getBrandColor(settings);
 
   const addDebug = (message, type = 'info') => {
@@ -38,9 +39,20 @@ export default function SettingsScreen({ navigation, route }) {
   };
 
   useEffect(() => {
-    addDebug('🔧 Компонент SettingsScreen загружен');
-    checkPermissions();
+    // Загружаем приложение с небольшой задержкой
+    const timer = setTimeout(() => {
+      setAppReady(true);
+    }, 500);
+    
+    return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (appReady) {
+      addDebug('🔧 Компонент SettingsScreen загружен');
+      checkPermissions();
+    }
+  }, [appReady]);
 
   const checkPermissions = async () => {
     addDebug('📋 Проверка разрешений...');
@@ -117,8 +129,6 @@ export default function SettingsScreen({ navigation, route }) {
 
       addDebug('✅ Разрешения есть, загружаем музыку...');
       
-      // Получаем список песен
-      addDebug('📀 Вызов MediaLibrary.getAssetsAsync() с mediaType=audio');
       const media = await MediaLibrary.getAssetsAsync({
         mediaType: 'audio',
         first: 1000,
@@ -130,42 +140,37 @@ export default function SettingsScreen({ navigation, route }) {
         addDebug(`🎵 Примеры файлов: ${media.assets.slice(0, 3).map(a => a.filename).join(', ')}`);
       }
 
-      // Сохраняем найденные песни в глобальное состояние или передаем через параметры
-      addDebug('💾 Сохраняем список песен в AsyncStorage');
-      await FileSystem.saveSongsList(media.assets);
-      
+      // Проверяем навигацию
       addDebug('🚀 Переход на экран Playlists...');
       
-      // Проверяем доступность экрана Playlists
-      const routes = navigation.getState()?.routes.map(r => r.name) || [];
-      addDebug(`📋 Доступные экраны: ${routes.join(', ')}`);
-      
-      // Используем navigate вместо replace для начала
-      navigation.navigate('Playlists', { 
-        rootFolder: 'media://library', 
-        settings,
-        songsCount: media.totalCount
-      });
-      
-      addDebug('✅ Успешно перешли на Playlists');
+      // Небольшая задержка перед переходом
+      setTimeout(() => {
+        navigation.navigate('Playlists', { 
+          rootFolder: 'media://library', 
+          settings,
+          songsCount: media.totalCount
+        });
+        addDebug('✅ Команда навигации отправлена');
+      }, 100);
       
     } catch (error) {
       addDebug(`🔥 Ошибка при доступе к музыке: ${error.message}`, 'error');
-      addDebug(`📋 Stack: ${error.stack}`, 'error');
-      Logger.error('Settings', 'Error accessing music', error);
       Alert.alert('Ошибка', `Не удалось получить доступ к музыке: ${error.message}`);
     } finally {
       setLoadingMusic(false);
     }
   };
 
-  if (checkingPermission) {
+  // Показываем загрузку пока приложение не готово
+  if (!appReady || checkingPermission) {
     return (
       <View style={styles.container}>
         <Header title="Настройки" showBack onBack={() => navigation.goBack()} settings={settings} />
         <View style={styles.centerContent}>
           <ActivityIndicator size="large" color={brandColor} />
-          <Text style={styles.permissionText}>Проверка разрешений...</Text>
+          <Text style={styles.permissionText}>
+            {!appReady ? 'Загрузка приложения...' : 'Проверка разрешений...'}
+          </Text>
         </View>
       </View>
     );
@@ -251,8 +256,7 @@ export default function SettingsScreen({ navigation, route }) {
               key={index} 
               style={[
                 styles.debugLine,
-                item.type === 'error' ? styles.debugError : 
-                styles.debugInfo
+                item.type === 'error' ? styles.debugError : styles.debugInfo
               ]}
             >
               {item.timestamp} - {item.message}
