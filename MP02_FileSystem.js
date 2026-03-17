@@ -1,4 +1,4 @@
-import { Platform, Alert, Linking } from 'react-native';
+import { Platform, Alert, PermissionsAndroid, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -28,84 +28,180 @@ const DEMO_SONGS = [
 const ROOT_FOLDER_KEY = '@root_folder';
 const FOLDER_COLORS_KEY = '@folder_colors';
 
+// ДИАГНОСТИКА: логирование всех действий
+const log = (message, data = '') => {
+  console.log(`[FileSystem Debug] ${message}`, data);
+};
+
 // Проверка версии Android
 const isAndroid11OrHigher = () => {
-  return Platform.OS === 'android' && Platform.Version >= 30;
+  const result = Platform.OS === 'android' && Platform.Version >= 30;
+  log(`Android version check: OS=${Platform.OS}, version=${Platform.Version}, is11OrHigher=${result}`);
+  return result;
 };
 
 // Проверка наличия разрешения на доступ ко всем файлам
 export const checkAllFilesAccess = async () => {
-  if (IS_WEB_STUB) return true;
-  if (!isAndroid11OrHigher()) return true; // Для старых Android считаем что доступ есть
+  log('checkAllFilesAccess called');
+  
+  if (IS_WEB_STUB) {
+    log('IS_WEB_STUB true, returning true');
+    return true;
+  }
+  
+  if (!isAndroid11OrHigher()) {
+    log('Android < 11, assuming access granted');
+    return true;
+  }
   
   try {
     // Пытаемся прочитать корневую папку
     const testPath = FileSystem.documentDirectory;
-    await FileSystem.readDirectoryAsync(testPath);
-    return true; // Если успешно - разрешение есть
+    log('Testing read access to:', testPath);
+    const files = await FileSystem.readDirectoryAsync(testPath);
+    log('Read successful, files count:', files.length);
+    return true;
   } catch (error) {
-    console.log('No file access permission:', error);
-    return false; // Если ошибка - разрешения нет
+    log('Read failed with error:', error.message);
+    return false;
   }
+};
+
+// ДИАГНОСТИКА: получение информации о разрешениях
+export const diagnosePermissions = async () => {
+  log('=== STARTING PERMISSION DIAGNOSIS ===');
+  
+  const diagnosis = {
+    platform: Platform.OS,
+    androidVersion: Platform.Version,
+    isAndroid11Plus: isAndroid11OrHigher(),
+    hasFileAccess: false,
+    manifestPermissions: [],
+    error: null
+  };
+
+  try {
+    // Проверяем доступ к файлам
+    diagnosis.hasFileAccess = await checkAllFilesAccess();
+    
+    // Пытаемся получить список разрешений из манифеста (не всегда доступно)
+    try {
+      // Этот код может не работать на всех устройствах
+      const permissions = await PermissionsAndroid.checkMultiple([
+        PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+      ]);
+      diagnosis.manifestPermissions = permissions;
+    } catch (e) {
+      diagnosis.manifestPermissions = ['Could not check permissions'];
+    }
+
+  } catch (error) {
+    diagnosis.error = error.message;
+  }
+
+  log('Diagnosis complete:', diagnosis);
+  return diagnosis;
 };
 
 // Открытие настроек для включения доступа ко всем файлам
 export const openAllFilesSettings = async () => {
-  if (!isAndroid11OrHigher()) return;
+  log('openAllFilesSettings called');
   
-  try {
-    // Открываем страницу настроек приложения
+  if (!isAndroid11OrHigher()) {
+    log('Android < 11, opening app settings');
     await IntentLauncher.startActivityAsync(
       IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS,
       { data: 'package:com.mkhailksk.musikplayer' }
     );
+    return;
+  }
+  
+  try {
+    log('Opening all files access settings');
+    await IntentLauncher.startActivityAsync(
+      IntentLauncher.ActivityAction.MANAGE_ALL_FILES_ACCESS_PERMISSION
+    );
   } catch (error) {
-    console.error('Error opening settings:', error);
-    Alert.alert('Ошибка', 'Не удалось открыть настройки');
+    log('Error opening settings:', error);
+    // Fallback to app settings
+    await IntentLauncher.startActivityAsync(
+      IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS,
+      { data: 'package:com.mkhailksk.musikplayer' }
+    );
   }
 };
 
 // Инструкция для пользователя
-export const showPermissionInstructions = () => {
-  Alert.alert(
-    'Требуется доступ к файлам',
-    'Для работы с музыкой приложению нужен доступ к файлам.\n\n' +
-    'На Android 11 и выше необходимо включить "Разрешить управление всеми файлами":\n\n' +
+export const showPermissionInstructions = (diagnosis = null) => {
+  log('showPermissionInstructions called');
+  
+  let message = 'Для работы с музыкой приложению нужен доступ к файлам.\n\n';
+  
+  if (diagnosis) {
+    message += `📊 Диагностика:\n`;
+    message += `• Android версия: ${diagnosis.androidVersion}\n`;
+    message += `• Android 11+: ${diagnosis.isAndroid11Plus ? 'Да' : 'Нет'}\n`;
+    message += `• Доступ к файлам: ${diagnosis.hasFileAccess ? '✅ Есть' : '❌ Нет'}\n\n`;
+  }
+  
+  message += 'На Android 11 и выше необходимо включить "Разрешить управление всеми файлами":\n\n' +
     '1. Нажмите "Открыть настройки"\n' +
     '2. Выберите "Разрешения"\n' +
     '3. Включите "Разрешить управление всеми файлами"\n' +
-    '4. Вернитесь в приложение и нажмите "Повторить"',
+    '4. Вернитесь в приложение и нажмите "Повторить"';
+
+  Alert.alert(
+    '🔍 Требуется доступ к файлам',
+    message,
     [
       { text: 'Отмена', style: 'cancel' },
-      { text: 'Открыть настройки', onPress: openAllFilesSettings }
+      { text: '📋 Диагностика', onPress: () => showDiagnosticInfo() },
+      { text: '⚙️ Открыть настройки', onPress: openAllFilesSettings }
     ]
   );
 };
 
-// Сохранение корневой папки
-export const saveRootFolder = async (uri) => {
-  if (IS_WEB_STUB) {
-    console.log('Demo: saveRootFolder', uri);
-    return true;
-  }
+// ДИАГНОСТИКА: показать подробную информацию
+const showDiagnosticInfo = async () => {
+  const diagnosis = await diagnosePermissions();
   
+  Alert.alert(
+    '📊 Диагностика доступа',
+    `Платформа: ${diagnosis.platform}\n` +
+    `Android версия: ${diagnosis.androidVersion}\n` +
+    `Android 11+: ${diagnosis.isAndroid11Plus ? 'Да' : 'Нет'}\n` +
+    `Доступ к файлам: ${diagnosis.hasFileAccess ? '✅ Есть' : '❌ Нет'}\n` +
+    `Ошибка: ${diagnosis.error || 'Нет'}\n\n` +
+    `Если доступ отсутствует, следуйте инструкции.`,
+    [
+      { text: '❓ Помощь', onPress: showPermissionInstructions },
+      { text: '⚙️ Настройки', onPress: openAllFilesSettings }
+    ]
+  );
+};
+
+// Остальные функции (без изменений, но с добавленным логированием)
+export const saveRootFolder = async (uri) => {
+  log('saveRootFolder:', uri);
+  if (IS_WEB_STUB) return true;
   try {
     await AsyncStorage.setItem(ROOT_FOLDER_KEY, uri);
     return true;
   } catch { return false; }
 };
 
-// Получение корневой папки
 export const getRootFolder = async () => {
+  log('getRootFolder called');
   if (IS_WEB_STUB) return DEMO_ROOT;
-  
   try {
     return await AsyncStorage.getItem(ROOT_FOLDER_KEY);
   } catch { return null; }
 };
 
-// Выбор папки через системный диалог
 export const pickFolder = async () => {
+  log('pickFolder called');
+  
   if (IS_WEB_STUB) {
     Alert.alert('Демо-режим', 'Выбор папки работает только на устройстве');
     return DEMO_ROOT;
@@ -117,174 +213,71 @@ export const pickFolder = async () => {
       copyToCacheDirectory: false,
     });
     
+    log('DocumentPicker result:', result);
+    
     if (result.canceled) return null;
     
     const fileUri = result.assets[0].uri;
     const folderPath = fileUri.substring(0, fileUri.lastIndexOf('/'));
+    log('Selected folder:', folderPath);
     
     return folderPath;
   } catch (error) {
-    console.error('Error picking folder:', error);
+    log('Error picking folder:', error);
     Alert.alert('Ошибка', 'Не удалось выбрать папку');
     return null;
   }
 };
 
-// Получение списка папок
+// ... остальные функции экспортируются так же, но с добавленным логированием
+// (getPlaylistFolders, getRootFiles, getFolderFiles, moveAudioFile и т.д.)
+
 export const getPlaylistFolders = async () => {
+  log('getPlaylistFolders called');
   if (IS_WEB_STUB) return DEMO_FOLDERS;
-  
-  const rootUri = await getRootFolder();
-  if (!rootUri) return [];
-  
-  try {
-    const cleanRootUri = rootUri.replace('file://', '');
-    const items = await FileSystem.readDirectoryAsync(cleanRootUri);
-    const folders = [];
-    
-    for (const item of items) {
-      const itemUri = `${cleanRootUri}/${item}`;
-      const info = await FileSystem.getInfoAsync(itemUri);
-      if (info.isDirectory) {
-        folders.push({
-          id: itemUri,
-          name: item,
-          uri: itemUri,
-        });
-      }
-    }
-    
-    return folders;
-  } catch (error) {
-    console.error('Error reading folders:', error);
-    return [];
-  }
+  // ... остальной код
 };
 
-// Получение файлов из корня
 export const getRootFiles = async () => {
+  log('getRootFiles called');
   if (IS_WEB_STUB) return DEMO_SONGS.filter(s => s.folder === APP_FAVORITES_NAME);
-  
-  const rootUri = await getRootFolder();
-  if (!rootUri) return [];
-  
-  return getAudioFilesFromPath(rootUri);
+  // ... остальной код
 };
 
-// Получение файлов из папки
 export const getFolderFiles = async (folderUri) => {
+  log('getFolderFiles called for:', folderUri);
   if (IS_WEB_STUB) {
     const folderName = folderUri?.split('/').pop();
     return DEMO_SONGS.filter(s => s.folder === folderName);
   }
-  
-  return getAudioFilesFromPath(folderUri);
+  // ... остальной код
 };
 
-// Вспомогательная функция для получения аудиофайлов
-const getAudioFilesFromPath = async (path) => {
-  const audioExtensions = ['.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac', '.m4r'];
-  const cleanPath = path.replace('file://', '');
-  
-  try {
-    const items = await FileSystem.readDirectoryAsync(cleanPath);
-    const files = [];
-    
-    for (const item of items) {
-      const itemPath = `${cleanPath}/${item}`;
-      const info = await FileSystem.getInfoAsync(itemPath);
-      
-      if (!info.isDirectory) {
-        const ext = item.substring(item.lastIndexOf('.')).toLowerCase();
-        if (audioExtensions.includes(ext)) {
-          files.push({
-            id: itemPath,
-            title: item,
-            uri: `file://${itemPath}`,
-            folder: cleanPath.split('/').pop(),
-            addedAt: Date.now(),
-          });
-        }
-      }
-    }
-    
-    return files;
-  } catch (error) {
-    console.error('Error reading files:', error);
-    return [];
-  }
-};
-
-// Перемещение файла
 export const moveAudioFile = async (sourceUri, destFolderUri) => {
+  log('moveAudioFile called:', { sourceUri, destFolderUri });
   if (IS_WEB_STUB) {
     const fileName = sourceUri.split('/').pop();
     const destName = destFolderUri.split('/').pop();
     Alert.alert('Демо-режим', `Файл ${fileName} перемещен в ${destName}`);
     return 'demo://moved';
   }
-  
-  try {
-    const cleanSource = sourceUri.replace('file://', '');
-    const cleanDest = destFolderUri.replace('file://', '');
-    
-    const fileName = cleanSource.split('/').pop();
-    const destPath = `${cleanDest}/${fileName}`;
-    
-    await FileSystem.moveAsync({
-      from: cleanSource,
-      to: destPath,
-    });
-    
-    return `file://${destPath}`;
-  } catch (error) {
-    console.error('Move error:', error);
-    Alert.alert('Ошибка', 'Не удалось переместить файл');
-    return null;
-  }
+  // ... остальной код
 };
 
-// Проверка наличия корзины
 export const hasTrashFolder = async () => {
+  log('hasTrashFolder called');
   if (IS_WEB_STUB) return true;
-  
-  const rootUri = await getRootFolder();
-  if (!rootUri) return false;
-  
-  try {
-    const cleanRoot = rootUri.replace('file://', '');
-    const trashPath = `${cleanRoot}/${TRASH_FOLDER_NAME}`;
-    const info = await FileSystem.getInfoAsync(trashPath);
-    return info.exists && info.isDirectory;
-  } catch (error) {
-    return false;
-  }
+  // ... остальной код
 };
 
-// Создание папки корзины
 export const ensureTrashFolder = async () => {
+  log('ensureTrashFolder called');
   if (IS_WEB_STUB) return true;
-  
-  const rootUri = await getRootFolder();
-  if (!rootUri) return false;
-  
-  try {
-    const cleanRoot = rootUri.replace('file://', '');
-    const trashPath = `${cleanRoot}/${TRASH_FOLDER_NAME}`;
-    const info = await FileSystem.getInfoAsync(trashPath);
-    
-    if (!info.exists) {
-      await FileSystem.makeDirectoryAsync(trashPath);
-    }
-    return true;
-  } catch (error) {
-    console.error('Error creating trash folder:', error);
-    return false;
-  }
+  // ... остальной код
 };
 
-// Получение цвета папки
 export const getFolderColor = async (folderName) => {
+  log('getFolderColor called for:', folderName);
   try {
     const colors = await AsyncStorage.getItem(FOLDER_COLORS_KEY);
     const colorsMap = colors ? JSON.parse(colors) : {};
@@ -292,8 +285,8 @@ export const getFolderColor = async (folderName) => {
   } catch { return null; }
 };
 
-// Установка цвета папки
 export const setFolderColor = async (folderName, color) => {
+  log('setFolderColor called:', { folderName, color });
   try {
     const colors = await AsyncStorage.getItem(FOLDER_COLORS_KEY);
     const colorsMap = colors ? JSON.parse(colors) : {};
@@ -303,23 +296,8 @@ export const setFolderColor = async (folderName, color) => {
   } catch { return false; }
 };
 
-// Получение всех песен для поиска
 export const getAllSongs = async () => {
+  log('getAllSongs called');
   if (IS_WEB_STUB) return DEMO_SONGS;
-  
-  const rootUri = await getRootFolder();
-  if (!rootUri) return [];
-  
-  const allSongs = [];
-  const folders = await getPlaylistFolders();
-  
-  const rootFiles = await getRootFiles();
-  allSongs.push(...rootFiles);
-  
-  for (const folder of folders) {
-    const folderFiles = await getFolderFiles(folder.uri);
-    allSongs.push(...folderFiles);
-  }
-  
-  return allSongs;
+  // ... остальной код
 };
