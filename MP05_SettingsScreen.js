@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, ScrollView, SafeAreaView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Header, EmailFooter } from './MP04_Components';
 import { getBrandColor, AUTHOR_EMAIL, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
@@ -17,20 +16,13 @@ export default function SettingsScreen({ navigation, route }) {
   const [logs, setLogs] = useState([]);
   const [isReady, setIsReady] = useState(true);
 
-  // ==========================================
-  // ЛОГИРОВАНИЕ
-  // ==========================================
-  
-  const addLog = (message) => {
+  const addLog = (message, isError = false) => {
     const timestamp = new Date().toLocaleTimeString();
-    setLogs(prev => [...prev, `${timestamp} - ${message}`]);
+    const prefix = isError ? '❌' : '📌';
+    setLogs(prev => [...prev, `${timestamp} - ${prefix} ${message}`]);
     console.log(message);
   };
 
-  // ==========================================
-  // ЗАГРУЗКА СОХРАНЕННОЙ ПАПКИ
-  // ==========================================
-  
   useEffect(() => {
     loadSavedFolder();
   }, []);
@@ -39,47 +31,39 @@ export default function SettingsScreen({ navigation, route }) {
     try {
       const saved = await AsyncStorage.getItem('selected_folder');
       if (saved) {
-        addLog(`📂 Загружена папка: ${saved}`);
+        addLog(`Загружена папка: ${saved}`);
         setSelectedFolder(saved);
       }
     } catch (error) {
-      addLog(`❌ Ошибка загрузки: ${error.message}`);
+      addLog(`Ошибка загрузки: ${error.message}`, true);
     }
   };
 
-  // ==========================================
-  // ВЫБОР ПАПКИ
-  // ==========================================
-  
   const pickFolder = async () => {
-    addLog('📁 Выбор папки...');
+    addLog('Выбор папки...');
     setLoading(true);
     
     try {
       const folderUri = await FileSystem.pickFolder();
       
       if (folderUri) {
-        addLog(`✅ Выбрана: ${folderUri}`);
+        addLog(`Выбрана: ${folderUri}`);
         setSelectedFolder(folderUri);
         await AsyncStorage.setItem('selected_folder', folderUri);
       } else {
-        addLog('❌ Выбор отменен');
+        addLog('Выбор отменен');
       }
     } catch (error) {
-      addLog(`❌ Ошибка: ${error.message}`);
+      addLog(`Ошибка: ${error.message}`, true);
       Alert.alert('Ошибка', 'Не удалось выбрать папку');
     } finally {
       setLoading(false);
     }
   };
 
-  // ==========================================
-  // СКАНИРОВАНИЕ ПАПКИ
-  // ==========================================
-  
   const scanFolder = async () => {
     if (scanning) {
-      addLog('⚠️ Сканирование уже выполняется');
+      addLog('Сканирование уже выполняется', true);
       return;
     }
     
@@ -88,7 +72,7 @@ export default function SettingsScreen({ navigation, route }) {
       return;
     }
     
-    addLog(`🔍 Начало сканирования: ${selectedFolder}`);
+    addLog(`Начало сканирования: ${selectedFolder}`);
     setScanning(true);
     
     try {
@@ -96,12 +80,10 @@ export default function SettingsScreen({ navigation, route }) {
       
       addLog(`✅ Найдено: ${result.folders.length} папок, ${result.songs.length} файлов`);
       
-      // Сохраняем результаты
       await AsyncStorage.setItem('scanned_folders', JSON.stringify(result.folders));
       await AsyncStorage.setItem('scanned_songs', JSON.stringify(result.songs));
       await AsyncStorage.setItem('scan_timestamp', Date.now().toString());
       
-      // Переходим на экран плейлистов
       setTimeout(() => {
         navigation.replace('Playlists', {
           scanTimestamp: Date.now(),
@@ -112,26 +94,12 @@ export default function SettingsScreen({ navigation, route }) {
       }, 300);
       
     } catch (error) {
-      addLog(`❌ Ошибка сканирования: ${error.message}`);
-      Alert.alert('Ошибка', `Не удалось просканировать папку: ${error.message}`);
+      addLog(`Ошибка сканирования: ${error.message}`, true);
+      Alert.alert('Ошибка', error.message);
     } finally {
       setScanning(false);
     }
   };
-
-  // ==========================================
-  // РЕНДЕРИНГ
-  // ==========================================
-  
-  if (!isReady) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color={brandColor} />
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -209,9 +177,6 @@ export default function SettingsScreen({ navigation, route }) {
           {logs.map((log, i) => (
             <Text key={i} style={styles.logLine}>{log}</Text>
           ))}
-          {logs.length === 0 && (
-            <Text style={styles.logEmpty}>Ожидание действий...</Text>
-          )}
         </View>
       </ScrollView>
       
@@ -224,7 +189,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   scrollView: { flex: 1 },
   content: { justifyContent: 'center', alignItems: 'center', padding: 20 },
-  centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   icon: { marginBottom: 20 },
   title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: '#333' },
   
@@ -281,5 +245,4 @@ const styles = StyleSheet.create({
   },
   logTitle: { color: '#FFA500', fontSize: 14, fontWeight: 'bold', marginBottom: 8 },
   logLine: { color: '#0F0', fontSize: 10, fontFamily: 'monospace', marginVertical: 2 },
-  logEmpty: { color: '#666', fontSize: 12, textAlign: 'center', padding: 10 },
 });
