@@ -12,6 +12,7 @@ export default function PlaylistsScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [folders, setFolders] = useState([]);
   const [songs, setSongs] = useState([]);
+  const [totalSongs, setTotalSongs] = useState(0);
 
   useEffect(() => {
     loadData();
@@ -32,6 +33,7 @@ export default function PlaylistsScreen({ navigation, route }) {
       if (songsStr) {
         const parsedSongs = JSON.parse(songsStr);
         setSongs(parsedSongs);
+        setTotalSongs(parsedSongs.length);
       }
       
     } catch (error) {
@@ -114,6 +116,13 @@ export default function PlaylistsScreen({ navigation, route }) {
             songCount={item.count || 0}
           />
         )}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <Text style={styles.totalSongs}>
+              Всего песен: {totalSongs}
+            </Text>
+          </View>
+        }
         ListEmptyComponent={
           <View style={styles.center}>
             <MaterialIcons name="folder-off" size={64} color="#E0E0E0" />
@@ -147,5 +156,15 @@ const styles = StyleSheet.create({
     marginTop: 8, 
     textAlign: 'center',
     paddingHorizontal: 20 
+  },
+  header: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  totalSongs: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
 });
