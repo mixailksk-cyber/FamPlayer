@@ -2,6 +2,7 @@ import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 import { APP_FAVORITES_NAME, TRASH_FOLDER_NAME, IS_WEB_STUB } from './MP01_Core';
 
 // Демо-данные для Snack
@@ -28,7 +29,21 @@ const ROOT_FOLDER_KEY = '@root_folder';
 const FOLDER_COLORS_KEY = '@folder_colors';
 
 // ==========================================
-// ПРАВИЛЬНЫЙ ВЫБОР ПАПКИ на Android
+// ПРОВЕРКА ТИПА ХРАНИЛИЩА
+// ==========================================
+
+const isInternalStorage = (uri) => {
+  // Внутренняя память обычно содержит "emulated" или "0"
+  return uri.includes('emulated') || uri.includes('%3A0%2F') || uri.includes(':0/');
+};
+
+const isExternalSdCard = (uri) => {
+  // Внешняя SD карта содержит идентификатор типа "9C33-6BBD"
+  return uri.includes('/tree/') && !isInternalStorage(uri);
+};
+
+// ==========================================
+// ПРАВИЛЬНЫЙ ВЫБОР ПАПКИ
 // ==========================================
 
 export const pickFolder = async () => {
@@ -38,17 +53,18 @@ export const pickFolder = async () => {
   }
 
   try {
-    // На Android 11+ используем специальный метод для выбора папки
-    if (Platform.OS === 'android' && Platform.Version >= 30) {
-      // Показываем инструкцию
-      Alert.alert(
-        'Выбор папки',
-        'В открывшемся окне:\n1. Найдите нужную папку\n2. Нажмите "Разрешить" или "Использовать эту папку"',
-        [{ text: 'OK' }]
-      );
+    // Показываем инструкцию в зависимости от Android версии
+    if (Platform.OS === 'android') {
+      if (Platform.Version >= 30) {
+        Alert.alert(
+          'Выбор папки',
+          'В открывшемся окне:\n1. Найдите нужную папку\n2. Нажмите "Разрешить" или "Использовать эту папку"\n\n' +
+          'Рекомендуется использовать внутреннюю память для лучшей совместимости.',
+          [{ text: 'OK' }]
+        );
+      }
     }
 
-    // Используем DocumentPicker с типом folder (доступно в некоторых версиях)
     const result = await DocumentPicker.getDocumentAsync({
       type: '*/*',
       copyToCacheDirectory: false,
@@ -57,14 +73,12 @@ export const pickFolder = async () => {
     if (result.canceled) return null;
     
     const uri = result.assets[0].uri;
+    console.log('Selected URI:', uri);
     
     // Преобразуем URI документа в URI папки
-    // content://com.android.externalstorage.documents/document/primary%3AMusic%2Fsong.mp3
-    // -> content://com.android.externalstorage.documents/tree/primary%3AMusic
     let folderUri = uri;
     
     if (uri.includes('/document/')) {
-      // Это URI файла, преобразуем в URI папки
       const parts = uri.split('/document/');
       if (parts.length === 2) {
         const path = parts[1];
@@ -73,9 +87,26 @@ export const pickFolder = async () => {
         if (lastSlash !== -1) {
           const folderPath = path.substring(0, lastSlash);
           folderUri = `${parts[0]}/tree/${folderPath}`;
-          console.log('Converted to folder URI:', folderUri);
+        } else {
+          // Это уже папка? Тогда просто меняем document на tree
+          folderUri = `${parts[0]}/tree/${path}`;
         }
       }
+    }
+    
+    console.log('Converted to folder URI:', folderUri);
+    
+    // Проверяем тип хранилища
+    if (isExternalSdCard(folderUri)) {
+      Alert.alert(
+        'Внешний накопитель',
+        'Вы выбрали папку на внешней SD-карте. Это может работать медленнее. ' +
+        'Рекомендуется использовать внутреннюю память для лучшей производительности.',
+        [
+          { text: 'Продолжить', style: 'default' },
+          { text: 'Выбрать другую', style: 'cancel', onPress: () => pickFolder() }
+        ]
+      );
     }
     
     return folderUri;
@@ -88,30 +119,30 @@ export const pickFolder = async () => {
 };
 
 // ==========================================
-// ПРОВЕРКА, ЯВЛЯЕТСЯ ЛИ URI ПАПКОЙ
+// ПОЛУЧЕНИЕ РЕАЛЬНОГО ПУТИ ДЛЯ ВНЕШНИХ НАКОПИТЕЛЕЙ
 // ==========================================
 
-const isFolderUri = (uri) => {
-  return uri.includes('/tree/') || !uri.includes('/document/');
-};
-
-// ==========================================
-// ПОЛУЧЕНИЕ РЕАЛЬНОГО ПУТИ ИЗ SAF URI
-// ==========================================
-
-const getPathFromSAF = async (uri) => {
+const getExternalStoragePath = async (uri) => {
   try {
-    // Пытаемся получить информацию о файле
-    const info = await FileSystem.getInfoAsync(uri);
-    return info;
+    // Пытаемся получить доступ через MediaLibrary
+    const { status } = await MediaLibrary.requestPermissionsAsync();
+    if (status === 'granted') {
+      // MediaLibrary может работать с внешними накопителями
+      const assets = await MediaLibrary.getAssetsAsync({
+        first: 1,
+        album: 'Music'
+      });
+      return { type: 'medialibrary', assets };
+    }
   } catch (error) {
-    console.error('Error getting SAF info:', error);
-    return null;
+    console.log('MediaLibrary not available for external storage');
   }
+  
+  return { type: 'external', uri };
 };
 
 // ==========================================
-// СКАНИРОВАНИЕ ПАПКИ (с поддержкой SAF)
+// СКАНИРОВАНИЕ ПАПКИ С ПОДДЕРЖКОЙ ВНЕШНИХ НАКОПИТЕЛЕЙ
 // ==========================================
 
 export const scanFolder = async (folderUri) => {
@@ -120,63 +151,28 @@ export const scanFolder = async (folderUri) => {
   try {
     console.log('Scanning folder:', folderUri);
     
-    // Проверяем, что это действительно папка
-    if (!isFolderUri(folderUri)) {
-      throw new Error('Выбран файл, а не папка. Пожалуйста, выберите папку.');
-    }
-    
-    let items = [];
-    let folders = [];
-    let songs = [];
-    
-    // Для SAF URI (content://) используем другой подход
-    if (folderUri.startsWith('content://')) {
-      // С SAF URI мы не можем использовать readDirectoryAsync напрямую
-      // Временно возвращаем заглушку с предложением использовать обычные пути
+    // Для внешних SD-карт предлагаем альтернативный подход
+    if (isExternalSdCard(folderUri)) {
       Alert.alert(
-        'Внимание',
-        'Для папок из облачного хранилища сканирование ограничено. Рекомендуется использовать папки во внутренней памяти.'
+        'Внешний накопитель',
+        'Для сканирования внешней SD-карты требуется дополнительное разрешение.\n\n' +
+        'Выберите действие:',
+        [
+          {
+            text: 'Использовать MediaLibrary',
+            onPress: () => scanWithMediaLibrary(folderUri)
+          },
+          {
+            text: 'Выбрать другую папку',
+            style: 'cancel'
+          }
+        ]
       );
       return { folders: [], songs: [] };
-    } else {
-      // Обычный путь (file://)
-      const cleanPath = folderUri.replace('file://', '');
-      
-      try {
-        items = await FileSystem.readDirectoryAsync(cleanPath);
-      } catch (error) {
-        console.error('Error reading directory:', error);
-        throw new Error('Не удалось прочитать содержимое папки. Убедитесь, что у приложения есть доступ.');
-      }
-      
-      const audioExtensions = ['.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac'];
-      
-      for (const item of items) {
-        const itemPath = `${cleanPath}/${item}`;
-        const info = await FileSystem.getInfoAsync(itemPath);
-        
-        if (info.isDirectory) {
-          folders.push({
-            id: itemPath,
-            name: item,
-            uri: `file://${itemPath}`,
-          });
-        } else {
-          const ext = item.substring(item.lastIndexOf('.')).toLowerCase();
-          if (audioExtensions.includes(ext)) {
-            songs.push({
-              id: itemPath,
-              title: item.replace(/\.[^/.]+$/, ""),
-              filename: item,
-              uri: `file://${itemPath}`,
-              addedAt: Date.now(),
-            });
-          }
-        }
-      }
     }
     
-    return { folders, songs };
+    // Для внутренней памяти - обычное сканирование
+    return await scanInternalStorage(folderUri);
     
   } catch (error) {
     console.error('Error scanning folder:', error);
@@ -185,15 +181,89 @@ export const scanFolder = async (folderUri) => {
 };
 
 // ==========================================
-// ОСТАЛЬНЫЕ ФУНКЦИИ (без изменений)
+// СКАНИРОВАНИЕ ВНУТРЕННЕЙ ПАМЯТИ
+// ==========================================
+
+const scanInternalStorage = async (folderUri) => {
+  const cleanPath = folderUri.replace('file://', '').replace('/tree/', '/');
+  const items = await FileSystem.readDirectoryAsync(cleanPath);
+  
+  const audioExtensions = ['.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac'];
+  const folders = [];
+  const songs = [];
+  
+  for (const item of items) {
+    const itemPath = `${cleanPath}/${item}`;
+    const info = await FileSystem.getInfoAsync(itemPath);
+    
+    if (info.isDirectory) {
+      folders.push({
+        id: itemPath,
+        name: item,
+        uri: `file://${itemPath}`,
+      });
+    } else {
+      const ext = item.substring(item.lastIndexOf('.')).toLowerCase();
+      if (audioExtensions.includes(ext)) {
+        songs.push({
+          id: itemPath,
+          title: item.replace(/\.[^/.]+$/, ""),
+          filename: item,
+          uri: `file://${itemPath}`,
+          addedAt: Date.now(),
+        });
+      }
+    }
+  }
+  
+  return { folders, songs };
+};
+
+// ==========================================
+// СКАНИРОВАНИЕ ЧЕРЕЗ MEDIALIBRARY (ДЛЯ ВНЕШНИХ НАКОПИТЕЛЕЙ)
+// ==========================================
+
+const scanWithMediaLibrary = async (folderUri) => {
+  try {
+    const { status } = await MediaLibrary.requestPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Ошибка', 'Нет доступа к медиатеке');
+      return { folders: [], songs: [] };
+    }
+    
+    // Получаем все аудиофайлы через MediaLibrary
+    const media = await MediaLibrary.getAssetsAsync({
+      mediaType: 'audio',
+      first: 1000,
+    });
+    
+    // Преобразуем в наш формат
+    const songs = media.assets.map(asset => ({
+      id: asset.id,
+      title: asset.filename,
+      filename: asset.filename,
+      uri: asset.uri,
+      addedAt: asset.creationTime,
+    }));
+    
+    // MediaLibrary не дает структуру папок
+    return {
+      folders: [],
+      songs: songs
+    };
+    
+  } catch (error) {
+    console.error('Error scanning with MediaLibrary:', error);
+    return { folders: [], songs: [] };
+  }
+};
+
+// ==========================================
+// ОСТАЛЬНЫЕ ФУНКЦИИ
 // ==========================================
 
 export const saveRootFolder = async (uri) => {
-  if (IS_WEB_STUB) {
-    console.log('Demo: saveRootFolder', uri);
-    return true;
-  }
-  
+  if (IS_WEB_STUB) return true;
   try {
     await AsyncStorage.setItem(ROOT_FOLDER_KEY, uri);
     return true;
@@ -202,7 +272,6 @@ export const saveRootFolder = async (uri) => {
 
 export const getRootFolder = async () => {
   if (IS_WEB_STUB) return DEMO_ROOT;
-  
   try {
     return await AsyncStorage.getItem(ROOT_FOLDER_KEY);
   } catch { return null; }
