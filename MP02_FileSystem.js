@@ -27,44 +27,103 @@ const DEMO_SONGS = [
 
 const ROOT_FOLDER_KEY = '@root_folder';
 const FOLDER_COLORS_KEY = '@folder_colors';
+const SCAN_MODE_KEY = '@scan_mode';
 
 // ==========================================
-// ПРОВЕРКА ТИПА ХРАНИЛИЩА
+// ТИПЫ СКАНИРОВАНИЯ
 // ==========================================
 
-const isInternalStorage = (uri) => {
-  // Внутренняя память обычно содержит "emulated" или "0"
-  return uri.includes('emulated') || uri.includes('%3A0%2F') || uri.includes(':0/');
-};
-
-const isExternalSdCard = (uri) => {
-  // Внешняя SD карта содержит идентификатор типа "9C33-6BBD"
-  return uri.includes('/tree/') && !isInternalStorage(uri);
+export const SCAN_MODES = {
+  FOLDER: 'folder',      // Ручной выбор папки (старый способ)
+  MEDIA: 'media'         // Медиатека (быстрый способ)
 };
 
 // ==========================================
-// ПРАВИЛЬНЫЙ ВЫБОР ПАПКИ
+// СОХРАНЕНИЕ РЕЖИМА СКАНИРОВАНИЯ
+// ==========================================
+
+export const saveScanMode = async (mode) => {
+  try {
+    await AsyncStorage.setItem(SCAN_MODE_KEY, mode);
+    return true;
+  } catch { return false; }
+};
+
+export const getScanMode = async () => {
+  try {
+    const mode = await AsyncStorage.getItem(SCAN_MODE_KEY);
+    return mode || SCAN_MODES.FOLDER; // По умолчанию старый способ
+  } catch { return SCAN_MODES.FOLDER; }
+};
+
+// ==========================================
+// ВАРИАНТ 1: СКАНИРОВАНИЕ ЧЕРЕЗ MEDIA LIBRARY (БЫСТРЫЙ)
+// ==========================================
+
+export const scanWithMediaLibrary = async () => {
+  if (IS_WEB_STUB) return { folders: [], songs: [] };
+
+  try {
+    // Запрашиваем разрешения
+    const { status } = await MediaLibrary.requestPermissionsAsync();
+    if (status !== 'granted') {
+      throw new Error('Нет доступа к медиатеке');
+    }
+
+    // Получаем все аудиофайлы
+    const media = await MediaLibrary.getAssetsAsync({
+      mediaType: 'audio',
+      first: 10000, // Большой лимит
+    });
+
+    console.log(`MediaLibrary: найдено ${media.totalCount} файлов`);
+
+    // Пытаемся получить альбомы (группировка)
+    const albums = await MediaLibrary.getAlbumsAsync();
+    console.log(`MediaLibrary: найдено ${albums.length} альбомов`);
+
+    // Преобразуем в наш формат
+    const songs = media.assets.map(asset => ({
+      id: asset.id,
+      title: asset.filename,
+      filename: asset.filename,
+      uri: asset.uri,
+      duration: asset.duration,
+      addedAt: asset.creationTime,
+      albumId: asset.albumId,
+    }));
+
+    // Для альбомов (папок) используем albums
+    const folders = albums.map(album => ({
+      id: album.id,
+      name: album.title,
+      uri: `album://${album.id}`,
+      count: album.assetCount,
+    }));
+
+    return { 
+      folders, 
+      songs,
+      stats: {
+        total: media.totalCount,
+        albums: albums.length
+      }
+    };
+
+  } catch (error) {
+    console.error('Error in scanWithMediaLibrary:', error);
+    throw error;
+  }
+};
+
+// ==========================================
+// ВАРИАНТ 2: СКАНИРОВАНИЕ ЧЕРЕЗ ФАЙЛОВУЮ СИСТЕМУ (СТАРЫЙ СПОСОБ)
 // ==========================================
 
 export const pickFolder = async () => {
-  if (IS_WEB_STUB) {
-    Alert.alert('Демо-режим', 'Выбор папки работает только на устройстве');
-    return DEMO_ROOT;
-  }
+  if (IS_WEB_STUB) return DEMO_ROOT;
 
   try {
-    // Показываем инструкцию в зависимости от Android версии
-    if (Platform.OS === 'android') {
-      if (Platform.Version >= 30) {
-        Alert.alert(
-          'Выбор папки',
-          'В открывшемся окне:\n1. Найдите нужную папку\n2. Нажмите "Разрешить" или "Использовать эту папку"\n\n' +
-          'Рекомендуется использовать внутреннюю память для лучшей совместимости.',
-          [{ text: 'OK' }]
-        );
-      }
-    }
-
     const result = await DocumentPicker.getDocumentAsync({
       type: '*/*',
       copyToCacheDirectory: false,
@@ -73,40 +132,19 @@ export const pickFolder = async () => {
     if (result.canceled) return null;
     
     const uri = result.assets[0].uri;
-    console.log('Selected URI:', uri);
     
     // Преобразуем URI документа в URI папки
     let folderUri = uri;
-    
     if (uri.includes('/document/')) {
       const parts = uri.split('/document/');
       if (parts.length === 2) {
         const path = parts[1];
-        // Убираем имя файла из пути
         const lastSlash = path.lastIndexOf('%2F');
         if (lastSlash !== -1) {
           const folderPath = path.substring(0, lastSlash);
           folderUri = `${parts[0]}/tree/${folderPath}`;
-        } else {
-          // Это уже папка? Тогда просто меняем document на tree
-          folderUri = `${parts[0]}/tree/${path}`;
         }
       }
-    }
-    
-    console.log('Converted to folder URI:', folderUri);
-    
-    // Проверяем тип хранилища
-    if (isExternalSdCard(folderUri)) {
-      Alert.alert(
-        'Внешний накопитель',
-        'Вы выбрали папку на внешней SD-карте. Это может работать медленнее. ' +
-        'Рекомендуется использовать внутреннюю память для лучшей производительности.',
-        [
-          { text: 'Продолжить', style: 'default' },
-          { text: 'Выбрать другую', style: 'cancel', onPress: () => pickFolder() }
-        ]
-      );
     }
     
     return folderUri;
@@ -118,143 +156,77 @@ export const pickFolder = async () => {
   }
 };
 
-// ==========================================
-// ПОЛУЧЕНИЕ РЕАЛЬНОГО ПУТИ ДЛЯ ВНЕШНИХ НАКОПИТЕЛЕЙ
-// ==========================================
-
-const getExternalStoragePath = async (uri) => {
-  try {
-    // Пытаемся получить доступ через MediaLibrary
-    const { status } = await MediaLibrary.requestPermissionsAsync();
-    if (status === 'granted') {
-      // MediaLibrary может работать с внешними накопителями
-      const assets = await MediaLibrary.getAssetsAsync({
-        first: 1,
-        album: 'Music'
-      });
-      return { type: 'medialibrary', assets };
-    }
-  } catch (error) {
-    console.log('MediaLibrary not available for external storage');
-  }
-  
-  return { type: 'external', uri };
-};
-
-// ==========================================
-// СКАНИРОВАНИЕ ПАПКИ С ПОДДЕРЖКОЙ ВНЕШНИХ НАКОПИТЕЛЕЙ
-// ==========================================
-
-export const scanFolder = async (folderUri) => {
+export const scanWithFileSystem = async (folderUri) => {
   if (IS_WEB_STUB) return { folders: [], songs: [] };
 
   try {
-    console.log('Scanning folder:', folderUri);
+    console.log('FileSystem scan of:', folderUri);
     
-    // Для внешних SD-карт предлагаем альтернативный подход
-    if (isExternalSdCard(folderUri)) {
+    // Проверяем тип URI
+    if (folderUri.startsWith('content://')) {
       Alert.alert(
         'Внешний накопитель',
-        'Для сканирования внешней SD-карты требуется дополнительное разрешение.\n\n' +
-        'Выберите действие:',
+        'Для сканирования внешней SD-карты через файловую систему есть ограничения.\n' +
+        'Рекомендуется использовать режим "Медиатека" для лучшего результата.',
         [
-          {
-            text: 'Использовать MediaLibrary',
-            onPress: () => scanWithMediaLibrary(folderUri)
-          },
-          {
-            text: 'Выбрать другую папку',
-            style: 'cancel'
-          }
+          { text: 'Продолжить', style: 'default' },
+          { text: 'Отмена', style: 'cancel' }
         ]
       );
-      return { folders: [], songs: [] };
+    }
+
+    // Очищаем URI
+    const cleanPath = folderUri.replace('file://', '').replace('/tree/', '/');
+    const items = await FileSystem.readDirectoryAsync(cleanPath);
+    
+    const audioExtensions = ['.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac'];
+    const folders = [];
+    const songs = [];
+    
+    for (const item of items) {
+      const itemPath = `${cleanPath}/${item}`;
+      const info = await FileSystem.getInfoAsync(itemPath);
+      
+      if (info.isDirectory) {
+        folders.push({
+          id: itemPath,
+          name: item,
+          uri: `file://${itemPath}`,
+        });
+      } else {
+        const ext = item.substring(item.lastIndexOf('.')).toLowerCase();
+        if (audioExtensions.includes(ext)) {
+          songs.push({
+            id: itemPath,
+            title: item.replace(/\.[^/.]+$/, ""),
+            filename: item,
+            uri: `file://${itemPath}`,
+            addedAt: Date.now(),
+          });
+        }
+      }
     }
     
-    // Для внутренней памяти - обычное сканирование
-    return await scanInternalStorage(folderUri);
+    return { folders, songs };
     
   } catch (error) {
-    console.error('Error scanning folder:', error);
+    console.error('Error in scanWithFileSystem:', error);
     throw error;
   }
 };
 
 // ==========================================
-// СКАНИРОВАНИЕ ВНУТРЕННЕЙ ПАМЯТИ
+// УНИВЕРСАЛЬНАЯ ФУНКЦИЯ СКАНИРОВАНИЯ
 // ==========================================
 
-const scanInternalStorage = async (folderUri) => {
-  const cleanPath = folderUri.replace('file://', '').replace('/tree/', '/');
-  const items = await FileSystem.readDirectoryAsync(cleanPath);
-  
-  const audioExtensions = ['.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac'];
-  const folders = [];
-  const songs = [];
-  
-  for (const item of items) {
-    const itemPath = `${cleanPath}/${item}`;
-    const info = await FileSystem.getInfoAsync(itemPath);
-    
-    if (info.isDirectory) {
-      folders.push({
-        id: itemPath,
-        name: item,
-        uri: `file://${itemPath}`,
-      });
-    } else {
-      const ext = item.substring(item.lastIndexOf('.')).toLowerCase();
-      if (audioExtensions.includes(ext)) {
-        songs.push({
-          id: itemPath,
-          title: item.replace(/\.[^/.]+$/, ""),
-          filename: item,
-          uri: `file://${itemPath}`,
-          addedAt: Date.now(),
-        });
-      }
+export const scanMusic = async (mode, folderUri = null) => {
+  if (mode === SCAN_MODES.MEDIA) {
+    return await scanWithMediaLibrary();
+  } else {
+    if (!folderUri) {
+      throw new Error('Не выбрана папка для сканирования');
     }
-  }
-  
-  return { folders, songs };
-};
-
-// ==========================================
-// СКАНИРОВАНИЕ ЧЕРЕЗ MEDIALIBRARY (ДЛЯ ВНЕШНИХ НАКОПИТЕЛЕЙ)
-// ==========================================
-
-const scanWithMediaLibrary = async (folderUri) => {
-  try {
-    const { status } = await MediaLibrary.requestPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Ошибка', 'Нет доступа к медиатеке');
-      return { folders: [], songs: [] };
-    }
-    
-    // Получаем все аудиофайлы через MediaLibrary
-    const media = await MediaLibrary.getAssetsAsync({
-      mediaType: 'audio',
-      first: 1000,
-    });
-    
-    // Преобразуем в наш формат
-    const songs = media.assets.map(asset => ({
-      id: asset.id,
-      title: asset.filename,
-      filename: asset.filename,
-      uri: asset.uri,
-      addedAt: asset.creationTime,
-    }));
-    
-    // MediaLibrary не дает структуру папок
-    return {
-      folders: [],
-      songs: songs
-    };
-    
-  } catch (error) {
-    console.error('Error scanning with MediaLibrary:', error);
-    return { folders: [], songs: [] };
+    return await scanWithFileSystem(folderUri);
   }
 };
 
@@ -263,7 +235,6 @@ const scanWithMediaLibrary = async (folderUri) => {
 // ==========================================
 
 export const saveRootFolder = async (uri) => {
-  if (IS_WEB_STUB) return true;
   try {
     await AsyncStorage.setItem(ROOT_FOLDER_KEY, uri);
     return true;
@@ -271,7 +242,6 @@ export const saveRootFolder = async (uri) => {
 };
 
 export const getRootFolder = async () => {
-  if (IS_WEB_STUB) return DEMO_ROOT;
   try {
     return await AsyncStorage.getItem(ROOT_FOLDER_KEY);
   } catch { return null; }
@@ -322,24 +292,6 @@ export const getFolderFiles = async (folderUri) => {
     return DEMO_SONGS.filter(s => s.folder === folderName);
   }
   return [];
-};
-
-export const moveAudioFile = async (sourceUri, destFolderUri) => {
-  if (IS_WEB_STUB) {
-    Alert.alert('Демо-режим', 'Перемещение файлов');
-    return sourceUri;
-  }
-  return sourceUri;
-};
-
-export const hasTrashFolder = async () => {
-  if (IS_WEB_STUB) return true;
-  return false;
-};
-
-export const ensureTrashFolder = async () => {
-  if (IS_WEB_STUB) return true;
-  return true;
 };
 
 export const getFolderColor = async (folderName) => {
