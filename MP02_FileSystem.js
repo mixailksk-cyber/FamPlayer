@@ -1,19 +1,21 @@
-// Добавьте эти функции в конец файла MP02_FileSystem.js
+// Добавьте эту функцию в MP02_FileSystem.js
 
-export const saveSelectedFolders = async (selectedIds) => {
+export const shareFile = async (uri) => {
+  if (IS_WEB_STUB) {
+    Alert.alert('Демо-режим', 'Шеринг работает только на устройстве');
+    return;
+  }
+  
   try {
-    await AsyncStorage.setItem('selected_folders', JSON.stringify(selectedIds));
-    return true;
-  } catch { return false; }
-};
-
-export const getSelectedFolders = async () => {
-  try {
-    const selected = await AsyncStorage.getItem('selected_folders');
-    return selected ? JSON.parse(selected) : {};
-  } catch { return {}; }
-};
-
-export const filterFoldersBySelection = (folders, selectedIds) => {
-  return folders.filter(f => selectedIds[f.id]);
+    const { Sharing } = require('expo-sharing');
+    const isAvailable = await Sharing.isAvailableAsync();
+    if (isAvailable) {
+      await Sharing.shareAsync(uri);
+    } else {
+      Alert.alert('Ошибка', 'Шеринг не поддерживается на этом устройстве');
+    }
+  } catch (error) {
+    console.error('Error sharing file:', error);
+    Alert.alert('Ошибка', 'Не удалось поделиться файлом');
+  }
 };
