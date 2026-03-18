@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, Text, Alert, SafeAreaView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Header, SongItem, PlayerControls } from './MP04_Components';
+import { Header, SongItem, PlayerControls, SortMenu } from './MP04_Components';
 import { getBrandColor, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
 import AudioPlayer from './MP03_AudioPlayer';
 
@@ -10,68 +10,62 @@ export default function FolderScreen({ route, navigation }) {
   const params = route?.params || {};
   const folderName = params.folderName || 'Папка';
   const settings = params.settings || {};
-  const songs = params.songs || [];
+  const initialSongs = params.songs || [];
   
   const [currentSong, setCurrentSong] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [debug, setDebug] = useState([]);
+  const [songs, setSongs] = useState(initialSongs);
+  const [sortMode, setSortMode] = useState('addedAt');
+  const [sortMenuVisible, setSortMenuVisible] = useState(false);
+  
   const brandColor = getBrandColor(settings);
   const insets = useSafeAreaInsets();
 
-  const addDebug = (message) => {
-    console.log(`[FolderScreen] ${message}`);
-    setDebug(prev => [...prev.slice(-5), message]);
-  };
-
+  // Сортировка песен
   useEffect(() => {
-    addDebug('Компонент загружен');
+    let sorted = [...initialSongs];
+    
+    if (sortMode === 'title') {
+      sorted.sort((a, b) => a.title.localeCompare(b.title));
+    } else if (sortMode === 'shuffle') {
+      sorted = [...initialSongs].sort(() => Math.random() - 0.5);
+    } else {
+      // addedAt - сортируем по дате добавления (новые сверху)
+      sorted.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+    }
+    
+    setSongs(sorted);
+    
+    // Обновляем плейлист в плеере
+    if (sorted.length > 0) {
+      const currentIndex = sorted.findIndex(s => s.id === currentSong?.id);
+      AudioPlayer.setPlaylist(sorted, currentIndex >= 0 ? currentIndex : 0);
+    }
+  }, [sortMode, initialSongs]);
+
+  // Синхронизация с плеером
+  useEffect(() => {
     const interval = setInterval(() => {
       const status = AudioPlayer.getStatus();
       setCurrentSong(status.currentSong);
       setIsPlaying(status.isPlaying);
     }, 100);
-    return () => {
-      clearInterval(interval);
-      addDebug('Компонент размонтирован');
-    };
+    return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    if (songs.length > 0) {
-      addDebug(`Установлен плейлист с ${songs.length} песнями`);
-      AudioPlayer.setPlaylist(songs);
-    }
-  }, [songs]);
 
   const playSong = async (song) => {
     try {
-      addDebug(`Попытка воспроизвести: ${song.title}`);
-      
-      if (!song.uri) {
-        throw new Error('Нет URI для песни');
-      }
-      
-      addDebug(`URI песни: ${song.uri.substring(0, 50)}...`);
-      
-      const result = await AudioPlayer.loadSong(song, true);
-      
-      if (result) {
-        addDebug(`✅ Воспроизведение запущено`);
-      } else {
-        addDebug(`❌ Не удалось запустить воспроизведение`);
-      }
+      await AudioPlayer.loadSong(song, true);
     } catch (error) {
-      addDebug(`❌ Ошибка: ${error.message}`);
-      Alert.alert('Ошибка', `Не удалось воспроизвести файл: ${error.message}`);
+      Alert.alert('Ошибка', 'Не удалось воспроизвести файл');
     }
   };
 
   const togglePlayPause = async () => {
     try {
-      addDebug(`Переключение play/pause`);
       await AudioPlayer.toggle();
     } catch (error) {
-      addDebug(`❌ Ошибка переключения: ${error.message}`);
+      console.error('Error toggling play/pause:', error);
     }
   };
 
@@ -79,7 +73,6 @@ export default function FolderScreen({ route, navigation }) {
     if (!currentSong || songs.length === 0) return;
     const index = songs.findIndex(s => s.id === currentSong.id);
     const nextIndex = (index + 1) % songs.length;
-    addDebug(`Следующий трек: ${songs[nextIndex].title}`);
     playSong(songs[nextIndex]);
   };
 
@@ -87,12 +80,15 @@ export default function FolderScreen({ route, navigation }) {
     if (!currentSong || songs.length === 0) return;
     const index = songs.findIndex(s => s.id === currentSong.id);
     const prevIndex = (index - 1 + songs.length) % songs.length;
-    addDebug(`Предыдущий трек: ${songs[prevIndex].title}`);
     playSong(songs[prevIndex]);
   };
 
+  const handleSortChange = (newSort) => {
+    setSortMode(newSort);
+  };
+
   return (
-    <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom + 20 }]}>
+    <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
       {IS_WEB_STUB && (
         <View style={styles.demoBanner}>
           <MaterialIcons name="info" size={16} color="#333" />
@@ -102,10 +98,12 @@ export default function FolderScreen({ route, navigation }) {
       
       <Header
         title={folderName}
-        subtitle={`${songs.length} треков`}
         showBack
         onBack={() => navigation.goBack()}
-        showSearch={false}
+        rightIcons={[
+          { name: sortMode === 'shuffle' ? 'shuffle' : 'sort', onPress: () => setSortMenuVisible(true) },
+          { name: 'settings', onPress: () => navigation.navigate('Settings', { settings }) }
+        ]}
         settings={settings}
       />
 
@@ -129,14 +127,6 @@ export default function FolderScreen({ route, navigation }) {
         contentContainerStyle={styles.listContent}
       />
 
-      {/* Отладочная панель */}
-      <View style={styles.debugPanel}>
-        <Text style={styles.debugTitle}>🔍 Отладка плеера:</Text>
-        {debug.map((msg, i) => (
-          <Text key={i} style={styles.debugLine}>{msg}</Text>
-        ))}
-      </View>
-
       <PlayerControls
         currentSong={currentSong}
         isPlaying={isPlaying}
@@ -144,6 +134,13 @@ export default function FolderScreen({ route, navigation }) {
         onNext={playNext}
         onPrevious={playPrevious}
         settings={settings}
+      />
+
+      <SortMenu
+        visible={sortMenuVisible}
+        onClose={() => setSortMenuVisible(false)}
+        currentSort={sortMode}
+        onSortChange={handleSortChange}
       />
     </SafeAreaView>
   );
@@ -165,28 +162,6 @@ const styles = StyleSheet.create({
   emptyContainer: { padding: 40, alignItems: 'center' },
   emptyText: { fontSize: 16, color: '#999', marginTop: 16 },
   listContent: { 
-    paddingBottom: 180,
-  },
-  debugPanel: {
-    backgroundColor: '#1A1A1A',
-    margin: 10,
-    padding: 8,
-    borderRadius: 8,
-    position: 'absolute',
-    bottom: 100,
-    left: 10,
-    right: 10,
-    zIndex: 1000,
-  },
-  debugTitle: {
-    color: '#FFA500',
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  debugLine: {
-    color: '#0F0',
-    fontSize: 10,
-    fontFamily: 'monospace',
+    paddingBottom: 80,
   },
 });
