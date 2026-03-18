@@ -435,4 +435,116 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F0F8FF',
     padding: 12,
-    borderRadius: 
+    borderRadius: 8,
+    marginBottom: 12,
+    width: '100%',
+  },
+  folderPath: { marginLeft: 8, fontSize: 12, color: '#333', flex: 1 },
+  
+  folderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 15,
+    borderRadius: 10,
+    borderWidth: 2,
+    width: '100%',
+    marginBottom: 12,
+  },
+  folderButtonText: { fontSize: 16, fontWeight: '600', marginLeft: 8 },
+  
+  scanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 15,
+    borderRadius: 10,
+    width: '100%',
+    elevation: 3,
+    marginBottom: 20,
+  },
+  scanButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600', marginLeft: 8 },
+  
+  demoBanner: { 
+    backgroundColor: '#FFD700', 
+    padding: 10, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center' 
+  },
+  demoText: { color: '#333', fontSize: 12, fontWeight: '600' },
+  
+  logPanel: {
+    backgroundColor: '#1A1A1A',
+    margin: 16,
+    padding: 12,
+    borderRadius: 8,
+    maxHeight: 200,
+  },
+  logTitle: { color: '#FFA500', fontSize: 14, fontWeight: 'bold', marginBottom: 8 },
+  logLine: { color: '#0F0', fontSize: 10, fontFamily: 'monospace', marginVertical: 2 },
+  
+  selectionContainer: {
+    flex: 1,
+    padding: 16,
+  },
+  selectionTitle: {
+    fontSize: 16,
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  selectionActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    gap: 8,
+  },
+  actionButtonText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  folderList: {
+    flex: 1,
+    marginBottom: 16,
+  },
+  folderSelectItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  folderSelectInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  folderSelectText: {
+    flex: 1,
+  },
+  folderSelectName: {
+    fontSize: 16,
+    color: '#333',
+    marginBottom: 4,
+  },
+  folderSelectCount: {
+    fontSize: 12,
+    color: '#999',
+  },
+  saveButton: {
+    padding: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});
