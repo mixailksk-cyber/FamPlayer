@@ -1,173 +1,78 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, Text, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Header, FolderItem } from './MP04_Components';
 import { getBrandColor, APP_FAVORITES_NAME, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
+import * as FileSystem from './MP02_FileSystem';
 
 export default function PlaylistsScreen({ navigation, route }) {
   const settings = route?.params?.settings || {};
-  const scanTimestamp = route?.params?.scanTimestamp;
+  const scanMode = route?.params?.scanMode;
   const brandColor = getBrandColor(settings);
   
   const [loading, setLoading] = useState(true);
-  const [loadingProgress, setLoadingProgress] = useState('Загрузка данных...');
   const [folders, setFolders] = useState([]);
   const [songs, setSongs] = useState([]);
-  const [folderSongsCount, setFolderSongsCount] = useState({});
-  const [rootFolder, setRootFolder] = useState('');
-  const [retryCount, setRetryCount] = useState(0);
-  
-  const maxRetries = 5;
-  const retryDelay = 500;
-  const loadAttempts = useRef(0);
+  const [totalSongs, setTotalSongs] = useState(0);
 
-  // ==========================================
-  // ЗАГРУЗКА ДАННЫХ С ПОВТОРНЫМИ ПОПЫТКАМИ
-  // ==========================================
-  
   useEffect(() => {
-    loadDataWithRetry();
-  }, [scanTimestamp, retryCount]);
+    loadData();
+  }, []);
 
-  const loadDataWithRetry = async () => {
-    loadAttempts.current += 1;
-    setLoadingProgress(`Загрузка данных... Попытка ${loadAttempts.current}`);
+  const loadData = async () => {
+    setLoading(true);
     
     try {
-      const data = await loadData();
+      // Загружаем сохраненные данные
+      const foldersStr = await AsyncStorage.getItem('scanned_folders');
+      const songsStr = await AsyncStorage.getItem('scanned_songs');
       
-      if (data) {
-        // Данные успешно загружены
-        setFolders(data.folders);
-        setSongs(data.songs);
-        setRootFolder(data.rootFolder);
-        calculateFolderSongsCount(data.songs, data.folders);
-        setLoading(false);
-      } else if (loadAttempts.current < maxRetries) {
-        // Данных нет, пробуем снова через задержку
-        setLoadingProgress(`Данные не готовы, повтор через ${retryDelay}мс...`);
-        setTimeout(() => {
-          setRetryCount(prev => prev + 1);
-        }, retryDelay);
-      } else {
-        // Превышено количество попыток
-        setLoadingProgress('Не удалось загрузить данные');
-        setTimeout(() => setLoading(false), 2000);
+      if (foldersStr) {
+        const parsedFolders = JSON.parse(foldersStr);
+        setFolders(parsedFolders);
+        console.log(`Loaded ${parsedFolders.length} folders`);
       }
+      
+      if (songsStr) {
+        const parsedSongs = JSON.parse(songsStr);
+        setSongs(parsedSongs);
+        setTotalSongs(parsedSongs.length);
+        console.log(`Loaded ${parsedSongs.length} songs`);
+      }
+      
     } catch (error) {
       console.error('Error loading data:', error);
-      setLoadingProgress(`Ошибка: ${error.message}`);
-      setTimeout(() => setLoading(false), 2000);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ==========================================
-  // ЗАГРУЗКА ДАННЫХ ИЗ STORAGE
-  // ==========================================
-  
-  const loadData = async () => {
-    try {
-      // Загружаем данные параллельно
-      const [foldersStr, songsStr, savedFolderStr] = await Promise.all([
-        AsyncStorage.getItem('scanned_folders'),
-        AsyncStorage.getItem('scanned_songs'),
-        AsyncStorage.getItem('selected_folder')
-      ]);
-      
-      // Проверяем, что данные действительно загрузились
-      if (!foldersStr || !songsStr) {
-        console.log('Data not ready yet');
-        return null;
-      }
-      
-      const parsedFolders = JSON.parse(foldersStr);
-      const parsedSongs = JSON.parse(songsStr);
-      
-      return {
-        folders: parsedFolders || [],
-        songs: parsedSongs || [],
-        rootFolder: savedFolderStr || ''
-      };
-      
-    } catch (error) {
-      console.error('Error parsing data:', error);
-      return null;
-    }
-  };
-
-  // ==========================================
-  // ПОДСЧЕТ ПЕСЕН В ПАПКАХ
-  // ==========================================
-  
-  const calculateFolderSongsCount = (songsList, foldersList) => {
-    const counts = {};
-    
-    // Считаем песни в каждой папке
-    songsList.forEach(song => {
-      const songFolder = song.uri.substring(0, song.uri.lastIndexOf('/'));
-      counts[songFolder] = (counts[songFolder] || 0) + 1;
-    });
-    
-    // Добавляем для каждой папки
-    foldersList.forEach(folder => {
-      const folderPath = folder.uri.replace('file://', '');
-      counts[folderPath] = counts[folderPath] || 0;
-    });
-    
-    setFolderSongsCount(counts);
-  };
-
-  // ==========================================
-  // НАВИГАЦИЯ
-  // ==========================================
-  
   const openFolder = (folder) => {
-    const folderSongs = songs.filter(song => 
-      song.uri.startsWith(folder.uri + '/')
-    );
+    // Для медиатеки folder.songs уже есть
+    // Для файловой системы нужно будет фильтровать
+    const folderSongs = folder.songs || [];
     
     navigation.navigate('Folder', {
-      folderUri: folder.uri,
+      folderId: folder.id,
       folderName: folder.name,
       settings,
       songs: folderSongs,
-      rootFolder: rootFolder
+      totalSongs: folderSongs.length
     });
   };
 
-  const openRoot = () => {
-    const rootSongs = songs.filter(song => {
-      const songFolder = song.uri.substring(0, song.uri.lastIndexOf('/'));
-      return songFolder === rootFolder.replace('file://', '');
-    });
-    
+  const openAllSongs = () => {
     navigation.navigate('Folder', {
-      folderUri: rootFolder,
+      folderId: 'all_songs',
       folderName: APP_FAVORITES_NAME,
       settings,
-      songs: rootSongs,
-      isRoot: true
+      songs: songs,
+      totalSongs: songs.length,
+      isAllSongs: true
     });
   };
 
-  // ==========================================
-  // ПОДСЧЕТ ПЕСЕН В КОРНЕ
-  // ==========================================
-  
-  const getRootSongsCount = () => {
-    if (!rootFolder || !songs.length) return 0;
-    
-    return songs.filter(song => {
-      const songFolder = song.uri.substring(0, song.uri.lastIndexOf('/'));
-      return songFolder === rootFolder.replace('file://', '');
-    }).length;
-  };
-
-  // ==========================================
-  // РЕНДЕРИНГ
-  // ==========================================
-  
   if (loading) {
     return (
       <View style={styles.container}>
@@ -180,18 +85,11 @@ export default function PlaylistsScreen({ navigation, route }) {
         />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={brandColor} />
-          <Text style={styles.loading}>{loadingProgress}</Text>
+          <Text style={styles.loading}>Загрузка...</Text>
         </View>
       </View>
     );
   }
-
-  const displayItems = [
-    { id: 'root', name: APP_FAVORITES_NAME, uri: rootFolder, isRoot: true },
-    ...folders
-  ];
-
-  const rootSongsCount = getRootSongsCount();
 
   return (
     <View style={styles.container}>
@@ -211,27 +109,29 @@ export default function PlaylistsScreen({ navigation, route }) {
       )}
       
       <FlatList
-        data={displayItems}
+        data={folders}
         keyExtractor={item => item.id}
-        renderItem={({ item }) => {
-          const count = item.isRoot 
-            ? rootSongsCount
-            : folderSongsCount[item.uri.replace('file://', '')] || 0;
-          
-          return (
-            <FolderItem 
-              folder={{ ...item, color: brandColor }}
-              onPress={() => item.isRoot ? openRoot() : openFolder(item)}
-              settings={settings}
-              songCount={count}
-            />
-          );
-        }}
+        renderItem={({ item }) => (
+          <FolderItem 
+            folder={{
+              ...item,
+              color: brandColor
+            }}
+            onPress={() => item.id === 'all_songs' ? openAllSongs() : openFolder(item)}
+            settings={settings}
+            songCount={item.count || 0}
+          />
+        )}
         ListHeaderComponent={
           <View style={styles.header}>
             <Text style={styles.totalSongs}>
-              Всего песен: {songs.length}
+              Всего песен: {totalSongs}
             </Text>
+            {scanMode && (
+              <Text style={styles.scanMode}>
+                Режим: {scanMode === 'media' ? 'Медиатека' : 'Файловая система'}
+              </Text>
+            )}
           </View>
         }
         ListEmptyComponent={
@@ -256,7 +156,7 @@ const styles = StyleSheet.create({
   },
   demoText: { color: '#333', fontSize: 12, fontWeight: '600' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  loading: { marginTop: 16, color: '#999', fontSize: 14 },
+  loading: { marginTop: 16, color: '#999', fontSize: 16 },
   empty: { fontSize: 20, fontWeight: '600', color: '#333', marginTop: 16 },
   header: {
     padding: 16,
@@ -267,5 +167,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+  },
+  scanMode: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 4,
   },
 });
