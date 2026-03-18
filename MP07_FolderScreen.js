@@ -1,25 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, Text, Alert, SafeAreaView } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { View, StyleSheet, FlatList, Alert, SafeAreaView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Header, SongItem, PlayerControls, SortMenu } from './MP04_Components';
+import { Header, SongItem, PlayerControls, SortMenu, SongActionDialog, MoveSongDialog } from './MP04_Components';
 import { getBrandColor, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
 import AudioPlayer from './MP03_AudioPlayer';
+import * as FileSystem from './MP02_FileSystem';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function FolderScreen({ route, navigation }) {
   const params = route?.params || {};
   const folderName = params.folderName || 'Папка';
   const settings = params.settings || {};
   const initialSongs = params.songs || [];
+  const folderId = params.folderId;
   
   const [currentSong, setCurrentSong] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [songs, setSongs] = useState(initialSongs);
   const [sortMode, setSortMode] = useState('addedAt');
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [autoPlayNext, setAutoPlayNext] = useState(true);
+  const [actionDialogVisible, setActionDialogVisible] = useState(false);
+  const [selectedSong, setSelectedSong] = useState(null);
+  const [moveDialogVisible, setMoveDialogVisible] = useState(false);
+  const [availableFolders, setAvailableFolders] = useState([]);
   
   const brandColor = getBrandColor(settings);
   const insets = useSafeAreaInsets();
+
+  // Загружаем доступные папки для перемещения
+  useEffect(() => {
+    loadAvailableFolders();
+  }, []);
+
+  const loadAvailableFolders = async () => {
+    const foldersStr = await AsyncStorage.getItem('scanned_folders');
+    if (foldersStr) {
+      const allFolders = JSON.parse(foldersStr);
+      // Исключаем текущую папку
+      const otherFolders = allFolders.filter(f => f.id !== folderId);
+      setAvailableFolders(otherFolders);
+    }
+  };
 
   // Сортировка песен
   useEffect(() => {
@@ -30,13 +54,11 @@ export default function FolderScreen({ route, navigation }) {
     } else if (sortMode === 'shuffle') {
       sorted = [...initialSongs].sort(() => Math.random() - 0.5);
     } else {
-      // addedAt - сортируем по дате добавления (новые сверху)
       sorted.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
     }
     
     setSongs(sorted);
     
-    // Обновляем плейлист в плеере
     if (sorted.length > 0) {
       const currentIndex = sorted.findIndex(s => s.id === currentSong?.id);
       AudioPlayer.setPlaylist(sorted, currentIndex >= 0 ? currentIndex : 0);
@@ -49,9 +71,31 @@ export default function FolderScreen({ route, navigation }) {
       const status = AudioPlayer.getStatus();
       setCurrentSong(status.currentSong);
       setIsPlaying(status.isPlaying);
+      setProgress(status.progress || 0);
+      setDuration(status.duration || 0);
     }, 100);
     return () => clearInterval(interval);
   }, []);
+
+  // Обработка окончания трека
+  useEffect(() => {
+    AudioPlayer.setOnFinish(() => {
+      if (autoPlayNext) {
+        playNext();
+      } else {
+        AudioPlayer.pause();
+      }
+    });
+    return () => AudioPlayer.setOnFinish(null);
+  }, [autoPlayNext]);
+
+  // При выходе из папки ставим на паузу
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', () => {
+      AudioPlayer.pause();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const playSong = async (song) => {
     try {
@@ -62,11 +106,7 @@ export default function FolderScreen({ route, navigation }) {
   };
 
   const togglePlayPause = async () => {
-    try {
-      await AudioPlayer.toggle();
-    } catch (error) {
-      console.error('Error toggling play/pause:', error);
-    }
+    await AudioPlayer.toggle();
   };
 
   const playNext = () => {
@@ -83,8 +123,60 @@ export default function FolderScreen({ route, navigation }) {
     playSong(songs[prevIndex]);
   };
 
+  const handleSeek = async (value) => {
+    if (currentSong && AudioPlayer.sound) {
+      await AudioPlayer.sound.setPositionAsync(value * duration * 1000);
+    }
+  };
+
   const handleSortChange = (newSort) => {
     setSortMode(newSort);
+  };
+
+  const handleSongLongPress = (song) => {
+    setSelectedSong(song);
+    setActionDialogVisible(true);
+  };
+
+  const handleMove = () => {
+    setActionDialogVisible(false);
+    setMoveDialogVisible(true);
+  };
+
+  const handleShare = async () => {
+    setActionDialogVisible(false);
+    if (selectedSong) {
+      await FileSystem.shareFile(selectedSong.uri);
+    }
+  };
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Удаление',
+      'Удалить этот трек?',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Удалить',
+          style: 'destructive',
+          onPress: async () => {
+            // Здесь логика удаления
+            setActionDialogVisible(false);
+            Alert.alert('Успех', 'Функция удаления будет добавлена');
+          }
+        }
+      ]
+    );
+  };
+
+  const handleMoveConfirm = async (destFolderUri) => {
+    if (selectedSong) {
+      await FileSystem.moveAudioFile(selectedSong.uri, destFolderUri);
+      setMoveDialogVisible(false);
+      setSelectedSong(null);
+      // Обновляем список песен
+      setSongs(prev => prev.filter(s => s.id !== selectedSong.id));
+    }
   };
 
   return (
@@ -115,6 +207,7 @@ export default function FolderScreen({ route, navigation }) {
             item={item}
             isPlaying={currentSong?.id === item.id && isPlaying}
             onPress={() => playSong(item)}
+            onLongPress={() => handleSongLongPress(item)}
             settings={settings}
           />
         )}
@@ -133,6 +226,11 @@ export default function FolderScreen({ route, navigation }) {
         onPlayPause={togglePlayPause}
         onNext={playNext}
         onPrevious={playPrevious}
+        progress={progress}
+        duration={duration}
+        onSeek={handleSeek}
+        autoPlayNext={autoPlayNext}
+        onToggleAutoPlay={() => setAutoPlayNext(!autoPlayNext)}
         settings={settings}
       />
 
@@ -141,6 +239,28 @@ export default function FolderScreen({ route, navigation }) {
         onClose={() => setSortMenuVisible(false)}
         currentSort={sortMode}
         onSortChange={handleSortChange}
+      />
+
+      <SongActionDialog
+        visible={actionDialogVisible}
+        onClose={() => setActionDialogVisible(false)}
+        onMove={handleMove}
+        onShare={handleShare}
+        onDelete={handleDelete}
+        song={selectedSong}
+        settings={settings}
+      />
+
+      <MoveSongDialog
+        visible={moveDialogVisible}
+        folders={availableFolders}
+        onSelect={handleMoveConfirm}
+        onCancel={() => {
+          setMoveDialogVisible(false);
+          setSelectedSong(null);
+        }}
+        settings={settings}
+        song={selectedSong}
       />
     </SafeAreaView>
   );
@@ -162,6 +282,6 @@ const styles = StyleSheet.create({
   emptyContainer: { padding: 40, alignItems: 'center' },
   emptyText: { fontSize: 16, color: '#999', marginTop: 16 },
   listContent: { 
-    paddingBottom: 80,
+    paddingBottom: 180,
   },
 });
