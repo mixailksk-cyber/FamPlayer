@@ -78,24 +78,22 @@ export const PlayerControls = ({ currentSong, isPlaying, onPlayPause, onNext, on
   
   return (
     <View style={styles.playerContainer}>
-      <View style={styles.playerContent}>
-        <Text style={styles.nowPlayingTitle} numberOfLines={1}>
-          {currentSong.title}
-        </Text>
+      <Text style={styles.nowPlayingTitle} numberOfLines={1}>
+        {currentSong.title}
+      </Text>
+      
+      <View style={styles.controlsRow}>
+        <TouchableOpacity onPress={onPrevious} style={styles.controlButton}>
+          <MaterialIcons name="skip-previous" size={32} color={brandColor} />
+        </TouchableOpacity>
         
-        <View style={styles.controlsRow}>
-          <TouchableOpacity onPress={onPrevious} style={styles.controlButton}>
-            <MaterialIcons name="skip-previous" size={32} color={brandColor} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity onPress={onPlayPause} style={[styles.playButton, { backgroundColor: brandColor }]}>
-            <MaterialIcons name={isPlaying ? "pause" : "play-arrow"} size={36} color="white" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity onPress={onNext} style={styles.controlButton}>
-            <MaterialIcons name="skip-next" size={32} color={brandColor} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity onPress={onPlayPause} style={[styles.playButton, { backgroundColor: brandColor }]}>
+          <MaterialIcons name={isPlaying ? "pause" : "play-arrow"} size={36} color="white" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity onPress={onNext} style={styles.controlButton}>
+          <MaterialIcons name="skip-next" size={32} color={brandColor} />
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -145,11 +143,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
+    padding: 16,
     paddingBottom: 8,
-    paddingTop: 8,
-  },
-  playerContent: {
-    paddingHorizontal: 16,
   },
   nowPlayingTitle: {
     fontSize: 14,
