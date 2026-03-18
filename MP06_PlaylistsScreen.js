@@ -24,14 +24,17 @@ export default function PlaylistsScreen({ navigation, route }) {
     setLoading(true);
     
     try {
-      // Загружаем сохраненные данные
       const foldersStr = await AsyncStorage.getItem('scanned_folders');
       const songsStr = await AsyncStorage.getItem('scanned_songs');
       
       if (foldersStr) {
         const parsedFolders = JSON.parse(foldersStr);
-        setFolders(parsedFolders);
-        console.log(`Loaded ${parsedFolders.length} folders`);
+        
+        // Фильтруем папки - показываем только те, где есть файлы
+        const foldersWithSongs = parsedFolders.filter(folder => (folder.count || 0) > 0);
+        
+        setFolders(foldersWithSongs);
+        console.log(`Loaded ${foldersWithSongs.length} folders with songs`);
       }
       
       if (songsStr) {
@@ -49,16 +52,12 @@ export default function PlaylistsScreen({ navigation, route }) {
   };
 
   const openFolder = (folder) => {
-    // Для медиатеки folder.songs уже есть
-    // Для файловой системы нужно будет фильтровать
-    const folderSongs = folder.songs || [];
-    
     navigation.navigate('Folder', {
       folderId: folder.id,
       folderName: folder.name,
       settings,
-      songs: folderSongs,
-      totalSongs: folderSongs.length
+      songs: folder.songs || [],
+      totalSongs: folder.count || 0
     });
   };
 
@@ -137,7 +136,7 @@ export default function PlaylistsScreen({ navigation, route }) {
         ListEmptyComponent={
           <View style={styles.center}>
             <MaterialIcons name="folder-off" size={64} color="#E0E0E0" />
-            <Text style={styles.empty}>Нет папок</Text>
+            <Text style={styles.empty}>Нет папок с музыкой</Text>
           </View>
         }
       />
