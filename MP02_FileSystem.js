@@ -17,12 +17,6 @@ const DEMO_SONGS = [
   { id: '1', title: 'sdvsd.mp3', uri: 'demo://root/sdvsd.mp3', folder: APP_FAVORITES_NAME, addedAt: Date.now() - 100000 },
   { id: '2', title: 'sfdb.mp3', uri: 'demo://root/sfdb.mp3', folder: APP_FAVORITES_NAME, addedAt: Date.now() - 90000 },
   { id: '3', title: 'sdvs.mp3', uri: 'demo://root/sdvs.mp3', folder: APP_FAVORITES_NAME, addedAt: Date.now() - 80000 },
-  { id: '4', title: '1.mp3', uri: 'demo://root/Жатва/1.mp3', folder: 'Жатва', addedAt: Date.now() - 70000 },
-  { id: '5', title: '2.mp3', uri: 'demo://root/Жатва/2.mp3', folder: 'Жатва', addedAt: Date.now() - 60000 },
-  { id: '6', title: 'df.mp3', uri: 'demo://root/Пасха/df.mp3', folder: 'Пасха', addedAt: Date.now() - 50000 },
-  { id: '7', title: 'kjnj.mp3', uri: 'demo://root/Пасха/kjnj.mp3', folder: 'Пасха', addedAt: Date.now() - 40000 },
-  { id: '8', title: '7.mp3', uri: 'demo://root/Корзина/7.mp3', folder: TRASH_FOLDER_NAME, addedAt: Date.now() - 30000 },
-  { id: '9', title: '8.mp3', uri: 'demo://root/Корзина/8.mp3', folder: TRASH_FOLDER_NAME, addedAt: Date.now() - 20000 },
 ];
 
 const ROOT_FOLDER_KEY = '@root_folder';
@@ -34,12 +28,12 @@ const SCAN_MODE_KEY = '@scan_mode';
 // ==========================================
 
 export const SCAN_MODES = {
-  FOLDER: 'folder',      // Ручной выбор папки (старый способ)
-  MEDIA: 'media'         // Медиатека (быстрый способ)
+  FOLDER: 'folder',
+  MEDIA: 'media'
 };
 
 // ==========================================
-// СОХРАНЕНИЕ РЕЖИМА СКАНИРОВАНИЯ
+// СОХРАНЕНИЕ РЕЖИМА
 // ==========================================
 
 export const saveScanMode = async (mode) => {
@@ -52,73 +46,106 @@ export const saveScanMode = async (mode) => {
 export const getScanMode = async () => {
   try {
     const mode = await AsyncStorage.getItem(SCAN_MODE_KEY);
-    return mode || SCAN_MODES.FOLDER; // По умолчанию старый способ
-  } catch { return SCAN_MODES.FOLDER; }
+    return mode || SCAN_MODES.MEDIA; // По умолчанию Медиатека (быстрый режим)
+  } catch { return SCAN_MODES.MEDIA; }
 };
 
 // ==========================================
-// ВАРИАНТ 1: СКАНИРОВАНИЕ ЧЕРЕЗ MEDIA LIBRARY (БЫСТРЫЙ)
+// ВАРИАНТ 1: MEDIA LIBRARY (РАБОЧИЙ)
 // ==========================================
 
 export const scanWithMediaLibrary = async () => {
   if (IS_WEB_STUB) return { folders: [], songs: [] };
 
   try {
-    // Запрашиваем разрешения
+    console.log('📱 Starting MediaLibrary scan...');
+    
     const { status } = await MediaLibrary.requestPermissionsAsync();
     if (status !== 'granted') {
       throw new Error('Нет доступа к медиатеке');
     }
 
-    // Получаем все аудиофайлы
+    // Получаем ВСЕ аудиофайлы
     const media = await MediaLibrary.getAssetsAsync({
       mediaType: 'audio',
-      first: 10000, // Большой лимит
+      first: 10000,
     });
 
-    console.log(`MediaLibrary: найдено ${media.totalCount} файлов`);
+    console.log(`📊 Found ${media.totalCount} total audio files`);
 
-    // Пытаемся получить альбомы (группировка)
+    // Получаем все альбомы
     const albums = await MediaLibrary.getAlbumsAsync();
-    console.log(`MediaLibrary: найдено ${albums.length} альбомов`);
+    console.log(`📊 Found ${albums.length} albums`);
 
-    // Преобразуем в наш формат
-    const songs = media.assets.map(asset => ({
-      id: asset.id,
-      title: asset.filename,
-      filename: asset.filename,
-      uri: asset.uri,
-      duration: asset.duration,
-      addedAt: asset.creationTime,
-      albumId: asset.albumId,
-    }));
+    // Создаем карту для быстрого доступа к песням по альбомам
+    const songsByAlbum = {};
+    const allSongs = [];
 
-    // Для альбомов (папок) используем albums
+    // Сначала собираем все песни
+    for (const asset of media.assets) {
+      const song = {
+        id: asset.id,
+        title: asset.filename,
+        filename: asset.filename,
+        uri: asset.uri,
+        duration: asset.duration,
+        addedAt: asset.creationTime,
+        albumId: asset.albumId,
+        albumTitle: null, // Заполним позже
+      };
+      allSongs.push(song);
+      
+      if (asset.albumId) {
+        if (!songsByAlbum[asset.albumId]) {
+          songsByAlbum[asset.albumId] = [];
+        }
+        songsByAlbum[asset.albumId].push(song);
+      }
+    }
+
+    // Создаем список папок (альбомов) с количеством песен
     const folders = albums.map(album => ({
       id: album.id,
-      name: album.title,
+      name: album.title || 'Без названия',
       uri: `album://${album.id}`,
-      count: album.assetCount,
+      count: songsByAlbum[album.id]?.length || 0,
+      songs: songsByAlbum[album.id] || [],
     }));
 
+    // Добавляем папку "Все песни"
+    const allSongsFolder = {
+      id: 'all_songs',
+      name: APP_FAVORITES_NAME,
+      uri: 'album://all',
+      count: allSongs.length,
+      songs: allSongs,
+    };
+
+    const allFolders = [allSongsFolder, ...folders];
+
+    console.log(`✅ MediaLibrary scan complete: ${allFolders.length} folders, ${allSongs.length} songs`);
+
     return { 
-      folders, 
-      songs,
+      folders: allFolders, 
+      songs: allSongs,
       stats: {
         total: media.totalCount,
-        albums: albums.length
+        albums: albums.length,
+        foldersWithSongs: folders.filter(f => f.count > 0).length
       }
     };
 
   } catch (error) {
-    console.error('Error in scanWithMediaLibrary:', error);
+    console.error('❌ Error in scanWithMediaLibrary:', error);
     throw error;
   }
 };
 
 // ==========================================
-// ВАРИАНТ 2: СКАНИРОВАНИЕ ЧЕРЕЗ ФАЙЛОВУЮ СИСТЕМУ (СТАРЫЙ СПОСОБ)
+// ВАРИАНТ 2: ФАЙЛОВАЯ СИСТЕМА (LEGACY)
 // ==========================================
+
+import * as LegacyFileSystem from 'expo-file-system/legacy';
 
 export const pickFolder = async () => {
   if (IS_WEB_STUB) return DEMO_ROOT;
@@ -143,6 +170,8 @@ export const pickFolder = async () => {
         if (lastSlash !== -1) {
           const folderPath = path.substring(0, lastSlash);
           folderUri = `${parts[0]}/tree/${folderPath}`;
+        } else {
+          folderUri = `${parts[0]}/tree/${path}`;
         }
       }
     }
@@ -160,24 +189,25 @@ export const scanWithFileSystem = async (folderUri) => {
   if (IS_WEB_STUB) return { folders: [], songs: [] };
 
   try {
-    console.log('FileSystem scan of:', folderUri);
+    console.log('📁 Starting FileSystem scan of:', folderUri);
     
-    // Проверяем тип URI
-    if (folderUri.startsWith('content://')) {
+    // Используем LEGACY API для совместимости
+    let cleanPath = folderUri;
+    if (folderUri.startsWith('file://')) {
+      cleanPath = folderUri.replace('file://', '');
+    } else if (folderUri.startsWith('content://')) {
+      // Для content:// URI используем другой подход
       Alert.alert(
         'Внешний накопитель',
-        'Для сканирования внешней SD-карты через файловую систему есть ограничения.\n' +
-        'Рекомендуется использовать режим "Медиатека" для лучшего результата.',
-        [
-          { text: 'Продолжить', style: 'default' },
-          { text: 'Отмена', style: 'cancel' }
-        ]
+        'Для сканирования внешних накопителей рекомендуется использовать режим "Медиатека".\n\n' +
+        'Попробуйте переключить режим сканирования.',
+        [{ text: 'OK' }]
       );
+      return { folders: [], songs: [] };
     }
 
-    // Очищаем URI
-    const cleanPath = folderUri.replace('file://', '').replace('/tree/', '/');
-    const items = await FileSystem.readDirectoryAsync(cleanPath);
+    // Используем legacy API
+    const items = await LegacyFileSystem.readDirectoryAsync(cleanPath);
     
     const audioExtensions = ['.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac'];
     const folders = [];
@@ -185,13 +215,14 @@ export const scanWithFileSystem = async (folderUri) => {
     
     for (const item of items) {
       const itemPath = `${cleanPath}/${item}`;
-      const info = await FileSystem.getInfoAsync(itemPath);
+      const info = await LegacyFileSystem.getInfoAsync(itemPath);
       
       if (info.isDirectory) {
         folders.push({
           id: itemPath,
           name: item,
           uri: `file://${itemPath}`,
+          count: 0, // Пока не знаем сколько внутри
         });
       } else {
         const ext = item.substring(item.lastIndexOf('.')).toLowerCase();
@@ -207,16 +238,18 @@ export const scanWithFileSystem = async (folderUri) => {
       }
     }
     
+    console.log(`✅ FileSystem scan complete: ${folders.length} folders, ${songs.length} songs`);
+    
     return { folders, songs };
     
   } catch (error) {
-    console.error('Error in scanWithFileSystem:', error);
-    throw error;
+    console.error('❌ Error in scanWithFileSystem:', error);
+    throw new Error(`Ошибка сканирования: ${error.message}`);
   }
 };
 
 // ==========================================
-// УНИВЕРСАЛЬНАЯ ФУНКЦИЯ СКАНИРОВАНИЯ
+// УНИВЕРСАЛЬНАЯ ФУНКЦИЯ
 // ==========================================
 
 export const scanMusic = async (mode, folderUri = null) => {
@@ -275,23 +308,15 @@ export const getFoldersList = async () => {
   } catch { return []; }
 };
 
-// Остальные функции для совместимости
-export const getPlaylistFolders = async () => {
-  if (IS_WEB_STUB) return DEMO_FOLDERS;
-  return [];
-};
-
-export const getRootFiles = async () => {
-  if (IS_WEB_STUB) return DEMO_SONGS.filter(s => s.folder === APP_FAVORITES_NAME);
-  return [];
-};
-
-export const getFolderFiles = async (folderUri) => {
-  if (IS_WEB_STUB) {
-    const folderName = folderUri?.split('/').pop();
-    return DEMO_SONGS.filter(s => s.folder === folderName);
+// Для совместимости с MP06_PlaylistsScreen
+export const getFolderFiles = async (folderId) => {
+  try {
+    const folders = await getFoldersList();
+    const folder = folders.find(f => f.id === folderId);
+    return folder?.songs || [];
+  } catch {
+    return [];
   }
-  return [];
 };
 
 export const getFolderColor = async (folderName) => {
@@ -310,9 +335,4 @@ export const setFolderColor = async (folderName, color) => {
     await AsyncStorage.setItem(FOLDER_COLORS_KEY, JSON.stringify(colorsMap));
     return true;
   } catch { return false; }
-};
-
-export const getAllSongs = async () => {
-  if (IS_WEB_STUB) return DEMO_SONGS;
-  return [];
 };
