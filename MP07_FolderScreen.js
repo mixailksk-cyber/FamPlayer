@@ -11,7 +11,6 @@ export default function FolderScreen({ route, navigation }) {
   const folderName = params.folderName || 'Папка';
   const settings = params.settings || {};
   const songs = params.songs || [];
-  const totalSongs = params.totalSongs || songs.length;
   
   const [currentSong, setCurrentSong] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -19,15 +18,13 @@ export default function FolderScreen({ route, navigation }) {
   const brandColor = getBrandColor(settings);
   const insets = useSafeAreaInsets();
 
-  // Добавляем отладку
   const addDebug = (message) => {
     console.log(`[FolderScreen] ${message}`);
-    setDebug(prev => [...prev.slice(-5), message]); // Храним последние 5 сообщений
+    setDebug(prev => [...prev.slice(-5), message]);
   };
 
-  // Синхронизация с плеером
   useEffect(() => {
-    addDebug('Component mounted');
+    addDebug('Компонент загружен');
     const interval = setInterval(() => {
       const status = AudioPlayer.getStatus();
       setCurrentSong(status.currentSong);
@@ -35,48 +32,46 @@ export default function FolderScreen({ route, navigation }) {
     }, 100);
     return () => {
       clearInterval(interval);
-      addDebug('Component unmounted');
+      addDebug('Компонент размонтирован');
     };
   }, []);
 
-  // Устанавливаем плейлист при загрузке
   useEffect(() => {
     if (songs.length > 0) {
-      addDebug(`Setting playlist with ${songs.length} songs`);
+      addDebug(`Установлен плейлист с ${songs.length} песнями`);
       AudioPlayer.setPlaylist(songs);
     }
   }, [songs]);
 
   const playSong = async (song) => {
     try {
-      addDebug(`Attempting to play: ${song.title}`);
+      addDebug(`Попытка воспроизвести: ${song.title}`);
       
-      // Проверяем наличие URI
       if (!song.uri) {
-        throw new Error('No URI for song');
+        throw new Error('Нет URI для песни');
       }
       
-      addDebug(`Song URI: ${song.uri}`);
+      addDebug(`URI песни: ${song.uri.substring(0, 50)}...`);
       
       const result = await AudioPlayer.loadSong(song, true);
       
       if (result) {
-        addDebug(`✅ Playback started successfully`);
+        addDebug(`✅ Воспроизведение запущено`);
       } else {
-        addDebug(`❌ Failed to start playback`);
+        addDebug(`❌ Не удалось запустить воспроизведение`);
       }
     } catch (error) {
-      addDebug(`❌ Error: ${error.message}`);
+      addDebug(`❌ Ошибка: ${error.message}`);
       Alert.alert('Ошибка', `Не удалось воспроизвести файл: ${error.message}`);
     }
   };
 
   const togglePlayPause = async () => {
     try {
-      addDebug(`Toggle play/pause`);
+      addDebug(`Переключение play/pause`);
       await AudioPlayer.toggle();
     } catch (error) {
-      addDebug(`❌ Toggle error: ${error.message}`);
+      addDebug(`❌ Ошибка переключения: ${error.message}`);
     }
   };
 
@@ -84,7 +79,7 @@ export default function FolderScreen({ route, navigation }) {
     if (!currentSong || songs.length === 0) return;
     const index = songs.findIndex(s => s.id === currentSong.id);
     const nextIndex = (index + 1) % songs.length;
-    addDebug(`Playing next: ${songs[nextIndex].title}`);
+    addDebug(`Следующий трек: ${songs[nextIndex].title}`);
     playSong(songs[nextIndex]);
   };
 
@@ -92,7 +87,7 @@ export default function FolderScreen({ route, navigation }) {
     if (!currentSong || songs.length === 0) return;
     const index = songs.findIndex(s => s.id === currentSong.id);
     const prevIndex = (index - 1 + songs.length) % songs.length;
-    addDebug(`Playing previous: ${songs[prevIndex].title}`);
+    addDebug(`Предыдущий трек: ${songs[prevIndex].title}`);
     playSong(songs[prevIndex]);
   };
 
@@ -170,7 +165,7 @@ const styles = StyleSheet.create({
   emptyContainer: { padding: 40, alignItems: 'center' },
   emptyText: { fontSize: 16, color: '#999', marginTop: 16 },
   listContent: { 
-    paddingBottom: 180, // Увеличен отступ для панели отладки
+    paddingBottom: 180,
   },
   debugPanel: {
     backgroundColor: '#1A1A1A',
