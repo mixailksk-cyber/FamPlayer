@@ -1,8 +1,10 @@
 import { Alert } from 'react-native';
 import { IS_WEB_STUB } from './MP01_Core';
+import { Audio } from 'expo-av';
 
 class AudioPlayer {
   constructor() {
+    this.sound = null;
     this.currentSong = null;
     this.isPlaying = false;
     this.isPaused = false;
@@ -12,11 +14,21 @@ class AudioPlayer {
     this.shuffleMode = false;
     this.shuffledPlaylist = [];
     this.currentIndex = -1;
+    this.debug = [];
+  }
+
+  addDebug(message) {
+    const timestamp = new Date().toLocaleTimeString();
+    const log = `[AudioPlayer ${timestamp}] ${message}`;
+    console.log(log);
+    this.debug.push(log);
   }
 
   async loadSong(song, shouldPlay = true) {
+    this.addDebug(`loadSong: ${song?.title}, shouldPlay: ${shouldPlay}`);
+    
     if (IS_WEB_STUB) {
-      console.log('Demo: loading song', song.title);
+      this.addDebug(`Demo mode: loading song ${song.title}`);
       this.currentSong = song;
       this.isPlaying = shouldPlay;
       this.isPaused = !shouldPlay;
@@ -27,38 +39,105 @@ class AudioPlayer {
       }, 30000);
       return true;
     }
-    return false;
+
+    try {
+      // Выгружаем предыдущий звук если есть
+      if (this.sound) {
+        this.addDebug('Unloading previous sound');
+        await this.sound.unloadAsync();
+        this.sound = null;
+      }
+
+      this.addDebug(`Creating sound from URI: ${song.uri}`);
+      
+      // Создаем звук
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: song.uri },
+        { shouldPlay: shouldPlay },
+        this._onPlaybackStatusUpdate.bind(this)
+      );
+      
+      this.sound = sound;
+      this.currentSong = song;
+      this.isPlaying = shouldPlay;
+      this.isPaused = !shouldPlay;
+      
+      this.addDebug(`Sound loaded successfully, shouldPlay: ${shouldPlay}`);
+      
+      return true;
+    } catch (error) {
+      this.addDebug(`❌ Error loading sound: ${error.message}`);
+      Alert.alert('Ошибка', 'Не удалось загрузить файл');
+      return false;
+    }
+  }
+
+  _onPlaybackStatusUpdate(status) {
+    if (status.isLoaded) {
+      this.isPlaying = status.isPlaying;
+      this.isPaused = !status.isPlaying && status.isLoaded;
+      
+      if (status.didJustFinish && this.onFinishCallback) {
+        this.addDebug('Song finished, calling callback');
+        this.onFinishCallback();
+      }
+    }
   }
 
   async play() {
-    if (IS_WEB_STUB) {
+    this.addDebug('play called');
+    if (!this.sound || !this.currentSong) {
+      this.addDebug('No sound loaded');
+      return false;
+    }
+    
+    try {
+      await this.sound.playAsync();
       this.isPlaying = true;
       this.isPaused = false;
+      this.addDebug('Playback started');
       return true;
+    } catch (error) {
+      this.addDebug(`Error playing: ${error.message}`);
+      return false;
     }
-    return false;
   }
 
   async pause() {
-    if (IS_WEB_STUB) {
+    this.addDebug('pause called');
+    if (!this.sound || !this.currentSong) {
+      this.addDebug('No sound loaded');
+      return false;
+    }
+    
+    try {
+      await this.sound.pauseAsync();
       this.isPlaying = false;
       this.isPaused = true;
+      this.addDebug('Playback paused');
       return true;
+    } catch (error) {
+      this.addDebug(`Error pausing: ${error.message}`);
+      return false;
     }
-    return false;
   }
 
   async toggle() {
+    this.addDebug('toggle called');
     return this.isPlaying ? this.pause() : this.play();
   }
 
   async unload() {
-    if (IS_WEB_STUB) {
-      if (this.demoInterval) clearTimeout(this.demoInterval);
-      this.currentSong = null;
-      this.isPlaying = false;
-      this.isPaused = false;
+    this.addDebug('unload called');
+    if (this.sound) {
+      await this.sound.unloadAsync();
+      this.sound = null;
     }
+    if (this.demoInterval) clearTimeout(this.demoInterval);
+    this.currentSong = null;
+    this.isPlaying = false;
+    this.isPaused = false;
+    this.addDebug('Unloaded');
   }
 
   setOnFinish(callback) {
@@ -75,10 +154,13 @@ class AudioPlayer {
   }
 
   setPlaylist(songs, startIndex = 0) {
+    this.addDebug(`setPlaylist: ${songs.length} songs, startIndex: ${startIndex}`);
     this.playlist = songs;
     this.shuffledPlaylist = [...songs];
     this.currentIndex = startIndex;
-    if (songs.length > 0) this.currentSong = songs[startIndex];
+    if (songs.length > 0) {
+      this.currentSong = songs[startIndex];
+    }
   }
 
   toggleShuffle() {
