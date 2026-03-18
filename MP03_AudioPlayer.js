@@ -1,9 +1,8 @@
 import { Alert } from 'react-native';
-import { IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
+import { IS_WEB_STUB } from './MP01_Core';
 
 class AudioPlayer {
   constructor() {
-    this.sound = null;
     this.currentSong = null;
     this.isPlaying = false;
     this.isPaused = false;
@@ -22,16 +21,10 @@ class AudioPlayer {
       this.isPlaying = shouldPlay;
       this.isPaused = !shouldPlay;
       
-      if (this.demoInterval) {
-        clearTimeout(this.demoInterval);
-      }
-      
+      if (this.demoInterval) clearTimeout(this.demoInterval);
       this.demoInterval = setTimeout(() => {
-        if (this.onFinishCallback) {
-          this.onFinishCallback();
-        }
+        if (this.onFinishCallback) this.onFinishCallback();
       }, 30000);
-      
       return true;
     }
     return false;
@@ -61,11 +54,7 @@ class AudioPlayer {
 
   async unload() {
     if (IS_WEB_STUB) {
-      if (this.demoInterval) {
-        clearTimeout(this.demoInterval);
-        this.demoInterval = null;
-      }
-      this.sound = null;
+      if (this.demoInterval) clearTimeout(this.demoInterval);
       this.currentSong = null;
       this.isPlaying = false;
       this.isPaused = false;
@@ -85,29 +74,23 @@ class AudioPlayer {
     };
   }
 
-  // Управление плейлистом
   setPlaylist(songs, startIndex = 0) {
     this.playlist = songs;
     this.shuffledPlaylist = [...songs];
     this.currentIndex = startIndex;
-    if (songs.length > 0) {
-      this.currentSong = songs[startIndex];
-    }
+    if (songs.length > 0) this.currentSong = songs[startIndex];
   }
 
   toggleShuffle() {
     this.shuffleMode = !this.shuffleMode;
     if (this.shuffleMode) {
-      // Перемешиваем плейлист
       this.shuffledPlaylist = [...this.playlist];
       for (let i = this.shuffledPlaylist.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [this.shuffledPlaylist[i], this.shuffledPlaylist[j]] = [this.shuffledPlaylist[j], this.shuffledPlaylist[i]];
       }
-      // Находим текущую песню в перемешанном списке
       this.currentIndex = this.shuffledPlaylist.findIndex(s => s.id === this.currentSong?.id);
     } else {
-      // Возвращаемся к оригинальному порядку
       this.currentIndex = this.playlist.findIndex(s => s.id === this.currentSong?.id);
     }
   }
@@ -115,22 +98,16 @@ class AudioPlayer {
   getNextSong() {
     const playlist = this.shuffleMode ? this.shuffledPlaylist : this.playlist;
     if (playlist.length === 0) return null;
-    
     let nextIndex = this.currentIndex + 1;
-    if (nextIndex >= playlist.length) {
-      nextIndex = 0;
-    }
+    if (nextIndex >= playlist.length) nextIndex = 0;
     return { song: playlist[nextIndex], index: nextIndex };
   }
 
   getPreviousSong() {
     const playlist = this.shuffleMode ? this.shuffledPlaylist : this.playlist;
     if (playlist.length === 0) return null;
-    
     let prevIndex = this.currentIndex - 1;
-    if (prevIndex < 0) {
-      prevIndex = playlist.length - 1;
-    }
+    if (prevIndex < 0) prevIndex = playlist.length - 1;
     return { song: playlist[prevIndex], index: prevIndex };
   }
 
