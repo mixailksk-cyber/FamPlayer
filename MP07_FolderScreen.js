@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, Text } from 'react-native';
+import { View, StyleSheet, FlatList, Text, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Header, SongItem, PlayerControls } from './MP04_Components';
 import { getBrandColor, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
@@ -16,6 +16,7 @@ export default function FolderScreen({ route, navigation }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const brandColor = getBrandColor(settings);
 
+  // Синхронизация с плеером
   useEffect(() => {
     const interval = setInterval(() => {
       const status = AudioPlayer.getStatus();
@@ -25,12 +26,29 @@ export default function FolderScreen({ route, navigation }) {
     return () => clearInterval(interval);
   }, []);
 
+  // Устанавливаем плейлист при загрузке
+  useEffect(() => {
+    if (songs.length > 0) {
+      AudioPlayer.setPlaylist(songs);
+    }
+  }, [songs]);
+
   const playSong = async (song) => {
-    await AudioPlayer.loadSong(song, true);
+    try {
+      console.log('Playing song:', song.title);
+      await AudioPlayer.loadSong(song, true);
+    } catch (error) {
+      console.error('Error playing song:', error);
+      Alert.alert('Ошибка', 'Не удалось воспроизвести файл');
+    }
   };
 
   const togglePlayPause = async () => {
-    await AudioPlayer.toggle();
+    try {
+      await AudioPlayer.toggle();
+    } catch (error) {
+      console.error('Error toggling play/pause:', error);
+    }
   };
 
   const playNext = () => {
