@@ -122,18 +122,25 @@ export const MoveSongDialog = ({ visible, folders, onSelect, onCancel, settings,
 
 export const PlayerControls = ({ currentSong, isPlaying, onPlayPause, onNext, onPrevious, settings }) => {
   const brandColor = getBrandColor(settings);
+  
   if (!currentSong) return null;
+  
   return (
     <View style={styles.playerContainer}>
-      <Text style={styles.nowPlayingTitle} numberOfLines={1}>{currentSong.title}</Text>
+      <Text style={styles.nowPlayingTitle} numberOfLines={1}>
+        {currentSong.title}
+      </Text>
+      
       <View style={styles.controlsRow}>
-        <TouchableOpacity onPress={onPrevious} style={styles.controlButton}>
+        <TouchableOpacity onPress={onPrevious} style={styles.controlButtonLarge}>
           <MaterialIcons name="skip-previous" size={40} color={brandColor} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={onPlayPause} style={[styles.playButton, { backgroundColor: brandColor }]}>
+        
+        <TouchableOpacity onPress={onPlayPause} style={[styles.playButtonLarge, { backgroundColor: brandColor }]}>
           <MaterialIcons name={isPlaying ? "pause" : "play-arrow"} size={48} color="white" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={onNext} style={styles.controlButton}>
+        
+        <TouchableOpacity onPress={onNext} style={styles.controlButtonLarge}>
           <MaterialIcons name="skip-next" size={40} color={brandColor} />
         </TouchableOpacity>
       </View>
@@ -200,13 +207,55 @@ const styles = StyleSheet.create({
   modalItemText: { fontSize: 16, color: '#333', flex: 1 },
   modalCancel: { marginTop: 16, paddingVertical: 12, alignItems: 'center' },
   
-  playerContainer: { paddingVertical: 16, paddingHorizontal: 20, borderTopWidth: 2, borderTopColor: '#E0E0E0', backgroundColor: 'white' },
-  nowPlayingTitle: { fontSize: 18, fontWeight: '600', color: '#333', textAlign: 'center', marginBottom: 20 },
-  controlsRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-  controlButton: { padding: 15, marginHorizontal: 10 },
-  playButton: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginHorizontal: 20 },
+  playerContainer: { 
+    paddingVertical: 20, 
+    paddingHorizontal: 20, 
+    borderTopWidth: 2, 
+    borderTopColor: '#E0E0E0', 
+    backgroundColor: 'white',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  nowPlayingTitle: { 
+    fontSize: 18, 
+    fontWeight: '600', 
+    color: '#333', 
+    textAlign: 'center', 
+    marginBottom: 20,
+    width: '100%',
+  },
+  controlsRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  controlButtonLarge: { 
+    padding: 15, 
+    marginHorizontal: 15,
+  },
+  playButtonLarge: { 
+    width: 80, 
+    height: 80, 
+    borderRadius: 40, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginHorizontal: 20,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
   
-  emailContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderTopWidth: 1, borderTopColor: '#E0E0E0' },
+  emailContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderTopWidth: 1, borderTopColor: '#E0E0E0', marginTop: 20 },
   emailText: { color: '#999', marginLeft: 8, fontSize: 14 },
   
   colorGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginVertical: 16 },
