@@ -96,6 +96,44 @@ export const FolderItem = ({ folder, onPress, onLongPress, settings, songCount }
   );
 };
 
+export const MoveSongDialog = ({ visible, folders, onSelect, onCancel, settings, song, isPlaying }) => {
+  const brandColor = getBrandColor(settings);
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={[styles.modalTitle, { color: brandColor }]}>Переместить трек</Text>
+          {isPlaying && (
+            <View style={styles.warningContainer}>
+              <MaterialIcons name="warning" size={20} color="#FF6B6B" />
+              <Text style={styles.warningText}>Остановите воспроизведение</Text>
+            </View>
+          )}
+          <Text style={styles.songInfoText}>{song?.title}</Text>
+          <Text style={styles.selectFolderText}>Выберите папку:</Text>
+          {folders.length === 0 ? (
+            <Text style={styles.emptyText}>Нет папок для перемещения</Text>
+          ) : (
+            <FlatList
+              data={folders}
+              keyExtractor={item => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={styles.modalItem} onPress={() => !isPlaying && onSelect(item.uri)}>
+                  <MaterialIcons name="folder" size={20} color={brandColor} style={styles.modalItemIcon} />
+                  <Text style={styles.modalItemText}>{item.name}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          )}
+          <TouchableOpacity style={styles.modalCancel} onPress={onCancel}>
+            <Text style={{ color: brandColor, fontSize: 16 }}>Отмена</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 export const PlayerControls = ({ currentSong, isPlaying, onPlayPause, onNext, onPrevious, settings }) => {
   const brandColor = getBrandColor(settings);
   
@@ -124,6 +162,38 @@ export const PlayerControls = ({ currentSong, isPlaying, onPlayPause, onNext, on
         </TouchableOpacity>
       </View>
     </View>
+  );
+};
+
+export const EmailFooter = ({ email }) => (
+  <View style={styles.emailContainer}>
+    <MaterialIcons name="email" size={16} color="#999" />
+    <Text style={styles.emailText}>{email}</Text>
+  </View>
+);
+
+export const ColorPickerDialog = ({ visible, onClose, onSelect, currentColor, settings }) => {
+  const brandColor = getBrandColor(settings);
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={[styles.modalTitle, { color: brandColor }]}>Выберите цвет</Text>
+          <View style={styles.colorGrid}>
+            {PLAYLIST_COLORS.map((color, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[styles.colorOption, { backgroundColor: color }, currentColor === color && styles.selectedColorOption]}
+                onPress={() => { onSelect(color); onClose(); }}
+              />
+            ))}
+          </View>
+          <TouchableOpacity style={styles.modalCancel} onPress={onClose}>
+            <Text style={{ color: brandColor }}>Отмена</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
   );
 };
 
@@ -181,6 +251,17 @@ const styles = StyleSheet.create({
   folderName: { fontSize: 16, color: '#333', flex: 1 },
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { backgroundColor: 'white', borderRadius: 10, padding: 20, width: width - 40, maxHeight: '70%' },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' },
+  warningContainer: { backgroundColor: '#FFE5E5', padding: 10, borderRadius: 8, marginBottom: 16, alignItems: 'center' },
+  warningText: { color: '#FF6B6B', fontSize: 14 },
+  songInfoText: { fontSize: 16, color: '#333', marginBottom: 8 },
+  selectFolderText: { fontSize: 14, color: '#666', marginBottom: 8 },
+  emptyText: { textAlign: 'center', color: '#999', padding: 20 },
+  modalItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  modalItemIcon: { marginRight: 12 },
+  modalItemText: { fontSize: 16, color: '#333', flex: 1 },
+  modalCancel: { marginTop: 16, paddingVertical: 12, alignItems: 'center' },
   
   playerContainer: { 
     paddingVertical: 8, 
@@ -235,6 +316,13 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   
+  emailContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderTopWidth: 1, borderTopColor: '#E0E0E0', marginTop: 20 },
+  emailText: { color: '#999', marginLeft: 8, fontSize: 14 },
+  
+  colorGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginVertical: 16 },
+  colorOption: { width: 44, height: 44, borderRadius: 22, margin: 6 },
+  selectedColorOption: { borderWidth: 3, borderColor: '#333' },
+
   sortMenu: {
     backgroundColor: 'white',
     borderRadius: 12,
