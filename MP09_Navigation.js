@@ -7,34 +7,49 @@ import MP06_PlaylistsScreen from './MP06_PlaylistsScreen';
 import MP07_FolderScreen from './MP07_FolderScreen';
 import MP20_SearchScreen from './MP20_SearchScreen';
 import { BRAND_COLOR } from './MP01_Core';
+import { scanMusic, saveFoldersList, saveSongsList, getFoldersList } from './MP02_FileSystem';
 
 const Stack = createStackNavigator();
 
 export default function AppNavigator({ settings: initialSettings = {} }) {
   const [isReady, setIsReady] = useState(false);
-  const [initialRoute, setInitialRoute] = useState('Settings');
-  const [settings, setSettings] = useState(initialSettings);
+  const [initialRoute, setInitialRoute] = useState('Playlists');
+  const [initialParams, setInitialParams] = useState({});
+  const [settings] = useState(initialSettings);
 
   useEffect(() => {
-    const determineInitialRoute = async () => {
+    const initializeApp = async () => {
       try {
-        const hasFolder = await AsyncStorage.getItem('selected_folder');
-        setInitialRoute(hasFolder ? 'Playlists' : 'Settings');
+        // Проверяем, есть ли сохраненные данные
+        const savedFolders = await getFoldersList();
         
-        // Загружаем сохраненные настройки
-        const savedBrandColor = await AsyncStorage.getItem('@brand_color');
-        if (savedBrandColor) {
-          setSettings({ brandColor: savedBrandColor });
+        if (savedFolders.length > 0) {
+          // Если есть сохраненные данные, показываем плейлисты
+          setInitialParams({ folders: savedFolders });
+          setInitialRoute('Playlists');
+        } else {
+          // Если нет данных, запускаем автоматическое сканирование
+          console.log('🔄 Автоматическое сканирование медиатеки...');
+          const result = await scanMusic();
+          
+          await saveFoldersList(result.folders || []);
+          await saveSongsList(result.songs || []);
+          
+          setInitialParams({ 
+            folders: result.folders || [],
+            songs: result.songs || [] 
+          });
+          setInitialRoute('Playlists');
         }
       } catch (error) {
-        console.error('Error reading storage:', error);
+        console.error('Ошибка при инициализации:', error);
         setInitialRoute('Settings');
       } finally {
-        setTimeout(() => setIsReady(true), 100);
+        setIsReady(true);
       }
     };
 
-    determineInitialRoute();
+    initializeApp();
   }, []);
 
   if (!isReady) {
@@ -55,7 +70,7 @@ export default function AppNavigator({ settings: initialSettings = {} }) {
         <Stack.Screen 
           name="Playlists" 
           component={MP06_PlaylistsScreen} 
-          initialParams={{ settings }}
+          initialParams={initialParams}
         />
         <Stack.Screen 
           name="Folder" 
