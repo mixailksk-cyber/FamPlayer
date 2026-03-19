@@ -57,7 +57,6 @@ export default function FolderScreen({ route, navigation }) {
     const sortedSongs = sortSongs(initialSongs, sortType);
     setSongs(sortedSongs);
     
-    // Обновляем плейлист в плеере
     const currentIndex = currentSong ? sortedSongs.findIndex(s => s.id === currentSong.id) : 0;
     AudioPlayer.setPlaylist(sortedSongs, currentIndex >= 0 ? currentIndex : 0);
     AudioPlayer.shuffleMode = sortType === 'random';
@@ -67,7 +66,6 @@ export default function FolderScreen({ route, navigation }) {
   useEffect(() => {
     addDebug('Компонент загружен');
     
-    // Устанавливаем обработчик окончания трека
     AudioPlayer.setOnFinish(() => {
       addDebug('Трек закончился');
       if (autoPlayMode) {
@@ -208,4 +206,30 @@ export default function FolderScreen({ route, navigation }) {
         currentSong={currentSong}
         isPlaying={isPlaying}
         onPlayPause={togglePlayPause}
-        onNext={playNext
+        onNext={playNext}
+        onPrevious={playPrevious}
+        settings={settings}
+      />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { 
+    flex: 1, 
+    backgroundColor: '#FFFFFF',
+  },
+  demoBanner: { 
+    backgroundColor: '#FFD700', 
+    padding: 10, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center' 
+  },
+  demoText: { color: '#333', fontSize: 12, fontWeight: '600' },
+  emptyContainer: { padding: 40, alignItems: 'center' },
+  emptyText: { fontSize: 16, color: '#999', marginTop: 16 },
+  listContent: { 
+    paddingBottom: 100,
+  },
+});
