@@ -11,8 +11,6 @@ export default function PlaylistsScreen({ navigation, route }) {
   
   const [loading, setLoading] = useState(true);
   const [folders, setFolders] = useState([]);
-  const [songs, setSongs] = useState([]);
-  const [totalSongs, setTotalSongs] = useState(0);
 
   useEffect(() => {
     loadData();
@@ -23,17 +21,11 @@ export default function PlaylistsScreen({ navigation, route }) {
     
     try {
       const foldersStr = await AsyncStorage.getItem('scanned_folders');
-      const songsStr = await AsyncStorage.getItem('scanned_songs');
       
       if (foldersStr) {
         const parsedFolders = JSON.parse(foldersStr);
-        setFolders(parsedFolders);
-      }
-      
-      if (songsStr) {
-        const parsedSongs = JSON.parse(songsStr);
-        setSongs(parsedSongs);
-        setTotalSongs(parsedSongs.length);
+        const foldersWithSongs = parsedFolders.filter(folder => (folder.count || 0) > 0);
+        setFolders(foldersWithSongs);
       }
       
     } catch (error) {
@@ -49,15 +41,7 @@ export default function PlaylistsScreen({ navigation, route }) {
       folderName: folder.name,
       settings,
       songs: folder.songs || [],
-    });
-  };
-
-  const openAllSongs = () => {
-    navigation.navigate('Folder', {
-      folderId: 'all_songs',
-      folderName: APP_FAVORITES_NAME,
-      settings,
-      songs: songs,
+      totalSongs: folder.count || 0
     });
   };
 
@@ -66,7 +50,8 @@ export default function PlaylistsScreen({ navigation, route }) {
       <View style={styles.container}>
         <Header 
           title="Плейлисты" 
-          rightIcons={[{ name: 'settings', onPress: () => navigation.navigate('Settings', { settings }) }]}
+          rightIcon="settings"
+          onRightPress={() => navigation.navigate('Settings', { settings })}
           settings={settings} 
         />
         <View style={styles.center}>
@@ -77,21 +62,12 @@ export default function PlaylistsScreen({ navigation, route }) {
     );
   }
 
-  const displayFolders = [
-    {
-      id: 'all_songs',
-      name: APP_FAVORITES_NAME,
-      count: songs.length,
-      songs: songs
-    },
-    ...folders
-  ];
-
   return (
     <View style={styles.container}>
       <Header 
         title="Плейлисты" 
-        rightIcons={[{ name: 'settings', onPress: () => navigation.navigate('Settings', { settings }) }]}
+        rightIcon="settings"
+        onRightPress={() => navigation.navigate('Settings', { settings })}
         settings={settings} 
       />
       
@@ -103,7 +79,7 @@ export default function PlaylistsScreen({ navigation, route }) {
       )}
       
       <FlatList
-        data={displayFolders}
+        data={folders}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <FolderItem 
@@ -111,25 +87,15 @@ export default function PlaylistsScreen({ navigation, route }) {
               ...item,
               color: brandColor
             }}
-            onPress={() => item.id === 'all_songs' ? openAllSongs() : openFolder(item)}
+            onPress={() => openFolder(item)}
             settings={settings}
             songCount={item.count || 0}
           />
         )}
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <Text style={styles.totalSongs}>
-              Всего песен: {totalSongs}
-            </Text>
-          </View>
-        }
         ListEmptyComponent={
           <View style={styles.center}>
             <MaterialIcons name="folder-off" size={64} color="#E0E0E0" />
-            <Text style={styles.empty}>Нет выбранных папок</Text>
-            <Text style={styles.emptySubtext}>
-              Зайдите в настройки и выберите папки для отображения
-            </Text>
+            <Text style={styles.empty}>Нет папок с музыкой</Text>
           </View>
         }
       />
@@ -150,21 +116,4 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   loading: { marginTop: 16, color: '#999', fontSize: 16 },
   empty: { fontSize: 20, fontWeight: '600', color: '#333', marginTop: 16 },
-  emptySubtext: { 
-    fontSize: 14, 
-    color: '#999', 
-    marginTop: 8, 
-    textAlign: 'center',
-    paddingHorizontal: 20 
-  },
-  header: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  totalSongs: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
 });
