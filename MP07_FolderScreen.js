@@ -19,15 +19,9 @@ export default function FolderScreen({ route, navigation }) {
   const [autoPlayMode, setAutoPlayMode] = useState(true);
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [currentSort, setCurrentSort] = useState('title');
-  const [debug, setDebug] = useState([]);
-  
+
   const brandColor = getBrandColor(settings);
   const insets = useSafeAreaInsets();
-
-  const addDebug = (message) => {
-    console.log(`[FolderScreen] ${message}`);
-    setDebug(prev => [...prev.slice(-5), message]);
-  };
 
   const sortSongs = useCallback((songsToSort, sortType) => {
     const sorted = [...songsToSort];
@@ -62,17 +56,9 @@ export default function FolderScreen({ route, navigation }) {
     setShuffleMode(sortType === 'random');
   };
 
-  const openSettings = () => {
-    navigation.navigate('Settings', { settings });
-  };
-
   useEffect(() => {
-    addDebug('Компонент загружен');
-    
     AudioPlayer.setOnFinish(() => {
-      addDebug('Трек закончился');
       if (autoPlayMode) {
-        addDebug('Автовоспроизведение: включаем следующий');
         AudioPlayer.playNext();
       }
     });
@@ -85,62 +71,36 @@ export default function FolderScreen({ route, navigation }) {
       setAutoPlayMode(status.autoPlayMode);
     }, 100);
     
-    return () => {
-      clearInterval(interval);
-      addDebug('Компонент размонтирован');
-    };
+    return () => clearInterval(interval);
   }, [autoPlayMode]);
 
   useEffect(() => {
     if (initialSongs.length > 0) {
-      addDebug(`Установлен плейлист с ${initialSongs.length} песнями`);
       const sortedSongs = sortSongs(initialSongs, currentSort);
       setSongs(sortedSongs);
       AudioPlayer.setPlaylist(sortedSongs);
     }
-  }, [initialSongs, currentSort, sortSongs]);
+  }, [initialSongs]);
 
   const playSong = async (song) => {
     try {
-      addDebug(`Попытка воспроизвести: ${song.title}`);
-      
-      if (!song.uri) {
-        throw new Error('Нет URI для песни');
-      }
-      
-      addDebug(`URI песни: ${song.uri.substring(0, 50)}...`);
-      
-      const result = await AudioPlayer.loadSong(song, true);
-      
-      if (result) {
-        addDebug(`✅ Воспроизведение запущено`);
-      } else {
-        addDebug(`❌ Не удалось запустить воспроизведение`);
-      }
+      await AudioPlayer.loadSong(song, true);
     } catch (error) {
-      addDebug(`❌ Ошибка: ${error.message}`);
       Alert.alert('Ошибка', `Не удалось воспроизвести файл: ${error.message}`);
     }
   };
 
   const togglePlayPause = async () => {
-    try {
-      addDebug(`Переключение play/pause`);
-      await AudioPlayer.toggle();
-    } catch (error) {
-      addDebug(`❌ Ошибка переключения: ${error.message}`);
-    }
+    await AudioPlayer.toggle();
   };
 
   const playNext = () => {
     if (!currentSong || songs.length === 0) return;
-    addDebug(`Следующий трек`);
     AudioPlayer.playNext();
   };
 
   const playPrevious = () => {
     if (!currentSong || songs.length === 0) return;
-    addDebug(`Предыдущий трек`);
     AudioPlayer.playPrevious();
   };
 
@@ -174,7 +134,7 @@ export default function FolderScreen({ route, navigation }) {
         showSort
         onSortPress={() => setSortMenuVisible(true)}
         rightIcon="settings"
-        onRightPress={openSettings}
+        onRightPress={() => navigation.navigate('Settings', { settings })}
         settings={settings}
       />
 
@@ -233,6 +193,6 @@ const styles = StyleSheet.create({
   emptyContainer: { padding: 40, alignItems: 'center' },
   emptyText: { fontSize: 16, color: '#999', marginTop: 16 },
   listContent: { 
-    paddingBottom: 100,
+    paddingBottom: 80,
   },
 });
