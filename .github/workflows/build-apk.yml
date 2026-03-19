@@ -1,7 +1,7 @@
 name: Build Android APK (Expo)
 
 on:
-  workflow_dispatch:  # Только ручной запуск
+  workflow_dispatch:
     inputs:
       version:
         description: 'Версия сборки'
@@ -22,10 +22,11 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          
+      
+      # Убираем полную очистку, оставляем только установку
       - name: Install dependencies
         run: |
-          npm install --legacy-peer-deps
+          npm ci --legacy-peer-deps || npm install --legacy-peer-deps
           npx expo install --fix
           
       - name: Setup Expo and EAS
@@ -34,10 +35,11 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
           
+      # Убираем ./gradlew clean, оставляем только prebuild
       - name: Prebuild project
         run: npx expo prebuild --platform android --clean
           
-      - name: Build APK locally
+      - name: Build APK
         run: |
           cd android
           chmod +x gradlew
