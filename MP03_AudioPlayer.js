@@ -12,7 +12,7 @@ class AudioPlayer {
     this.demoInterval = null;
     this.playlist = [];
     this.shuffleMode = false;
-    this.autoPlayMode = true; // По умолчанию автовоспроизведение включено
+    this.autoPlayMode = true;
     this.shuffledPlaylist = [];
     this.currentIndex = -1;
     this.debug = [];
