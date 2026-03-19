@@ -3,7 +3,7 @@ import { View, StyleSheet, FlatList, Text, ActivityIndicator } from 'react-nativ
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Header, FolderItem } from './MP04_Components';
-import { getBrandColor, APP_FAVORITES_NAME, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
+import { getBrandColor, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
 
 export default function PlaylistsScreen({ navigation, route }) {
   const settings = route?.params?.settings || {};
@@ -45,17 +45,13 @@ export default function PlaylistsScreen({ navigation, route }) {
     });
   };
 
-  const openSettings = () => {
-    navigation.navigate('Settings', { settings });
-  };
-
   if (loading) {
     return (
       <View style={styles.container}>
         <Header 
           title="Плейлисты" 
           rightIcon="settings"
-          onRightPress={openSettings}
+          onRightPress={() => navigation.navigate('Settings', { settings })}
           settings={settings} 
         />
         <View style={styles.center}>
@@ -71,7 +67,7 @@ export default function PlaylistsScreen({ navigation, route }) {
       <Header 
         title="Плейлисты" 
         rightIcon="settings"
-        onRightPress={openSettings}
+        onRightPress={() => navigation.navigate('Settings', { settings })}
         settings={settings} 
       />
       
