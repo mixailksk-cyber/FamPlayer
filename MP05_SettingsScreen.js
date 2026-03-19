@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, SafeAreaView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Header } from './MP04_Components';
 import { getBrandColor, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
 import { scanMusic, saveFoldersList, saveSongsList } from './MP02_FileSystem';
@@ -22,17 +21,14 @@ export default function SettingsScreen({ navigation, route }) {
       
       await saveFoldersList(result.folders || []);
       await saveSongsList(result.songs || []);
-      await AsyncStorage.setItem('scan_timestamp', Date.now().toString());
       
       navigation.replace('Playlists', {
         folders: result.folders || [],
         songs: result.songs || [],
-        scanTimestamp: Date.now()
       });
       
     } catch (error) {
       Alert.alert('Ошибка', error.message);
-    } finally {
       setScanning(false);
     }
   };
