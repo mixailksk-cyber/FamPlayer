@@ -16,7 +16,7 @@ const BRAND_COLOR_KEY = '@brand_color';
 
 // Доступные цвета бренда
 const BRAND_COLORS = [
-  '#008080', // Бирюзовый (текущий)
+  '#20A0A0', // Бирюзовый (новый)
   '#E91E63', // Розовый
   '#FF9800', // Оранжевый
   '#4CAF50', // Зеленый
@@ -35,6 +35,7 @@ export default function SettingsScreen({ navigation, route }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [allFolders, setAllFolders] = useState([]);
   const [selectedFolders, setSelectedFolders] = useState({});
+  const [tempSelectedFolders, setTempSelectedFolders] = useState({});
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -47,6 +48,8 @@ export default function SettingsScreen({ navigation, route }) {
       const saved = await AsyncStorage.getItem(BRAND_COLOR_KEY);
       if (saved) {
         setCurrentBrandColor(saved);
+        // Обновляем цвет во всем приложении
+        updateAppBrandColor(saved);
       }
     } catch (error) {
       console.error('Ошибка загрузки цвета:', error);
@@ -57,13 +60,24 @@ export default function SettingsScreen({ navigation, route }) {
     try {
       await AsyncStorage.setItem(BRAND_COLOR_KEY, color);
       setCurrentBrandColor(color);
-      // Обновляем цвет в навигации
-      navigation.setParams({ 
-        settings: { ...settings, brandColor: color }
-      });
+      // Обновляем цвет во всем приложении
+      updateAppBrandColor(color);
     } catch (error) {
       console.error('Ошибка сохранения цвета:', error);
     }
+  };
+
+  const updateAppBrandColor = (color) => {
+    // Обновляем цвет в параметрах навигации для всех экранов
+    navigation.setParams({ 
+      settings: { brandColor: color }
+    });
+    
+    // Также обновляем на экране плейлистов, если он есть в стеке
+    navigation.navigate('Playlists', {
+      updateBrandColor: true,
+      brandColor: color
+    });
   };
 
   const loadFolders = async () => {
@@ -74,13 +88,16 @@ export default function SettingsScreen({ navigation, route }) {
       
       const saved = await AsyncStorage.getItem(SELECTED_FOLDERS_KEY);
       if (saved) {
-        setSelectedFolders(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        setSelectedFolders(parsed);
+        setTempSelectedFolders(parsed);
       } else {
         const defaultSelected = {};
         folders.forEach(folder => {
           defaultSelected[folder.id] = true;
         });
         setSelectedFolders(defaultSelected);
+        setTempSelectedFolders(defaultSelected);
       }
     } catch (error) {
       console.error('Ошибка загрузки папок:', error);
@@ -90,20 +107,10 @@ export default function SettingsScreen({ navigation, route }) {
   };
 
   const toggleFolder = (folderId) => {
-    setSelectedFolders(prev => {
-      const updated = {
-        ...prev,
-        [folderId]: !prev[folderId]
-      };
-      // Сразу сохраняем в AsyncStorage
-      AsyncStorage.setItem(SELECTED_FOLDERS_KEY, JSON.stringify(updated));
-      // Отправляем обновление на экран плейлистов
-      navigation.navigate('Playlists', {
-        updateSelection: true,
-        selectedFolders: updated
-      });
-      return updated;
-    });
+    setTempSelectedFolders(prev => ({
+      ...prev,
+      [folderId]: !prev[folderId]
+    }));
   };
 
   const selectAll = () => {
@@ -111,21 +118,35 @@ export default function SettingsScreen({ navigation, route }) {
     allFolders.forEach(folder => {
       allSelected[folder.id] = true;
     });
-    setSelectedFolders(allSelected);
-    AsyncStorage.setItem(SELECTED_FOLDERS_KEY, JSON.stringify(allSelected));
-    navigation.navigate('Playlists', {
-      updateSelection: true,
-      selectedFolders: allSelected
-    });
+    setTempSelectedFolders(allSelected);
   };
 
   const deselectAll = () => {
-    setSelectedFolders({});
-    AsyncStorage.setItem(SELECTED_FOLDERS_KEY, JSON.stringify({}));
-    navigation.navigate('Playlists', {
-      updateSelection: true,
-      selectedFolders: {}
-    });
+    setTempSelectedFolders({});
+  };
+
+  const saveSelection = async () => {
+    try {
+      // Сохраняем временный выбор в постоянное хранилище
+      await AsyncStorage.setItem(SELECTED_FOLDERS_KEY, JSON.stringify(tempSelectedFolders));
+      setSelectedFolders(tempSelectedFolders);
+      setModalVisible(false);
+      
+      // Отправляем обновление на экран плейлистов
+      navigation.navigate('Playlists', {
+        updateSelection: true,
+        selectedFolders: tempSelectedFolders
+      });
+      
+    } catch (error) {
+      Alert.alert('Ошибка', 'Не удалось сохранить выбор');
+    }
+  };
+
+  const cancelSelection = () => {
+    // Возвращаем временный выбор к сохраненному
+    setTempSelectedFolders(selectedFolders);
+    setModalVisible(false);
   };
 
   const handleScanMusic = async () => {
@@ -146,6 +167,7 @@ export default function SettingsScreen({ navigation, route }) {
         defaultSelected[folder.id] = true;
       });
       setSelectedFolders(defaultSelected);
+      setTempSelectedFolders(defaultSelected);
       await AsyncStorage.setItem(SELECTED_FOLDERS_KEY, JSON.stringify(defaultSelected));
       
       navigation.replace('Playlists', {
@@ -182,18 +204,6 @@ export default function SettingsScreen({ navigation, route }) {
       )}
       
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Размер текста */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Размер текста</Text>
-          <View style={styles.sizeOptions}>
-            {[14, 16, 18, 20, 22, 24].map(size => (
-              <TouchableOpacity key={size} style={styles.sizeButton}>
-                <Text style={styles.sizeButtonText}>{size}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
         {/* Цвет бренда */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Цвет бренда</Text>
@@ -216,33 +226,16 @@ export default function SettingsScreen({ navigation, route }) {
           </View>
         </View>
 
-        {/* Резервное копирование */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Резервное копирование</Text>
-          <View style={styles.backupOptions}>
-            <TouchableOpacity style={[styles.backupButton, { borderColor: currentBrandColor }]}>
-              <MaterialIcons name="backup" size={20} color={currentBrandColor} />
-              <Text style={[styles.backupButtonText, { color: currentBrandColor }]}>
-                Создать копию
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={[styles.backupButton, { borderColor: currentBrandColor }]}>
-              <MaterialIcons name="restore" size={20} color={currentBrandColor} />
-              <Text style={[styles.backupButtonText, { color: currentBrandColor }]}>
-                Восстановить
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* Управление папками */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Управление папками</Text>
           
           <TouchableOpacity 
             style={[styles.folderButton, { borderColor: currentBrandColor }]} 
-            onPress={() => setModalVisible(true)}
+            onPress={() => {
+              setTempSelectedFolders({...selectedFolders});
+              setModalVisible(true);
+            }}
           >
             <View style={styles.folderButtonLeft}>
               <MaterialIcons name="playlist-add-check" size={20} color={currentBrandColor} />
@@ -279,15 +272,15 @@ export default function SettingsScreen({ navigation, route }) {
       <Modal
         visible={modalVisible}
         animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={cancelSelection}
       >
         <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
+            <TouchableOpacity onPress={cancelSelection}>
               <MaterialIcons name="close" size={24} color="#333" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Выбор папок</Text>
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
+            <TouchableOpacity onPress={saveSelection}>
               <Text style={[styles.saveButton, { color: currentBrandColor }]}>Готово</Text>
             </TouchableOpacity>
           </View>
@@ -310,7 +303,7 @@ export default function SettingsScreen({ navigation, route }) {
               data={allFolders}
               keyExtractor={item => item.id}
               renderItem={({ item }) => {
-                const isSelected = selectedFolders[item.id] || false;
+                const isSelected = tempSelectedFolders[item.id] || false;
                 return (
                   <TouchableOpacity 
                     style={styles.folderItem}
@@ -379,25 +372,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  // Размер текста
-  sizeOptions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  sizeButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#F5F5F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sizeButtonText: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
-  },
-
   // Цвет бренда
   colorOptions: {
     flexDirection: 'row',
@@ -413,27 +387,6 @@ const styles = StyleSheet.create({
   colorButtonSelected: {
     borderWidth: 3,
     borderColor: '#333',
-  },
-
-  // Резервное копирование
-  backupOptions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  backupButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    flex: 0.48,
-  },
-  backupButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 6,
   },
 
   // Управление папками
