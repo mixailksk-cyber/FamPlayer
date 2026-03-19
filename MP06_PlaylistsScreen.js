@@ -45,13 +45,17 @@ export default function PlaylistsScreen({ navigation, route }) {
     });
   };
 
+  const openSettings = () => {
+    navigation.navigate('Settings', { settings });
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
         <Header 
           title="Плейлисты" 
           rightIcon="settings"
-          onRightPress={() => navigation.navigate('Settings', { settings })}
+          onRightPress={openSettings}
           settings={settings} 
         />
         <View style={styles.center}>
@@ -67,7 +71,7 @@ export default function PlaylistsScreen({ navigation, route }) {
       <Header 
         title="Плейлисты" 
         rightIcon="settings"
-        onRightPress={() => navigation.navigate('Settings', { settings })}
+        onRightPress={openSettings}
         settings={settings} 
       />
       
