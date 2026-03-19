@@ -4,7 +4,15 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Header, EmailFooter } from './MP04_Components';
 import { getBrandColor, AUTHOR_EMAIL, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
-import * as FileSystem from './MP02_FileSystem'; // ВАЖНО: добавлен этот импорт
+
+// ВАЖНО: Явный импорт всех констант из FileSystem
+import { 
+  SCAN_MODES, 
+  pickFolder, 
+  scanMusic, 
+  getScanMode, 
+  saveScanMode 
+} from './MP02_FileSystem';
 
 export default function SettingsScreen({ navigation, route }) {
   const settings = route?.params?.settings || {};
@@ -13,9 +21,8 @@ export default function SettingsScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [selectedFolder, setSelectedFolder] = useState(null);
-  const [scanMode, setScanMode] = useState(FileSystem.SCAN_MODES.MEDIA); // По умолчанию MEDIA
+  const [scanMode, setScanMode] = useState(SCAN_MODES.MEDIA);
   const [logs, setLogs] = useState([]);
-  const [isReady, setIsReady] = useState(true);
 
   const addLog = (message, isError = false) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -36,9 +43,9 @@ export default function SettingsScreen({ navigation, route }) {
         setSelectedFolder(savedFolder);
       }
       
-      const savedMode = await FileSystem.getScanMode();
+      const savedMode = await getScanMode();
       setScanMode(savedMode);
-      addLog(`Режим сканирования: ${savedMode === FileSystem.SCAN_MODES.MEDIA ? 'Медиатека' : 'Выбор папки'}`);
+      addLog(`Режим сканирования: ${savedMode === SCAN_MODES.MEDIA ? 'Медиатека' : 'Выбор папки'}`);
       
     } catch (error) {
       addLog(`Ошибка загрузки: ${error.message}`, true);
@@ -46,21 +53,21 @@ export default function SettingsScreen({ navigation, route }) {
   };
 
   const toggleScanMode = async () => {
-    const newMode = scanMode === FileSystem.SCAN_MODES.FOLDER 
-      ? FileSystem.SCAN_MODES.MEDIA 
-      : FileSystem.SCAN_MODES.FOLDER;
+    const newMode = scanMode === SCAN_MODES.FOLDER 
+      ? SCAN_MODES.MEDIA 
+      : SCAN_MODES.FOLDER;
     
     setScanMode(newMode);
-    await FileSystem.saveScanMode(newMode);
-    addLog(`Режим изменен: ${newMode === FileSystem.SCAN_MODES.MEDIA ? 'Медиатека' : 'Выбор папки'}`);
+    await saveScanMode(newMode);
+    addLog(`Режим изменен: ${newMode === SCAN_MODES.MEDIA ? 'Медиатека' : 'Выбор папки'}`);
   };
 
-  const pickFolder = async () => {
+  const handlePickFolder = async () => {
     addLog('Выбор папки...');
     setLoading(true);
     
     try {
-      const folderUri = await FileSystem.pickFolder();
+      const folderUri = await pickFolder();
       
       if (folderUri) {
         addLog(`Выбрана: ${folderUri}`);
@@ -77,22 +84,22 @@ export default function SettingsScreen({ navigation, route }) {
     }
   };
 
-  const scanMusic = async () => {
+  const handleScanMusic = async () => {
     if (scanning) {
       addLog('Сканирование уже выполняется', true);
       return;
     }
     
-    if (scanMode === FileSystem.SCAN_MODES.FOLDER && !selectedFolder) {
+    if (scanMode === SCAN_MODES.FOLDER && !selectedFolder) {
       Alert.alert('Ошибка', 'Сначала выберите папку');
       return;
     }
     
-    addLog(`Начало сканирования (${scanMode === FileSystem.SCAN_MODES.MEDIA ? 'Медиатека' : 'Файловая система'})...`);
+    addLog(`Начало сканирования (${scanMode === SCAN_MODES.MEDIA ? 'Медиатека' : 'Файловая система'})...`);
     setScanning(true);
     
     try {
-      const result = await FileSystem.scanMusic(scanMode, selectedFolder);
+      const result = await scanMusic(scanMode, selectedFolder);
       
       addLog(`✅ Найдено: ${result.folders?.length || 0} папок/альбомов, ${result.songs?.length || 0} файлов`);
       
@@ -145,14 +152,13 @@ export default function SettingsScreen({ navigation, route }) {
           
           <Text style={styles.title}>Настройки сканирования</Text>
           
-          {/* Переключатель режимов */}
           <View style={styles.modeSelector}>
             <Text style={styles.modeLabel}>Режим сканирования:</Text>
             <View style={styles.modeButtons}>
               <TouchableOpacity
                 style={[
                   styles.modeButton,
-                  scanMode === FileSystem.SCAN_MODES.FOLDER && styles.modeButtonActive,
+                  scanMode === SCAN_MODES.FOLDER && styles.modeButtonActive,
                   { borderColor: brandColor }
                 ]}
                 onPress={toggleScanMode}
@@ -160,11 +166,11 @@ export default function SettingsScreen({ navigation, route }) {
                 <MaterialIcons 
                   name="folder" 
                   size={20} 
-                  color={scanMode === FileSystem.SCAN_MODES.FOLDER ? brandColor : '#999'} 
+                  color={scanMode === SCAN_MODES.FOLDER ? brandColor : '#999'} 
                 />
                 <Text style={[
                   styles.modeButtonText,
-                  scanMode === FileSystem.SCAN_MODES.FOLDER && { color: brandColor }
+                  scanMode === SCAN_MODES.FOLDER && { color: brandColor }
                 ]}>
                   Выбор папки
                 </Text>
@@ -173,7 +179,7 @@ export default function SettingsScreen({ navigation, route }) {
               <TouchableOpacity
                 style={[
                   styles.modeButton,
-                  scanMode === FileSystem.SCAN_MODES.MEDIA && styles.modeButtonActive,
+                  scanMode === SCAN_MODES.MEDIA && styles.modeButtonActive,
                   { borderColor: brandColor }
                 ]}
                 onPress={toggleScanMode}
@@ -181,11 +187,11 @@ export default function SettingsScreen({ navigation, route }) {
                 <MaterialIcons 
                   name="library-music" 
                   size={20} 
-                  color={scanMode === FileSystem.SCAN_MODES.MEDIA ? brandColor : '#999'} 
+                  color={scanMode === SCAN_MODES.MEDIA ? brandColor : '#999'} 
                 />
                 <Text style={[
                   styles.modeButtonText,
-                  scanMode === FileSystem.SCAN_MODES.MEDIA && { color: brandColor }
+                  scanMode === SCAN_MODES.MEDIA && { color: brandColor }
                 ]}>
                   Медиатека
                 </Text>
@@ -193,18 +199,16 @@ export default function SettingsScreen({ navigation, route }) {
             </View>
           </View>
           
-          {/* Информация о режиме */}
           <View style={styles.infoBox}>
             <MaterialIcons name="info" size={16} color={brandColor} />
             <Text style={styles.infoText}>
-              {scanMode === FileSystem.SCAN_MODES.MEDIA 
+              {scanMode === SCAN_MODES.MEDIA 
                 ? 'Быстрое сканирование всей медиатеки. Работает с внутренней памятью.'
                 : 'Ручной выбор папки. Подходит для внешних SD-карт, но может быть медленнее.'}
             </Text>
           </View>
           
-          {/* Выбор папки (только для режима FOLDER) */}
-          {scanMode === FileSystem.SCAN_MODES.FOLDER && (
+          {scanMode === SCAN_MODES.FOLDER && (
             <>
               {selectedFolder && (
                 <View style={styles.folderInfo}>
@@ -217,7 +221,7 @@ export default function SettingsScreen({ navigation, route }) {
               
               <TouchableOpacity 
                 style={[styles.folderButton, { borderColor: brandColor }]} 
-                onPress={pickFolder}
+                onPress={handlePickFolder}
                 disabled={loading || scanning}
               >
                 {loading ? (
@@ -234,11 +238,10 @@ export default function SettingsScreen({ navigation, route }) {
             </>
           )}
           
-          {/* Кнопка сканирования */}
           <TouchableOpacity 
             style={[styles.scanButton, { backgroundColor: brandColor }]} 
-            onPress={scanMusic}
-            disabled={scanning || (scanMode === FileSystem.SCAN_MODES.FOLDER && !selectedFolder)}
+            onPress={handleScanMusic}
+            disabled={scanning || (scanMode === SCAN_MODES.FOLDER && !selectedFolder)}
           >
             {scanning ? (
               <ActivityIndicator color="#fff" />
