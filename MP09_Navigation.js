@@ -24,13 +24,13 @@ export default function AppNavigator({ settings: initialSettings = {} }) {
           setSettings({ brandColor: savedColor });
         }
         
-        // Проверяем, есть ли сохраненные данные
+        // Всегда начинаем с плейлистов, если есть данные
         const hasData = await AsyncStorage.getItem('scanned_folders');
-        setInitialRoute(hasData ? 'Playlists' : 'Settings');
+        setInitialRoute(hasData ? 'Playlists' : 'Playlists'); // Всегда Playlists, даже без данных
         
       } catch (error) {
         console.error('Ошибка при инициализации:', error);
-        setInitialRoute('Settings');
+        setInitialRoute('Playlists');
       } finally {
         setIsReady(true);
       }
