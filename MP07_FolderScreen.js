@@ -29,7 +29,6 @@ export default function FolderScreen({ route, navigation }) {
     setDebug(prev => [...prev.slice(-5), message]);
   };
 
-  // Сортировка песен
   const sortSongs = useCallback((songsToSort, sortType) => {
     const sorted = [...songsToSort];
     
@@ -61,6 +60,10 @@ export default function FolderScreen({ route, navigation }) {
     AudioPlayer.setPlaylist(sortedSongs, currentIndex >= 0 ? currentIndex : 0);
     AudioPlayer.shuffleMode = sortType === 'random';
     setShuffleMode(sortType === 'random');
+  };
+
+  const openSettings = () => {
+    navigation.navigate('Settings', { settings });
   };
 
   useEffect(() => {
@@ -171,7 +174,7 @@ export default function FolderScreen({ route, navigation }) {
         showSort
         onSortPress={() => setSortMenuVisible(true)}
         rightIcon="settings"
-        onRightPress={() => navigation.navigate('Settings', { settings, fromScreen: 'Folder' })}
+        onRightPress={openSettings}
         settings={settings}
       />
 
