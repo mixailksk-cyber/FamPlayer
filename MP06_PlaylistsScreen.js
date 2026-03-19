@@ -14,38 +14,49 @@ export default function PlaylistsScreen({ navigation, route }) {
   const [allFolders, setAllFolders] = useState(route?.params?.folders || []);
   const [displayedFolders, setDisplayedFolders] = useState([]);
   const [loading, setLoading] = useState(!route?.params?.folders);
+  const [selectedFolders, setSelectedFolders] = useState({});
 
+  // Загружаем выбранные папки при монтировании
+  useEffect(() => {
+    loadSelectedFolders();
+  }, []);
+
+  // Обновляем отображение когда меняются allFolders или selectedFolders
+  useEffect(() => {
+    filterFolders();
+  }, [allFolders, selectedFolders]);
+
+  // Обновляем allFolders если пришли новые через параметры
   useEffect(() => {
     if (route.params?.folders) {
       setAllFolders(route.params.folders);
-      filterFolders(route.params.folders);
+    }
+    if (route.params?.selectedFolders) {
+      setSelectedFolders(route.params.selectedFolders);
     }
   }, [route.params]);
 
-  useEffect(() => {
-    if (allFolders.length > 0) {
-      filterFolders(allFolders);
-    }
-  }, [allFolders]);
-
-  const filterFolders = async (folders) => {
+  const loadSelectedFolders = async () => {
     try {
-      // Загружаем выбранные папки
       const saved = await AsyncStorage.getItem(SELECTED_FOLDERS_KEY);
       if (saved) {
-        const selected = JSON.parse(saved);
-        // Фильтруем папки, оставляем только выбранные
-        const filtered = folders.filter(folder => selected[folder.id]);
-        setDisplayedFolders(filtered);
-      } else {
-        // Если нет сохраненных, показываем все
-        setDisplayedFolders(folders);
+        setSelectedFolders(JSON.parse(saved));
       }
     } catch (error) {
-      console.error('Ошибка фильтрации папок:', error);
-      setDisplayedFolders(folders);
+      console.error('Ошибка загрузки выбранных папок:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const filterFolders = () => {
+    // Если есть выбранные папки, фильтруем по ним
+    if (Object.keys(selectedFolders).length > 0) {
+      const filtered = allFolders.filter(folder => selectedFolders[folder.id]);
+      setDisplayedFolders(filtered);
+    } else {
+      // Если нет выбранных, показываем все
+      setDisplayedFolders(allFolders);
     }
   };
 
