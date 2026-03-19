@@ -1,23 +1,53 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Header, FolderItem } from './MP04_Components';
 import { getBrandColor, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
+
+const SELECTED_FOLDERS_KEY = '@selected_folders';
 
 export default function PlaylistsScreen({ navigation, route }) {
   const settings = route?.params?.settings || {};
   const brandColor = getBrandColor(settings);
   
-  const [folders, setFolders] = useState(route?.params?.folders || []);
+  const [allFolders, setAllFolders] = useState(route?.params?.folders || []);
+  const [displayedFolders, setDisplayedFolders] = useState([]);
   const [loading, setLoading] = useState(!route?.params?.folders);
 
   useEffect(() => {
-    // Если данные пришли через параметры, используем их
     if (route.params?.folders) {
-      setFolders(route.params.folders);
-      setLoading(false);
+      setAllFolders(route.params.folders);
+      filterFolders(route.params.folders);
     }
   }, [route.params]);
+
+  useEffect(() => {
+    if (allFolders.length > 0) {
+      filterFolders(allFolders);
+    }
+  }, [allFolders]);
+
+  const filterFolders = async (folders) => {
+    try {
+      // Загружаем выбранные папки
+      const saved = await AsyncStorage.getItem(SELECTED_FOLDERS_KEY);
+      if (saved) {
+        const selected = JSON.parse(saved);
+        // Фильтруем папки, оставляем только выбранные
+        const filtered = folders.filter(folder => selected[folder.id]);
+        setDisplayedFolders(filtered);
+      } else {
+        // Если нет сохраненных, показываем все
+        setDisplayedFolders(folders);
+      }
+    } catch (error) {
+      console.error('Ошибка фильтрации папок:', error);
+      setDisplayedFolders(folders);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const openFolder = (folder) => {
     navigation.navigate('Folder', {
@@ -62,24 +92,24 @@ export default function PlaylistsScreen({ navigation, route }) {
         </View>
       )}
       
-      {folders.length === 0 ? (
+      {displayedFolders.length === 0 ? (
         <View style={styles.emptyContainer}>
           <MaterialIcons name="folder-off" size={80} color="#E0E0E0" />
-          <Text style={styles.emptyTitle}>Нет папок с музыкой</Text>
+          <Text style={styles.emptyTitle}>Нет выбранных папок</Text>
           <Text style={styles.emptySubtitle}>
-            Нажмите на шестеренку и запустите сканирование медиатеки
+            Зайдите в настройки и выберите папки для отображения
           </Text>
           <TouchableOpacity 
-            style={[styles.scanButton, { backgroundColor: brandColor }]}
+            style={[styles.settingsButton, { backgroundColor: brandColor }]}
             onPress={() => navigation.navigate('Settings', { settings })}
           >
-            <MaterialIcons name="refresh" size={20} color="white" />
-            <Text style={styles.scanButtonText}>Обновить медиатеку</Text>
+            <MaterialIcons name="settings" size={20} color="white" />
+            <Text style={styles.settingsButtonText}>Настройки</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <FlatList
-          data={folders}
+          data={displayedFolders}
           keyExtractor={item => item.id}
           renderItem={({ item }) => (
             <FolderItem 
@@ -131,7 +161,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingHorizontal: 20
   },
-  scanButton: {
+  settingsButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -140,7 +170,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     elevation: 2,
   },
-  scanButtonText: { 
+  settingsButtonText: { 
     color: '#FFFFFF', 
     fontSize: 16, 
     fontWeight: '600', 
