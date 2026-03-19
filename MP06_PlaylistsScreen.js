@@ -3,7 +3,8 @@ import { View, StyleSheet, FlatList, Text, ActivityIndicator } from 'react-nativ
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Header, FolderItem } from './MP04_Components';
-import { getBrandColor, APP_FAVORITES_NAME, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
+import { getBrandColor, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
+import { getFoldersList } from './MP02_FileSystem';
 
 export default function PlaylistsScreen({ navigation, route }) {
   const settings = route?.params?.settings || {};
@@ -16,18 +17,25 @@ export default function PlaylistsScreen({ navigation, route }) {
     loadData();
   }, []);
 
+  // Следим за параметрами маршрута (обновление после сканирования)
+  useEffect(() => {
+    if (route.params?.folders) {
+      setFolders(route.params.folders);
+      setLoading(false);
+    } else {
+      loadData();
+    }
+  }, [route.params]);
+
   const loadData = async () => {
     setLoading(true);
     
     try {
-      const foldersStr = await AsyncStorage.getItem('scanned_folders');
-      
-      if (foldersStr) {
-        const parsedFolders = JSON.parse(foldersStr);
-        const foldersWithSongs = parsedFolders.filter(folder => (folder.count || 0) > 0);
-        setFolders(foldersWithSongs);
-      }
-      
+      const savedFolders = await getFoldersList();
+      // Фильтруем папки, оставляем только те, где есть песни
+      const foldersWithSongs = savedFolders.filter(folder => (folder.count || 0) > 0);
+      setFolders(foldersWithSongs);
+      console.log(`📂 Загружено ${foldersWithSongs.length} папок с песнями`);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -56,7 +64,7 @@ export default function PlaylistsScreen({ navigation, route }) {
         />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={brandColor} />
-          <Text style={styles.loading}>Загрузка...</Text>
+          <Text style={styles.loadingText}>Загрузка плейлистов...</Text>
         </View>
       </View>
     );
@@ -78,27 +86,39 @@ export default function PlaylistsScreen({ navigation, route }) {
         </View>
       )}
       
-      <FlatList
-        data={folders}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <FolderItem 
-            folder={{
-              ...item,
-              color: brandColor
-            }}
-            onPress={() => openFolder(item)}
-            settings={settings}
-            songCount={item.count || 0}
-          />
-        )}
-        ListEmptyComponent={
-          <View style={styles.center}>
-            <MaterialIcons name="folder-off" size={64} color="#E0E0E0" />
-            <Text style={styles.empty}>Нет папок с музыкой</Text>
-          </View>
-        }
-      />
+      {folders.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <MaterialIcons name="folder-off" size={80} color="#E0E0E0" />
+          <Text style={styles.emptyTitle}>Нет папок с музыкой</Text>
+          <Text style={styles.emptySubtitle}>
+            Нажмите на шестеренку и запустите сканирование медиатеки
+          </Text>
+          <TouchableOpacity 
+            style={[styles.scanButton, { backgroundColor: brandColor }]}
+            onPress={() => navigation.navigate('Settings', { settings })}
+          >
+            <MaterialIcons name="search" size={20} color="white" />
+            <Text style={styles.scanButtonText}>Сканировать</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          data={folders}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <FolderItem 
+              folder={{
+                ...item,
+                color: brandColor
+              }}
+              onPress={() => openFolder(item)}
+              settings={settings}
+              songCount={item.count || 0}
+            />
+          )}
+          contentContainerStyle={styles.listContent}
+        />
+      )}
     </View>
   );
 }
@@ -114,6 +134,43 @@ const styles = StyleSheet.create({
   },
   demoText: { color: '#333', fontSize: 12, fontWeight: '600' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  loading: { marginTop: 16, color: '#999', fontSize: 16 },
-  empty: { fontSize: 20, fontWeight: '600', color: '#333', marginTop: 16 },
+  loadingText: { marginTop: 16, color: '#999', fontSize: 16 },
+  emptyContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    padding: 20 
+  },
+  emptyTitle: { 
+    fontSize: 20, 
+    fontWeight: '600', 
+    color: '#333', 
+    marginTop: 16 
+  },
+  emptySubtitle: { 
+    fontSize: 14, 
+    color: '#999', 
+    textAlign: 'center', 
+    marginTop: 8,
+    marginBottom: 24,
+    paddingHorizontal: 20
+  },
+  scanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    elevation: 2,
+  },
+  scanButtonText: { 
+    color: '#FFFFFF', 
+    fontSize: 16, 
+    fontWeight: '600', 
+    marginLeft: 8 
+  },
+  listContent: {
+    paddingBottom: 20,
+  },
 });
