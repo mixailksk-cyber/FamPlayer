@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, FlatList, Text, Alert, SafeAreaView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,79 +12,143 @@ export default function FolderScreen({ route, navigation }) {
   const settings = params.settings || {};
   const initialSongs = params.songs || [];
   
+  const [songs, setSongs] = useState(initialSongs);
   const [currentSong, setCurrentSong] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [songs, setSongs] = useState(initialSongs);
-  const [sortMode, setSortMode] = useState('addedAt');
+  const [shuffleMode, setShuffleMode] = useState(false);
+  const [autoPlayMode, setAutoPlayMode] = useState(true);
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
+  const [currentSort, setCurrentSort] = useState('title');
+  const [debug, setDebug] = useState([]);
   
   const brandColor = getBrandColor(settings);
   const insets = useSafeAreaInsets();
 
+  const addDebug = (message) => {
+    console.log(`[FolderScreen] ${message}`);
+    setDebug(prev => [...prev.slice(-5), message]);
+  };
+
   // Сортировка песен
-  useEffect(() => {
-    let sorted = [...initialSongs];
+  const sortSongs = useCallback((songsToSort, sortType) => {
+    const sorted = [...songsToSort];
     
-    if (sortMode === 'title') {
-      sorted.sort((a, b) => a.title.localeCompare(b.title));
-    } else if (sortMode === 'shuffle') {
-      sorted = [...initialSongs].sort(() => Math.random() - 0.5);
-    } else {
-      // addedAt - сортируем по дате добавления (новые сверху)
-      sorted.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+    if (sortType === 'random') {
+      for (let i = sorted.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [sorted[i], sorted[j]] = [sorted[j], sorted[i]];
+      }
+      return sorted;
     }
-    
-    setSongs(sorted);
+
+    return sorted.sort((a, b) => {
+      switch(sortType) {
+        case 'addedAt':
+          return (b.addedAt || 0) - (a.addedAt || 0);
+        case 'title':
+        default:
+          return (a.title || '').localeCompare(b.title || '', 'ru');
+      }
+    });
+  }, []);
+
+  const handleSort = (sortType) => {
+    setCurrentSort(sortType);
+    const sortedSongs = sortSongs(initialSongs, sortType);
+    setSongs(sortedSongs);
     
     // Обновляем плейлист в плеере
-    if (sorted.length > 0) {
-      const currentIndex = sorted.findIndex(s => s.id === currentSong?.id);
-      AudioPlayer.setPlaylist(sorted, currentIndex >= 0 ? currentIndex : 0);
-    }
-  }, [sortMode, initialSongs]);
+    const currentIndex = currentSong ? sortedSongs.findIndex(s => s.id === currentSong.id) : 0;
+    AudioPlayer.setPlaylist(sortedSongs, currentIndex >= 0 ? currentIndex : 0);
+    AudioPlayer.shuffleMode = sortType === 'random';
+    setShuffleMode(sortType === 'random');
+  };
 
-  // Синхронизация с плеером
   useEffect(() => {
+    addDebug('Компонент загружен');
+    
+    // Устанавливаем обработчик окончания трека
+    AudioPlayer.setOnFinish(() => {
+      addDebug('Трек закончился');
+      if (autoPlayMode) {
+        addDebug('Автовоспроизведение: включаем следующий');
+        AudioPlayer.playNext();
+      }
+    });
+
     const interval = setInterval(() => {
       const status = AudioPlayer.getStatus();
       setCurrentSong(status.currentSong);
       setIsPlaying(status.isPlaying);
+      setShuffleMode(status.shuffleMode);
+      setAutoPlayMode(status.autoPlayMode);
     }, 100);
-    return () => clearInterval(interval);
-  }, []);
+    
+    return () => {
+      clearInterval(interval);
+      addDebug('Компонент размонтирован');
+    };
+  }, [autoPlayMode]);
+
+  useEffect(() => {
+    if (initialSongs.length > 0) {
+      addDebug(`Установлен плейлист с ${initialSongs.length} песнями`);
+      const sortedSongs = sortSongs(initialSongs, currentSort);
+      setSongs(sortedSongs);
+      AudioPlayer.setPlaylist(sortedSongs);
+    }
+  }, [initialSongs, currentSort, sortSongs]);
 
   const playSong = async (song) => {
     try {
-      await AudioPlayer.loadSong(song, true);
+      addDebug(`Попытка воспроизвести: ${song.title}`);
+      
+      if (!song.uri) {
+        throw new Error('Нет URI для песни');
+      }
+      
+      addDebug(`URI песни: ${song.uri.substring(0, 50)}...`);
+      
+      const result = await AudioPlayer.loadSong(song, true);
+      
+      if (result) {
+        addDebug(`✅ Воспроизведение запущено`);
+      } else {
+        addDebug(`❌ Не удалось запустить воспроизведение`);
+      }
     } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось воспроизвести файл');
+      addDebug(`❌ Ошибка: ${error.message}`);
+      Alert.alert('Ошибка', `Не удалось воспроизвести файл: ${error.message}`);
     }
   };
 
   const togglePlayPause = async () => {
     try {
+      addDebug(`Переключение play/pause`);
       await AudioPlayer.toggle();
     } catch (error) {
-      console.error('Error toggling play/pause:', error);
+      addDebug(`❌ Ошибка переключения: ${error.message}`);
     }
   };
 
   const playNext = () => {
     if (!currentSong || songs.length === 0) return;
-    const index = songs.findIndex(s => s.id === currentSong.id);
-    const nextIndex = (index + 1) % songs.length;
-    playSong(songs[nextIndex]);
+    addDebug(`Следующий трек`);
+    AudioPlayer.playNext();
   };
 
   const playPrevious = () => {
     if (!currentSong || songs.length === 0) return;
-    const index = songs.findIndex(s => s.id === currentSong.id);
-    const prevIndex = (index - 1 + songs.length) % songs.length;
-    playSong(songs[prevIndex]);
+    addDebug(`Предыдущий трек`);
+    AudioPlayer.playPrevious();
   };
 
-  const handleSortChange = (newSort) => {
-    setSortMode(newSort);
+  const toggleShuffle = () => {
+    AudioPlayer.toggleShuffle();
+  };
+
+  const toggleAutoPlay = () => {
+    AudioPlayer.toggleAutoPlay();
   };
 
   return (
@@ -100,10 +164,16 @@ export default function FolderScreen({ route, navigation }) {
         title={folderName}
         showBack
         onBack={() => navigation.goBack()}
-        rightIcons={[
-          { name: sortMode === 'shuffle' ? 'shuffle' : 'sort', onPress: () => setSortMenuVisible(true) },
-          { name: 'settings', onPress: () => navigation.navigate('Settings', { settings }) }
-        ]}
+        showShuffle
+        onShufflePress={toggleShuffle}
+        shuffleMode={shuffleMode}
+        showAutoPlay
+        onAutoPlayPress={toggleAutoPlay}
+        autoPlayMode={autoPlayMode}
+        showSort
+        onSortPress={() => setSortMenuVisible(true)}
+        rightIcon="settings"
+        onRightPress={() => navigation.navigate('Settings', { settings, fromScreen: 'Folder' })}
         settings={settings}
       />
 
@@ -127,41 +197,15 @@ export default function FolderScreen({ route, navigation }) {
         contentContainerStyle={styles.listContent}
       />
 
+      <SortMenu
+        visible={sortMenuVisible}
+        onClose={() => setSortMenuVisible(false)}
+        onSelect={handleSort}
+        currentSort={currentSort}
+      />
+
       <PlayerControls
         currentSong={currentSong}
         isPlaying={isPlaying}
         onPlayPause={togglePlayPause}
-        onNext={playNext}
-        onPrevious={playPrevious}
-        settings={settings}
-      />
-
-      <SortMenu
-        visible={sortMenuVisible}
-        onClose={() => setSortMenuVisible(false)}
-        currentSort={sortMode}
-        onSortChange={handleSortChange}
-      />
-    </SafeAreaView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#FFFFFF',
-  },
-  demoBanner: { 
-    backgroundColor: '#FFD700', 
-    padding: 10, 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'center' 
-  },
-  demoText: { color: '#333', fontSize: 12, fontWeight: '600' },
-  emptyContainer: { padding: 40, alignItems: 'center' },
-  emptyText: { fontSize: 16, color: '#999', marginTop: 16 },
-  listContent: { 
-    paddingBottom: 80,
-  },
-});
+        onNext={playNext
