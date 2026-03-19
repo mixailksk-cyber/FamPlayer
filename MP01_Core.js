@@ -1,11 +1,11 @@
 import { Dimensions, Platform } from 'react-native';
 
-// Новый цвет приложения #008080 (Teal)
-export const BRAND_COLOR = '#008080';
+// Новый цвет приложения #20A0A0 (Бирюзовый)
+export const BRAND_COLOR = '#20A0A0';
 export const TRASH_COLOR = '#FF6B6B';
 
-export const PLAYLIST_COLORS = ['#008080','#E91E63','#FF9800','#4CAF50','#2196F3','#FF5722','#607D8B','#795548','#3F51B5','#009688'];
-export const SONG_COLORS = ['#008080','#E91E63','#FF9800','#4CAF50','#2196F3','#FF5722','#607D8B','#795548','#3F51B5','#009688','#FFC107','#00BCD4'];
+export const PLAYLIST_COLORS = ['#20A0A0','#E91E63','#FF9800','#4CAF50','#2196F3','#FF5722','#607D8B','#795548','#3F51B5','#009688'];
+export const SONG_COLORS = ['#20A0A0','#E91E63','#FF9800','#4CAF50','#2196F3','#FF5722','#607D8B','#795548','#3F51B5','#009688','#FFC107','#00BCD4'];
 export const TITLE_MAX_LENGTH = 50;
 export const PLAYLIST_NAME_MAX_LENGTH = 50;
 export const { width } = Dimensions.get('window');
