@@ -12,14 +12,13 @@ class AudioPlayer {
     this.demoInterval = null;
     this.playlist = [];
     this.shuffleMode = false;
+    this.autoPlayMode = true; // По умолчанию автовоспроизведение включено
     this.shuffledPlaylist = [];
     this.currentIndex = -1;
     this.debug = [];
     
-    // Настройка аудио для фонового воспроизведения
     this.setupAudioMode();
     
-    // Отслеживаем состояние приложения
     AppState.addEventListener('change', this.handleAppStateChange);
   }
 
@@ -29,12 +28,12 @@ class AudioPlayer {
     try {
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
-        staysActiveInBackground: true, // Ключевое свойство для фонового воспроизведения
+        staysActiveInBackground: true,
         playsInSilentModeIOS: true,
         shouldDuckAndroid: true,
         playThroughEarpieceAndroid: false,
-        interruptionModeIOS: 1, // DO_NOT_MIX
-        interruptionModeAndroid: 1, // DO_NOT_MIX
+        interruptionModeIOS: 1,
+        interruptionModeAndroid: 1,
       });
       console.log('✅ Audio mode configured for background playback');
     } catch (error) {
@@ -44,8 +43,6 @@ class AudioPlayer {
 
   handleAppStateChange = (nextAppState) => {
     console.log(`📱 App state changed to: ${nextAppState}`);
-    // Приложение ушло в фон - ничего не делаем, звук продолжает играть
-    // благодаря staysActiveInBackground: true
   };
 
   addDebug(message) {
@@ -69,7 +66,6 @@ class AudioPlayer {
         if (this.onFinishCallback) this.onFinishCallback();
       }, 30000);
       
-      // Обновляем медиа-сессию для демо-режима
       this.updateMediaSession();
       return true;
     }
@@ -99,7 +95,6 @@ class AudioPlayer {
       
       this.addDebug(`Sound loaded successfully, shouldPlay: ${shouldPlay}`);
       
-      // Обновляем медиа-сессию для Android
       this.updateMediaSession();
       
       return true;
@@ -111,16 +106,7 @@ class AudioPlayer {
   }
 
   updateMediaSession() {
-    if (!this.currentSong || IS_WEB_STUB) return;
-    
-    // Обновляем информацию для системной шторки Android
-    // Это автоматически обрабатывается expo-av, но мы можем добавить кастомную информацию
-    try {
-      // В будущем здесь можно добавить кастомную интеграцию с MediaSession
-      // пока expo-av делает это автоматически
-    } catch (error) {
-      console.log('Media session update error:', error);
-    }
+    // Обновление медиа-сессии
   }
 
   _onPlaybackStatusUpdate(status) {
@@ -148,7 +134,6 @@ class AudioPlayer {
       this.isPaused = false;
       this.addDebug('Playback started');
       
-      // Обновляем состояние в медиа-сессии
       this.updateMediaSession();
       return true;
     } catch (error) {
@@ -170,7 +155,6 @@ class AudioPlayer {
       this.isPaused = true;
       this.addDebug('Playback paused');
       
-      // Обновляем состояние в медиа-сессии
       this.updateMediaSession();
       return true;
     } catch (error) {
@@ -207,6 +191,7 @@ class AudioPlayer {
       isPlaying: this.isPlaying,
       isPaused: this.isPaused,
       shuffleMode: this.shuffleMode,
+      autoPlayMode: this.autoPlayMode,
     };
   }
 
@@ -232,6 +217,11 @@ class AudioPlayer {
     } else {
       this.currentIndex = this.playlist.findIndex(s => s.id === this.currentSong?.id);
     }
+  }
+
+  toggleAutoPlay() {
+    this.autoPlayMode = !this.autoPlayMode;
+    this.addDebug(`AutoPlay mode: ${this.autoPlayMode ? 'ON' : 'OFF'}`);
   }
 
   getNextSong() {
