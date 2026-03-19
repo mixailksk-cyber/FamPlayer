@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
   ActivityIndicator, Alert, SafeAreaView, Modal,
-  FlatList, CheckBox 
+  FlatList
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -210,29 +210,38 @@ export default function SettingsScreen({ navigation, route }) {
             <FlatList
               data={allFolders}
               keyExtractor={item => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity 
-                  style={styles.folderItem}
-                  onPress={() => toggleFolder(item.id)}
-                >
-                  <View style={styles.folderInfo}>
-                    <MaterialIcons 
-                      name="folder" 
-                      size={24} 
-                      color={selectedFolders[item.id] ? brandColor : '#999'} 
-                    />
-                    <View style={styles.folderText}>
-                      <Text style={styles.folderName}>{item.name}</Text>
-                      <Text style={styles.folderCount}>{item.count || 0} треков</Text>
+              renderItem={({ item }) => {
+                const isSelected = selectedFolders[item.id] || false;
+                return (
+                  <TouchableOpacity 
+                    style={styles.folderItem}
+                    onPress={() => toggleFolder(item.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.folderInfo}>
+                      <MaterialIcons 
+                        name="folder" 
+                        size={24} 
+                        color={isSelected ? brandColor : '#999'} 
+                      />
+                      <View style={styles.folderText}>
+                        <Text style={styles.folderName}>{item.name}</Text>
+                        <Text style={styles.folderCount}>{item.count || 0} треков</Text>
+                      </View>
                     </View>
-                  </View>
-                  <CheckBox
-                    value={selectedFolders[item.id] || false}
-                    onValueChange={() => toggleFolder(item.id)}
-                    tintColors={{ true: brandColor, false: '#999' }}
-                  />
-                </TouchableOpacity>
-              )}
+                    
+                    {/* Кастомный чекбокс */}
+                    <View style={[
+                      styles.checkbox,
+                      { borderColor: isSelected ? brandColor : '#999' }
+                    ]}>
+                      {isSelected && (
+                        <MaterialIcons name="check" size={18} color={brandColor} />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
               ListEmptyComponent={
                 <View style={styles.center}>
                   <Text style={styles.emptyText}>Нет папок</Text>
@@ -374,6 +383,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     marginTop: 2,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 12,
   },
   center: {
     flex: 1,
