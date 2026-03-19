@@ -9,12 +9,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Header } from './MP04_Components';
 import { getBrandColor, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
 import { scanMusic, saveFoldersList, saveSongsList, getFoldersList } from './MP02_FileSystem';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const SELECTED_FOLDERS_KEY = '@selected_folders';
 
 export default function SettingsScreen({ navigation, route }) {
   const settings = route?.params?.settings || {};
   const brandColor = getBrandColor(settings);
+  const insets = useSafeAreaInsets();
   
   const [scanning, setScanning] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -22,7 +24,6 @@ export default function SettingsScreen({ navigation, route }) {
   const [selectedFolders, setSelectedFolders] = useState({});
   const [loading, setLoading] = useState(false);
 
-  // Загружаем все папки и выбранные при открытии
   useEffect(() => {
     loadFolders();
   }, []);
@@ -30,16 +31,13 @@ export default function SettingsScreen({ navigation, route }) {
   const loadFolders = async () => {
     setLoading(true);
     try {
-      // Загружаем все отсканированные папки
       const folders = await getFoldersList();
       setAllFolders(folders);
       
-      // Загружаем выбранные папки
       const saved = await AsyncStorage.getItem(SELECTED_FOLDERS_KEY);
       if (saved) {
         setSelectedFolders(JSON.parse(saved));
       } else {
-        // По умолчанию выбираем все папки
         const defaultSelected = {};
         folders.forEach(folder => {
           defaultSelected[folder.id] = true;
@@ -76,6 +74,12 @@ export default function SettingsScreen({ navigation, route }) {
     try {
       await AsyncStorage.setItem(SELECTED_FOLDERS_KEY, JSON.stringify(selectedFolders));
       setModalVisible(false);
+      
+      // Обновляем плейлисты с новым выбором
+      navigation.setParams({
+        selectedFolders: { ...selectedFolders }
+      });
+      
       Alert.alert('Успех', 'Выбор папок сохранен');
     } catch (error) {
       Alert.alert('Ошибка', 'Не удалось сохранить выбор');
@@ -93,10 +97,8 @@ export default function SettingsScreen({ navigation, route }) {
       await saveFoldersList(result.folders || []);
       await saveSongsList(result.songs || []);
       
-      // Обновляем список папок в модальном окне
       setAllFolders(result.folders || []);
       
-      // Сбрасываем выбор (по умолчанию все)
       const defaultSelected = {};
       result.folders.forEach(folder => {
         defaultSelected[folder.id] = true;
@@ -142,7 +144,6 @@ export default function SettingsScreen({ navigation, route }) {
         
         <Text style={styles.title}>Управление медиатекой</Text>
         
-        {/* Кнопка выбора папок */}
         <TouchableOpacity 
           style={[styles.folderButton, { borderColor: brandColor }]} 
           onPress={() => setModalVisible(true)}
@@ -182,7 +183,7 @@ export default function SettingsScreen({ navigation, route }) {
         animationType="slide"
         onRequestClose={() => setModalVisible(false)}
       >
-        <SafeAreaView style={styles.modalContainer}>
+        <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setModalVisible(false)}>
               <MaterialIcons name="close" size={24} color="#333" />
@@ -230,7 +231,6 @@ export default function SettingsScreen({ navigation, route }) {
                       </View>
                     </View>
                     
-                    {/* Кастомный чекбокс */}
                     <View style={[
                       styles.checkbox,
                       { borderColor: isSelected ? brandColor : '#999' }
@@ -249,7 +249,7 @@ export default function SettingsScreen({ navigation, route }) {
               }
             />
           )}
-        </SafeAreaView>
+        </View>
       </Modal>
     </SafeAreaView>
   );
