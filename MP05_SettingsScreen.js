@@ -5,13 +5,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Header, EmailFooter } from './MP04_Components';
 import { getBrandColor, AUTHOR_EMAIL, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
 
-// ВАЖНО: Явный импорт всех констант из FileSystem
+// ВАЖНО: Импортируем всё необходимое из MP02_FileSystem
 import { 
-  SCAN_MODES, 
-  pickFolder, 
-  scanMusic, 
-  getScanMode, 
-  saveScanMode 
+  SCAN_MODES,
+  pickFolder,
+  scanMusic,
+  getScanMode,
+  saveScanMode
 } from './MP02_FileSystem';
 
 export default function SettingsScreen({ navigation, route }) {
