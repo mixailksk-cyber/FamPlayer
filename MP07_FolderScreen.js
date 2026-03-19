@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, Text, Alert, SafeAreaView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Header, SongItem, PlayerControls, SortMenu } from './MP04_Components';
+import { Header, SongItem, PlayerControls } from './MP04_Components';
 import { getBrandColor, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
 import AudioPlayer from './MP03_AudioPlayer';
 
@@ -10,114 +10,90 @@ export default function FolderScreen({ route, navigation }) {
   const params = route?.params || {};
   const folderName = params.folderName || 'Папка';
   const settings = params.settings || {};
-  const initialSongs = params.songs || [];
+  const songs = params.songs || [];
   
-  const [songs, setSongs] = useState(initialSongs);
   const [currentSong, setCurrentSong] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [shuffleMode, setShuffleMode] = useState(false);
-  const [autoPlayMode, setAutoPlayMode] = useState(true);
-  const [sortMenuVisible, setSortMenuVisible] = useState(false);
-  const [currentSort, setCurrentSort] = useState('title');
-
+  const [debug, setDebug] = useState([]);
+  
   const brandColor = getBrandColor(settings);
   const insets = useSafeAreaInsets();
 
-  const sortSongs = useCallback((songsToSort, sortType) => {
-    const sorted = [...songsToSort];
-    
-    if (sortType === 'random') {
-      for (let i = sorted.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [sorted[i], sorted[j]] = [sorted[j], sorted[i]];
-      }
-      return sorted;
-    }
-
-    return sorted.sort((a, b) => {
-      switch(sortType) {
-        case 'addedAt':
-          return (b.addedAt || 0) - (a.addedAt || 0);
-        case 'title':
-        default:
-          return (a.title || '').localeCompare(b.title || '', 'ru');
-      }
-    });
-  }, []);
-
-  const handleSort = (sortType) => {
-    setCurrentSort(sortType);
-    const sortedSongs = sortSongs(initialSongs, sortType);
-    setSongs(sortedSongs);
-    
-    const currentIndex = currentSong ? sortedSongs.findIndex(s => s.id === currentSong.id) : 0;
-    AudioPlayer.setPlaylist(sortedSongs, currentIndex >= 0 ? currentIndex : 0);
-    AudioPlayer.shuffleMode = sortType === 'random';
-    setShuffleMode(sortType === 'random');
+  const addDebug = (message) => {
+    console.log(`[FolderScreen] ${message}`);
+    setDebug(prev => [...prev.slice(-5), message]);
   };
 
   useEffect(() => {
-    AudioPlayer.setOnFinish(() => {
-      if (autoPlayMode) {
-        AudioPlayer.playNext();
-      }
-    });
-
+    addDebug('Компонент загружен');
     const interval = setInterval(() => {
       const status = AudioPlayer.getStatus();
       setCurrentSong(status.currentSong);
       setIsPlaying(status.isPlaying);
-      setShuffleMode(status.shuffleMode);
-      setAutoPlayMode(status.autoPlayMode);
     }, 100);
-    
-    return () => clearInterval(interval);
-  }, [autoPlayMode]);
+    return () => {
+      clearInterval(interval);
+      addDebug('Компонент размонтирован');
+    };
+  }, []);
 
   useEffect(() => {
-    if (initialSongs.length > 0) {
-      const sortedSongs = sortSongs(initialSongs, currentSort);
-      setSongs(sortedSongs);
-      AudioPlayer.setPlaylist(sortedSongs);
+    if (songs.length > 0) {
+      addDebug(`Установлен плейлист с ${songs.length} песнями`);
+      AudioPlayer.setPlaylist(songs);
     }
-  }, [initialSongs]);
+  }, [songs]);
 
   const playSong = async (song) => {
     try {
-      await AudioPlayer.loadSong(song, true);
+      addDebug(`Попытка воспроизвести: ${song.title}`);
+      
+      if (!song.uri) {
+        throw new Error('Нет URI для песни');
+      }
+      
+      addDebug(`URI песни: ${song.uri.substring(0, 50)}...`);
+      
+      const result = await AudioPlayer.loadSong(song, true);
+      
+      if (result) {
+        addDebug(`✅ Воспроизведение запущено`);
+      } else {
+        addDebug(`❌ Не удалось запустить воспроизведение`);
+      }
     } catch (error) {
+      addDebug(`❌ Ошибка: ${error.message}`);
       Alert.alert('Ошибка', `Не удалось воспроизвести файл: ${error.message}`);
     }
   };
 
   const togglePlayPause = async () => {
-    await AudioPlayer.toggle();
+    try {
+      addDebug(`Переключение play/pause`);
+      await AudioPlayer.toggle();
+    } catch (error) {
+      addDebug(`❌ Ошибка переключения: ${error.message}`);
+    }
   };
 
   const playNext = () => {
     if (!currentSong || songs.length === 0) return;
-    AudioPlayer.playNext();
+    const index = songs.findIndex(s => s.id === currentSong.id);
+    const nextIndex = (index + 1) % songs.length;
+    addDebug(`Следующий трек: ${songs[nextIndex].title}`);
+    playSong(songs[nextIndex]);
   };
 
   const playPrevious = () => {
     if (!currentSong || songs.length === 0) return;
-    AudioPlayer.playPrevious();
-  };
-
-  const toggleShuffle = () => {
-    AudioPlayer.toggleShuffle();
-  };
-
-  const toggleAutoPlay = () => {
-    AudioPlayer.toggleAutoPlay();
-  };
-
-  const openSettings = () => {
-    navigation.navigate('Settings', { settings });
+    const index = songs.findIndex(s => s.id === currentSong.id);
+    const prevIndex = (index - 1 + songs.length) % songs.length;
+    addDebug(`Предыдущий трек: ${songs[prevIndex].title}`);
+    playSong(songs[prevIndex]);
   };
 
   return (
-    <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
+    <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom + 80 }]}>
       {IS_WEB_STUB && (
         <View style={styles.demoBanner}>
           <MaterialIcons name="info" size={16} color="#333" />
@@ -129,16 +105,6 @@ export default function FolderScreen({ route, navigation }) {
         title={folderName}
         showBack
         onBack={() => navigation.goBack()}
-        showShuffle
-        onShufflePress={toggleShuffle}
-        shuffleMode={shuffleMode}
-        showAutoPlay
-        onAutoPlayPress={toggleAutoPlay}
-        autoPlayMode={autoPlayMode}
-        showSort
-        onSortPress={() => setSortMenuVisible(true)}
-        rightIcon="settings"
-        onRightPress={openSettings}
         settings={settings}
       />
 
@@ -160,13 +126,6 @@ export default function FolderScreen({ route, navigation }) {
           </View>
         }
         contentContainerStyle={styles.listContent}
-      />
-
-      <SortMenu
-        visible={sortMenuVisible}
-        onClose={() => setSortMenuVisible(false)}
-        onSelect={handleSort}
-        currentSort={currentSort}
       />
 
       <PlayerControls
@@ -197,6 +156,6 @@ const styles = StyleSheet.create({
   emptyContainer: { padding: 40, alignItems: 'center' },
   emptyText: { fontSize: 16, color: '#999', marginTop: 16 },
   listContent: { 
-    paddingBottom: 80,
+    paddingBottom: 20,
   },
 });
