@@ -3,12 +3,12 @@ import { View, StyleSheet, FlatList, Text, ActivityIndicator, TouchableOpacity }
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Header, FolderItem } from './MP04_Components';
-import { getBrandColor, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
+import { getBrandColor, BRAND_COLOR, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
 
 const SELECTED_FOLDERS_KEY = '@selected_folders';
 
 export default function PlaylistsScreen({ navigation, route }) {
-  const settings = route?.params?.settings || {};
+  const [settings, setSettings] = useState(route?.params?.settings || { brandColor: BRAND_COLOR });
   const brandColor = getBrandColor(settings);
   
   const [allFolders, setAllFolders] = useState(route?.params?.folders || []);
@@ -24,6 +24,11 @@ export default function PlaylistsScreen({ navigation, route }) {
   useEffect(() => {
     if (route.params?.updateSelection && route.params?.selectedFolders) {
       setSelectedFolders(route.params.selectedFolders);
+    }
+    
+    // Слушаем обновления цвета
+    if (route.params?.updateBrandColor && route.params?.brandColor) {
+      setSettings({ brandColor: route.params.brandColor });
     }
   }, [route.params]);
 
