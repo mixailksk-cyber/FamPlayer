@@ -112,6 +112,10 @@ export default function FolderScreen({ route, navigation }) {
     AudioPlayer.toggleAutoPlay();
   };
 
+  const openSettings = () => {
+    navigation.navigate('Settings', { settings });
+  };
+
   return (
     <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
       {IS_WEB_STUB && (
@@ -134,7 +138,7 @@ export default function FolderScreen({ route, navigation }) {
         showSort
         onSortPress={() => setSortMenuVisible(true)}
         rightIcon="settings"
-        onRightPress={() => navigation.navigate('Settings', { settings })}
+        onRightPress={openSettings}
         settings={settings}
       />
 
