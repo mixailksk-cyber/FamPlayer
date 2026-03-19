@@ -14,73 +14,41 @@ export default function FolderScreen({ route, navigation }) {
   
   const [currentSong, setCurrentSong] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [debug, setDebug] = useState([]);
   
   const brandColor = getBrandColor(settings);
   const insets = useSafeAreaInsets();
 
-  const addDebug = (message) => {
-    console.log(`[FolderScreen] ${message}`);
-    setDebug(prev => [...prev.slice(-5), message]);
-  };
-
   useEffect(() => {
-    addDebug('Компонент загружен');
     const interval = setInterval(() => {
       const status = AudioPlayer.getStatus();
       setCurrentSong(status.currentSong);
       setIsPlaying(status.isPlaying);
     }, 100);
-    return () => {
-      clearInterval(interval);
-      addDebug('Компонент размонтирован');
-    };
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     if (songs.length > 0) {
-      addDebug(`Установлен плейлист с ${songs.length} песнями`);
       AudioPlayer.setPlaylist(songs);
     }
   }, [songs]);
 
   const playSong = async (song) => {
     try {
-      addDebug(`Попытка воспроизвести: ${song.title}`);
-      
-      if (!song.uri) {
-        throw new Error('Нет URI для песни');
-      }
-      
-      addDebug(`URI песни: ${song.uri.substring(0, 50)}...`);
-      
-      const result = await AudioPlayer.loadSong(song, true);
-      
-      if (result) {
-        addDebug(`✅ Воспроизведение запущено`);
-      } else {
-        addDebug(`❌ Не удалось запустить воспроизведение`);
-      }
+      await AudioPlayer.loadSong(song, true);
     } catch (error) {
-      addDebug(`❌ Ошибка: ${error.message}`);
       Alert.alert('Ошибка', `Не удалось воспроизвести файл: ${error.message}`);
     }
   };
 
   const togglePlayPause = async () => {
-    try {
-      addDebug(`Переключение play/pause`);
-      await AudioPlayer.toggle();
-    } catch (error) {
-      addDebug(`❌ Ошибка переключения: ${error.message}`);
-    }
+    await AudioPlayer.toggle();
   };
 
   const playNext = () => {
     if (!currentSong || songs.length === 0) return;
     const index = songs.findIndex(s => s.id === currentSong.id);
     const nextIndex = (index + 1) % songs.length;
-    addDebug(`Следующий трек: ${songs[nextIndex].title}`);
     playSong(songs[nextIndex]);
   };
 
@@ -88,12 +56,11 @@ export default function FolderScreen({ route, navigation }) {
     if (!currentSong || songs.length === 0) return;
     const index = songs.findIndex(s => s.id === currentSong.id);
     const prevIndex = (index - 1 + songs.length) % songs.length;
-    addDebug(`Предыдущий трек: ${songs[prevIndex].title}`);
     playSong(songs[prevIndex]);
   };
 
   return (
-    <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom + 80 }]}>
+    <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
       {IS_WEB_STUB && (
         <View style={styles.demoBanner}>
           <MaterialIcons name="info" size={16} color="#333" />
