@@ -1,47 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, Text, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, FlatList, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Header, FolderItem } from './MP04_Components';
 import { getBrandColor, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
-import { getFoldersList } from './MP02_FileSystem';
 
 export default function PlaylistsScreen({ navigation, route }) {
   const settings = route?.params?.settings || {};
   const brandColor = getBrandColor(settings);
   
-  const [loading, setLoading] = useState(true);
-  const [folders, setFolders] = useState([]);
+  const [folders, setFolders] = useState(route?.params?.folders || []);
+  const [loading, setLoading] = useState(!route?.params?.folders);
 
   useEffect(() => {
-    loadData();
-  }, []);
-
-  // Следим за параметрами маршрута (обновление после сканирования)
-  useEffect(() => {
+    // Если данные пришли через параметры, используем их
     if (route.params?.folders) {
       setFolders(route.params.folders);
       setLoading(false);
-    } else {
-      loadData();
     }
   }, [route.params]);
-
-  const loadData = async () => {
-    setLoading(true);
-    
-    try {
-      const savedFolders = await getFoldersList();
-      // Фильтруем папки, оставляем только те, где есть песни
-      const foldersWithSongs = savedFolders.filter(folder => (folder.count || 0) > 0);
-      setFolders(foldersWithSongs);
-      console.log(`📂 Загружено ${foldersWithSongs.length} папок с песнями`);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const openFolder = (folder) => {
     navigation.navigate('Folder', {
@@ -64,7 +40,7 @@ export default function PlaylistsScreen({ navigation, route }) {
         />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={brandColor} />
-          <Text style={styles.loadingText}>Загрузка плейлистов...</Text>
+          <Text style={styles.loadingText}>Загрузка медиатеки...</Text>
         </View>
       </View>
     );
@@ -97,8 +73,8 @@ export default function PlaylistsScreen({ navigation, route }) {
             style={[styles.scanButton, { backgroundColor: brandColor }]}
             onPress={() => navigation.navigate('Settings', { settings })}
           >
-            <MaterialIcons name="search" size={20} color="white" />
-            <Text style={styles.scanButtonText}>Сканировать</Text>
+            <MaterialIcons name="refresh" size={20} color="white" />
+            <Text style={styles.scanButtonText}>Обновить медиатеку</Text>
           </TouchableOpacity>
         </View>
       ) : (
