@@ -19,7 +19,10 @@
       "infoPlist": {
         "UIFileSharingEnabled": true,
         "LSSupportsOpeningDocumentsInPlace": true
-      }
+      },
+      "backgroundModes": [
+        "audio"
+      ]
     },
     "android": {
       "adaptiveIcon": {
@@ -28,9 +31,12 @@
       },
       "permissions": [
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "READ_MEDIA_AUDIO"
-      ]
+        "READ_MEDIA_AUDIO",
+        "WAKE_LOCK",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ],
+      "package": "com.yourcompany.famplayer"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -39,6 +45,11 @@
       "expo-media-library",
       "expo-file-system",
       "expo-av"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id"
+      }
+    }
   }
 }
