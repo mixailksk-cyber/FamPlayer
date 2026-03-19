@@ -16,12 +16,18 @@ export default function PlaylistsScreen({ navigation, route }) {
   const [loading, setLoading] = useState(!route?.params?.folders);
   const [selectedFolders, setSelectedFolders] = useState({});
 
-  // Загружаем выбранные папки при монтировании
   useEffect(() => {
     loadSelectedFolders();
   }, []);
 
-  // Обновляем отображение когда меняются allFolders или selectedFolders
+  // Слушаем обновления выбора из настроек
+  useEffect(() => {
+    if (route.params?.updateSelection && route.params?.selectedFolders) {
+      setSelectedFolders(route.params.selectedFolders);
+    }
+  }, [route.params]);
+
+  // Фильтруем при изменении allFolders или selectedFolders
   useEffect(() => {
     filterFolders();
   }, [allFolders, selectedFolders]);
@@ -30,9 +36,6 @@ export default function PlaylistsScreen({ navigation, route }) {
   useEffect(() => {
     if (route.params?.folders) {
       setAllFolders(route.params.folders);
-    }
-    if (route.params?.selectedFolders) {
-      setSelectedFolders(route.params.selectedFolders);
     }
   }, [route.params]);
 
@@ -50,12 +53,10 @@ export default function PlaylistsScreen({ navigation, route }) {
   };
 
   const filterFolders = () => {
-    // Если есть выбранные папки, фильтруем по ним
     if (Object.keys(selectedFolders).length > 0) {
       const filtered = allFolders.filter(folder => selectedFolders[folder.id]);
       setDisplayedFolders(filtered);
     } else {
-      // Если нет выбранных, показываем все
       setDisplayedFolders(allFolders);
     }
   };
