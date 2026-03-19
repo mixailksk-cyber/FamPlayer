@@ -13,11 +13,11 @@ export default function PlaylistsScreen({ navigation, route }) {
   
   const [allFolders, setAllFolders] = useState(route?.params?.folders || []);
   const [displayedFolders, setDisplayedFolders] = useState([]);
-  const [loading, setLoading] = useState(!route?.params?.folders);
+  const [loading, setLoading] = useState(true);
   const [selectedFolders, setSelectedFolders] = useState({});
 
   useEffect(() => {
-    loadSelectedFolders();
+    loadData();
   }, []);
 
   // Слушаем обновления выбора из настроек
@@ -37,21 +37,23 @@ export default function PlaylistsScreen({ navigation, route }) {
     filterFolders();
   }, [allFolders, selectedFolders]);
 
-  // Обновляем allFolders если пришли новые через параметры
-  useEffect(() => {
-    if (route.params?.folders) {
-      setAllFolders(route.params.folders);
-    }
-  }, [route.params]);
-
-  const loadSelectedFolders = async () => {
+  const loadData = async () => {
+    setLoading(true);
     try {
+      // Загружаем папки
+      const foldersStr = await AsyncStorage.getItem('scanned_folders');
+      if (foldersStr) {
+        const parsed = JSON.parse(foldersStr);
+        setAllFolders(parsed);
+      }
+      
+      // Загружаем выбранные папки
       const saved = await AsyncStorage.getItem(SELECTED_FOLDERS_KEY);
       if (saved) {
         setSelectedFolders(JSON.parse(saved));
       }
     } catch (error) {
-      console.error('Ошибка загрузки выбранных папок:', error);
+      console.error('Ошибка загрузки данных:', error);
     } finally {
       setLoading(false);
     }
@@ -76,13 +78,17 @@ export default function PlaylistsScreen({ navigation, route }) {
     });
   };
 
+  const openSettings = () => {
+    navigation.navigate('Settings', { settings });
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
         <Header 
           title="Плейлисты" 
-          rightIcon="settings"
-          onRightPress={() => navigation.navigate('Settings', { settings })}
+          showSettings
+          onSettingsPress={openSettings}
           settings={settings} 
         />
         <View style={styles.center}>
@@ -97,8 +103,8 @@ export default function PlaylistsScreen({ navigation, route }) {
     <View style={styles.container}>
       <Header 
         title="Плейлисты" 
-        rightIcon="settings"
-        onRightPress={() => navigation.navigate('Settings', { settings })}
+        showSettings
+        onSettingsPress={openSettings}
         settings={settings} 
       />
       
@@ -118,7 +124,7 @@ export default function PlaylistsScreen({ navigation, route }) {
           </Text>
           <TouchableOpacity 
             style={[styles.settingsButton, { backgroundColor: brandColor }]}
-            onPress={() => navigation.navigate('Settings', { settings })}
+            onPress={openSettings}
           >
             <MaterialIcons name="settings" size={20} color="white" />
             <Text style={styles.settingsButtonText}>Настройки</Text>
