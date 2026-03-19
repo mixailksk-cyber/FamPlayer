@@ -2,20 +2,33 @@ import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
   ActivityIndicator, Alert, SafeAreaView, Modal,
-  FlatList
+  FlatList, ScrollView
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Header } from './MP04_Components';
-import { getBrandColor, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
+import { BRAND_COLOR, getBrandColor, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
 import { scanMusic, saveFoldersList, saveSongsList, getFoldersList } from './MP02_FileSystem';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const SELECTED_FOLDERS_KEY = '@selected_folders';
+const BRAND_COLOR_KEY = '@brand_color';
+
+// Доступные цвета бренда
+const BRAND_COLORS = [
+  '#008080', // Бирюзовый (текущий)
+  '#E91E63', // Розовый
+  '#FF9800', // Оранжевый
+  '#4CAF50', // Зеленый
+  '#2196F3', // Синий
+  '#9C27B0', // Фиолетовый
+  '#795548', // Коричневый
+];
 
 export default function SettingsScreen({ navigation, route }) {
   const settings = route?.params?.settings || {};
-  const brandColor = getBrandColor(settings);
+  const [currentBrandColor, setCurrentBrandColor] = useState(settings.brandColor || BRAND_COLOR);
+  const brandColor = getBrandColor({ brandColor: currentBrandColor });
   const insets = useSafeAreaInsets();
   
   const [scanning, setScanning] = useState(false);
@@ -26,7 +39,32 @@ export default function SettingsScreen({ navigation, route }) {
 
   useEffect(() => {
     loadFolders();
+    loadBrandColor();
   }, []);
+
+  const loadBrandColor = async () => {
+    try {
+      const saved = await AsyncStorage.getItem(BRAND_COLOR_KEY);
+      if (saved) {
+        setCurrentBrandColor(saved);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки цвета:', error);
+    }
+  };
+
+  const saveBrandColor = async (color) => {
+    try {
+      await AsyncStorage.setItem(BRAND_COLOR_KEY, color);
+      setCurrentBrandColor(color);
+      // Обновляем цвет в навигации
+      navigation.setParams({ 
+        settings: { ...settings, brandColor: color }
+      });
+    } catch (error) {
+      console.error('Ошибка сохранения цвета:', error);
+    }
+  };
 
   const loadFolders = async () => {
     setLoading(true);
@@ -52,10 +90,20 @@ export default function SettingsScreen({ navigation, route }) {
   };
 
   const toggleFolder = (folderId) => {
-    setSelectedFolders(prev => ({
-      ...prev,
-      [folderId]: !prev[folderId]
-    }));
+    setSelectedFolders(prev => {
+      const updated = {
+        ...prev,
+        [folderId]: !prev[folderId]
+      };
+      // Сразу сохраняем в AsyncStorage
+      AsyncStorage.setItem(SELECTED_FOLDERS_KEY, JSON.stringify(updated));
+      // Отправляем обновление на экран плейлистов
+      navigation.navigate('Playlists', {
+        updateSelection: true,
+        selectedFolders: updated
+      });
+      return updated;
+    });
   };
 
   const selectAll = () => {
@@ -64,26 +112,20 @@ export default function SettingsScreen({ navigation, route }) {
       allSelected[folder.id] = true;
     });
     setSelectedFolders(allSelected);
+    AsyncStorage.setItem(SELECTED_FOLDERS_KEY, JSON.stringify(allSelected));
+    navigation.navigate('Playlists', {
+      updateSelection: true,
+      selectedFolders: allSelected
+    });
   };
 
   const deselectAll = () => {
     setSelectedFolders({});
-  };
-
-  const saveSelection = async () => {
-    try {
-      await AsyncStorage.setItem(SELECTED_FOLDERS_KEY, JSON.stringify(selectedFolders));
-      setModalVisible(false);
-      
-      // Обновляем плейлисты с новым выбором
-      navigation.setParams({
-        selectedFolders: { ...selectedFolders }
-      });
-      
-      Alert.alert('Успех', 'Выбор папок сохранен');
-    } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось сохранить выбор');
-    }
+    AsyncStorage.setItem(SELECTED_FOLDERS_KEY, JSON.stringify({}));
+    navigation.navigate('Playlists', {
+      updateSelection: true,
+      selectedFolders: {}
+    });
   };
 
   const handleScanMusic = async () => {
@@ -124,12 +166,12 @@ export default function SettingsScreen({ navigation, route }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: '#FFFFFF' }]}>
       <Header 
         title="Настройки" 
         showBack 
         onBack={() => navigation.goBack()} 
-        settings={settings} 
+        settings={{ brandColor: currentBrandColor }} 
       />
       
       {IS_WEB_STUB && (
@@ -139,43 +181,99 @@ export default function SettingsScreen({ navigation, route }) {
         </View>
       )}
       
-      <View style={styles.content}>
-        <MaterialIcons name="settings" size={80} color={brandColor} style={styles.icon} />
-        
-        <Text style={styles.title}>Управление медиатекой</Text>
-        
-        <TouchableOpacity 
-          style={[styles.folderButton, { borderColor: brandColor }]} 
-          onPress={() => setModalVisible(true)}
-        >
-          <MaterialIcons name="playlist-add-check" size={24} color={brandColor} />
-          <Text style={[styles.folderButtonText, { color: brandColor }]}>
-            Выбор папок ({getSelectedCount()}/{allFolders.length})
-          </Text>
-          <MaterialIcons name="chevron-right" size={24} color={brandColor} />
-        </TouchableOpacity>
-        
-        <View style={styles.divider} />
-        
-        <Text style={styles.description}>
-          Обновить список всех папок и песен
-        </Text>
-        
-        <TouchableOpacity 
-          style={[styles.scanButton, { backgroundColor: brandColor }]} 
-          onPress={handleScanMusic}
-          disabled={scanning}
-        >
-          {scanning ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <MaterialIcons name="refresh" size={24} color="white" />
-              <Text style={styles.scanButtonText}>Обновить медиатеку</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Размер текста */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Размер текста</Text>
+          <View style={styles.sizeOptions}>
+            {[14, 16, 18, 20, 22, 24].map(size => (
+              <TouchableOpacity key={size} style={styles.sizeButton}>
+                <Text style={styles.sizeButtonText}>{size}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Цвет бренда */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Цвет бренда</Text>
+          <View style={styles.colorOptions}>
+            {BRAND_COLORS.map(color => (
+              <TouchableOpacity
+                key={color}
+                style={[
+                  styles.colorButton,
+                  { backgroundColor: color },
+                  currentBrandColor === color && styles.colorButtonSelected
+                ]}
+                onPress={() => saveBrandColor(color)}
+              >
+                {currentBrandColor === color && (
+                  <MaterialIcons name="check" size={20} color="#FFFFFF" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Резервное копирование */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Резервное копирование</Text>
+          <View style={styles.backupOptions}>
+            <TouchableOpacity style={[styles.backupButton, { borderColor: currentBrandColor }]}>
+              <MaterialIcons name="backup" size={20} color={currentBrandColor} />
+              <Text style={[styles.backupButtonText, { color: currentBrandColor }]}>
+                Создать копию
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={[styles.backupButton, { borderColor: currentBrandColor }]}>
+              <MaterialIcons name="restore" size={20} color={currentBrandColor} />
+              <Text style={[styles.backupButtonText, { color: currentBrandColor }]}>
+                Восстановить
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Управление папками */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Управление папками</Text>
+          
+          <TouchableOpacity 
+            style={[styles.folderButton, { borderColor: currentBrandColor }]} 
+            onPress={() => setModalVisible(true)}
+          >
+            <View style={styles.folderButtonLeft}>
+              <MaterialIcons name="playlist-add-check" size={20} color={currentBrandColor} />
+              <Text style={[styles.folderButtonText, { color: currentBrandColor }]}>
+                Выбор папок
+              </Text>
+            </View>
+            <View style={styles.folderButtonRight}>
+              <Text style={[styles.folderCount, { color: currentBrandColor }]}>
+                {getSelectedCount()}/{allFolders.length}
+              </Text>
+              <MaterialIcons name="chevron-right" size={20} color={currentBrandColor} />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.updateButton, { backgroundColor: currentBrandColor }]} 
+            onPress={handleScanMusic}
+            disabled={scanning}
+          >
+            {scanning ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <MaterialIcons name="refresh" size={20} color="white" />
+                <Text style={styles.updateButtonText}>Обновить медиатеку</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
 
       {/* Модальное окно выбора папок */}
       <Modal
@@ -189,14 +287,14 @@ export default function SettingsScreen({ navigation, route }) {
               <MaterialIcons name="close" size={24} color="#333" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Выбор папок</Text>
-            <TouchableOpacity onPress={saveSelection}>
-              <Text style={[styles.saveButton, { color: brandColor }]}>Сохранить</Text>
+            <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <Text style={[styles.saveButton, { color: currentBrandColor }]}>Готово</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.modalActions}>
             <TouchableOpacity style={styles.actionButton} onPress={selectAll}>
-              <Text style={{ color: brandColor }}>Выбрать все</Text>
+              <Text style={{ color: currentBrandColor }}>Выбрать все</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionButton} onPress={deselectAll}>
               <Text style={{ color: '#999' }}>Снять все</Text>
@@ -205,7 +303,7 @@ export default function SettingsScreen({ navigation, route }) {
 
           {loading ? (
             <View style={styles.center}>
-              <ActivityIndicator size="large" color={brandColor} />
+              <ActivityIndicator size="large" color={currentBrandColor} />
             </View>
           ) : (
             <FlatList
@@ -223,7 +321,7 @@ export default function SettingsScreen({ navigation, route }) {
                       <MaterialIcons 
                         name="folder" 
                         size={24} 
-                        color={isSelected ? brandColor : '#999'} 
+                        color={isSelected ? currentBrandColor : '#999'} 
                       />
                       <View style={styles.folderText}>
                         <Text style={styles.folderName}>{item.name}</Text>
@@ -233,10 +331,10 @@ export default function SettingsScreen({ navigation, route }) {
                     
                     <View style={[
                       styles.checkbox,
-                      { borderColor: isSelected ? brandColor : '#999' }
+                      { borderColor: isSelected ? currentBrandColor : '#999' }
                     ]}>
                       {isSelected && (
-                        <MaterialIcons name="check" size={18} color={brandColor} />
+                        <MaterialIcons name="check" size={18} color={currentBrandColor} />
                       )}
                     </View>
                   </TouchableOpacity>
@@ -256,65 +354,8 @@ export default function SettingsScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  content: { 
-    flex: 1, 
-    alignItems: 'center', 
-    padding: 24 
-  },
-  icon: { marginBottom: 24 },
-  title: { 
-    fontSize: 22, 
-    fontWeight: 'bold', 
-    marginBottom: 24, 
-    textAlign: 'center', 
-    color: '#333' 
-  },
-  folderButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 10,
-    borderWidth: 2,
-    width: '100%',
-    marginBottom: 24,
-  },
-  folderButtonText: { 
-    fontSize: 16, 
-    fontWeight: '600',
-    flex: 1,
-    marginLeft: 12,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E0E0E0',
-    width: '100%',
-    marginBottom: 24,
-  },
-  description: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  scanButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 10,
-    elevation: 3,
-    width: '100%',
-    maxWidth: 280,
-  },
-  scanButtonText: { 
-    color: '#FFFFFF', 
-    fontSize: 16, 
-    fontWeight: '600', 
-    marginLeft: 10 
-  },
+  container: { flex: 1 },
+  scrollView: { flex: 1 },
   demoBanner: { 
     backgroundColor: '#FFD700', 
     padding: 10, 
@@ -324,6 +365,119 @@ const styles = StyleSheet.create({
   },
   demoText: { color: '#333', fontSize: 12, fontWeight: '600' },
   
+  // Секции
+  section: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 16,
+  },
+
+  // Размер текста
+  sizeOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  sizeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sizeButtonText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+
+  // Цвет бренда
+  colorOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  colorButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  colorButtonSelected: {
+    borderWidth: 3,
+    borderColor: '#333',
+  },
+
+  // Резервное копирование
+  backupOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  backupButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 0.48,
+  },
+  backupButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 6,
+  },
+
+  // Управление папками
+  folderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  folderButtonLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  folderButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+  folderButtonRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  folderCount: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginRight: 8,
+  },
+  updateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+  },
+  updateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+
   // Modal styles
   modalContainer: {
     flex: 1,
