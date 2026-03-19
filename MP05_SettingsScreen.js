@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Header, EmailFooter } from './MP04_Components';
 import { getBrandColor, AUTHOR_EMAIL, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
 
-// ВАЖНО: Импортируем всё необходимое из MP02_FileSystem
+// Импортируем всё необходимое из MP02_FileSystem
 import { 
   SCAN_MODES,
   pickFolder,
