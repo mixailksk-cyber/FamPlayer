@@ -7,40 +7,27 @@ import MP06_PlaylistsScreen from './MP06_PlaylistsScreen';
 import MP07_FolderScreen from './MP07_FolderScreen';
 import MP20_SearchScreen from './MP20_SearchScreen';
 import { BRAND_COLOR } from './MP01_Core';
-import { scanMusic, saveFoldersList, saveSongsList, getFoldersList } from './MP02_FileSystem';
 
 const Stack = createStackNavigator();
 
 export default function AppNavigator({ settings: initialSettings = {} }) {
   const [isReady, setIsReady] = useState(false);
   const [initialRoute, setInitialRoute] = useState('Playlists');
-  const [initialParams, setInitialParams] = useState({});
-  const [settings] = useState(initialSettings);
+  const [settings, setSettings] = useState(initialSettings);
 
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Проверяем, есть ли сохраненные данные
-        const savedFolders = await getFoldersList();
-        
-        if (savedFolders.length > 0) {
-          // Если есть сохраненные данные, показываем плейлисты
-          setInitialParams({ folders: savedFolders });
-          setInitialRoute('Playlists');
-        } else {
-          // Если нет данных, запускаем автоматическое сканирование
-          console.log('🔄 Автоматическое сканирование медиатеки...');
-          const result = await scanMusic();
-          
-          await saveFoldersList(result.folders || []);
-          await saveSongsList(result.songs || []);
-          
-          setInitialParams({ 
-            folders: result.folders || [],
-            songs: result.songs || [] 
-          });
-          setInitialRoute('Playlists');
+        // Загружаем сохраненный цвет
+        const savedColor = await AsyncStorage.getItem('@brand_color');
+        if (savedColor) {
+          setSettings({ brandColor: savedColor });
         }
+        
+        // Проверяем, есть ли сохраненные данные
+        const hasData = await AsyncStorage.getItem('scanned_folders');
+        setInitialRoute(hasData ? 'Playlists' : 'Settings');
+        
       } catch (error) {
         console.error('Ошибка при инициализации:', error);
         setInitialRoute('Settings');
@@ -70,7 +57,7 @@ export default function AppNavigator({ settings: initialSettings = {} }) {
         <Stack.Screen 
           name="Playlists" 
           component={MP06_PlaylistsScreen} 
-          initialParams={initialParams}
+          initialParams={{ settings }}
         />
         <Stack.Screen 
           name="Folder" 
