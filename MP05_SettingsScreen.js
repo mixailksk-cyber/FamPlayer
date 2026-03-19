@@ -4,24 +4,13 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Header, EmailFooter } from './MP04_Components';
 import { getBrandColor, AUTHOR_EMAIL, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
-
-// Импортируем всё необходимое из MP02_FileSystem
-import { 
-  SCAN_MODES,
-  pickFolder,
-  scanMusic,
-  getScanMode,
-  saveScanMode
-} from './MP02_FileSystem';
+import { scanMusic, saveFoldersList, saveSongsList } from './MP02_FileSystem';
 
 export default function SettingsScreen({ navigation, route }) {
   const settings = route?.params?.settings || {};
   const brandColor = getBrandColor(settings);
   
-  const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [selectedFolder, setSelectedFolder] = useState(null);
-  const [scanMode, setScanMode] = useState(SCAN_MODES.MEDIA);
   const [logs, setLogs] = useState([]);
 
   const addLog = (message, isError = false) => {
@@ -31,93 +20,33 @@ export default function SettingsScreen({ navigation, route }) {
     console.log(message);
   };
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
-    try {
-      const savedFolder = await AsyncStorage.getItem('selected_folder');
-      if (savedFolder) {
-        addLog(`Загружена папка: ${savedFolder}`);
-        setSelectedFolder(savedFolder);
-      }
-      
-      const savedMode = await getScanMode();
-      setScanMode(savedMode);
-      addLog(`Режим сканирования: ${savedMode === SCAN_MODES.MEDIA ? 'Медиатека' : 'Выбор папки'}`);
-      
-    } catch (error) {
-      addLog(`Ошибка загрузки: ${error.message}`, true);
-    }
-  };
-
-  const toggleScanMode = async () => {
-    const newMode = scanMode === SCAN_MODES.FOLDER 
-      ? SCAN_MODES.MEDIA 
-      : SCAN_MODES.FOLDER;
-    
-    setScanMode(newMode);
-    await saveScanMode(newMode);
-    addLog(`Режим изменен: ${newMode === SCAN_MODES.MEDIA ? 'Медиатека' : 'Выбор папки'}`);
-  };
-
-  const handlePickFolder = async () => {
-    addLog('Выбор папки...');
-    setLoading(true);
-    
-    try {
-      const folderUri = await pickFolder();
-      
-      if (folderUri) {
-        addLog(`Выбрана: ${folderUri}`);
-        setSelectedFolder(folderUri);
-        await AsyncStorage.setItem('selected_folder', folderUri);
-      } else {
-        addLog('Выбор отменен');
-      }
-    } catch (error) {
-      addLog(`Ошибка: ${error.message}`, true);
-      Alert.alert('Ошибка', 'Не удалось выбрать папку');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleScanMusic = async () => {
     if (scanning) {
       addLog('Сканирование уже выполняется', true);
       return;
     }
     
-    if (scanMode === SCAN_MODES.FOLDER && !selectedFolder) {
-      Alert.alert('Ошибка', 'Сначала выберите папку');
-      return;
-    }
-    
-    addLog(`Начало сканирования (${scanMode === SCAN_MODES.MEDIA ? 'Медиатека' : 'Файловая система'})...`);
+    addLog('Начало сканирования медиатеки...');
     setScanning(true);
     
     try {
-      const result = await scanMusic(scanMode, selectedFolder);
+      const result = await scanMusic();
       
-      addLog(`✅ Найдено: ${result.folders?.length || 0} папок/альбомов, ${result.songs?.length || 0} файлов`);
+      addLog(`✅ Найдено: ${result.folders?.length || 0} папок/альбомов, ${result.songs?.length || 0} треков`);
       
       if (result.stats) {
-        addLog(`📊 Статистика: всего ${result.stats.total} файлов в медиатеке`);
+        addLog(`📊 Статистика: всего ${result.stats.total} треков в медиатеке`);
       }
       
-      await AsyncStorage.setItem('scanned_folders', JSON.stringify(result.folders || []));
-      await AsyncStorage.setItem('scanned_songs', JSON.stringify(result.songs || []));
+      await saveFoldersList(result.folders || []);
+      await saveSongsList(result.songs || []);
       await AsyncStorage.setItem('scan_timestamp', Date.now().toString());
-      await AsyncStorage.setItem('scan_mode', scanMode);
       
       setTimeout(() => {
         navigation.replace('Playlists', {
           scanTimestamp: Date.now(),
           foldersCount: result.folders?.length || 0,
-          songsCount: result.songs?.length || 0,
-          scanMode: scanMode
+          songsCount: result.songs?.length || 0
         });
         addLog('🚀 Переход выполнен');
       }, 300);
@@ -150,98 +79,19 @@ export default function SettingsScreen({ navigation, route }) {
         <View style={styles.content}>
           <MaterialIcons name="settings" size={64} color={brandColor} style={styles.icon} />
           
-          <Text style={styles.title}>Настройки сканирования</Text>
-          
-          <View style={styles.modeSelector}>
-            <Text style={styles.modeLabel}>Режим сканирования:</Text>
-            <View style={styles.modeButtons}>
-              <TouchableOpacity
-                style={[
-                  styles.modeButton,
-                  scanMode === SCAN_MODES.FOLDER && styles.modeButtonActive,
-                  { borderColor: brandColor }
-                ]}
-                onPress={toggleScanMode}
-              >
-                <MaterialIcons 
-                  name="folder" 
-                  size={20} 
-                  color={scanMode === SCAN_MODES.FOLDER ? brandColor : '#999'} 
-                />
-                <Text style={[
-                  styles.modeButtonText,
-                  scanMode === SCAN_MODES.FOLDER && { color: brandColor }
-                ]}>
-                  Выбор папки
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[
-                  styles.modeButton,
-                  scanMode === SCAN_MODES.MEDIA && styles.modeButtonActive,
-                  { borderColor: brandColor }
-                ]}
-                onPress={toggleScanMode}
-              >
-                <MaterialIcons 
-                  name="library-music" 
-                  size={20} 
-                  color={scanMode === SCAN_MODES.MEDIA ? brandColor : '#999'} 
-                />
-                <Text style={[
-                  styles.modeButtonText,
-                  scanMode === SCAN_MODES.MEDIA && { color: brandColor }
-                ]}>
-                  Медиатека
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          <Text style={styles.title}>Медиатека</Text>
           
           <View style={styles.infoBox}>
             <MaterialIcons name="info" size={16} color={brandColor} />
             <Text style={styles.infoText}>
-              {scanMode === SCAN_MODES.MEDIA 
-                ? 'Быстрое сканирование всей медиатеки. Работает с внутренней памятью.'
-                : 'Ручной выбор папки. Подходит для внешних SD-карт, но может быть медленнее.'}
+              Сканирование всей медиатеки устройства. Будут найдены все аудиофайлы и сгруппированы по альбомам.
             </Text>
           </View>
-          
-          {scanMode === SCAN_MODES.FOLDER && (
-            <>
-              {selectedFolder && (
-                <View style={styles.folderInfo}>
-                  <MaterialIcons name="folder" size={20} color={brandColor} />
-                  <Text style={styles.folderPath} numberOfLines={2}>
-                    {selectedFolder}
-                  </Text>
-                </View>
-              )}
-              
-              <TouchableOpacity 
-                style={[styles.folderButton, { borderColor: brandColor }]} 
-                onPress={handlePickFolder}
-                disabled={loading || scanning}
-              >
-                {loading ? (
-                  <ActivityIndicator color={brandColor} />
-                ) : (
-                  <>
-                    <MaterialIcons name="folder-open" size={24} color={brandColor} />
-                    <Text style={[styles.folderButtonText, { color: brandColor }]}>
-                      {selectedFolder ? 'Изменить папку' : 'Выбрать папку'}
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </>
-          )}
           
           <TouchableOpacity 
             style={[styles.scanButton, { backgroundColor: brandColor }]} 
             onPress={handleScanMusic}
-            disabled={scanning || (scanMode === SCAN_MODES.FOLDER && !selectedFolder)}
+            disabled={scanning}
           >
             {scanning ? (
               <ActivityIndicator color="#fff" />
@@ -274,37 +124,6 @@ const styles = StyleSheet.create({
   icon: { marginBottom: 20 },
   title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: '#333' },
   
-  modeSelector: {
-    width: '100%',
-    marginBottom: 20,
-  },
-  modeLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  modeButtons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  modeButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: 8,
-  },
-  modeButtonActive: {
-    backgroundColor: '#F0F8FF',
-  },
-  modeButtonText: {
-    fontSize: 14,
-    color: '#999',
-  },
-  
   infoBox: {
     flexDirection: 'row',
     backgroundColor: '#F5F5F5',
@@ -321,29 +140,6 @@ const styles = StyleSheet.create({
     color: '#666',
     lineHeight: 16,
   },
-  
-  folderInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0F8FF',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    width: '100%',
-  },
-  folderPath: { marginLeft: 8, fontSize: 12, color: '#333', flex: 1 },
-  
-  folderButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 15,
-    borderRadius: 10,
-    borderWidth: 2,
-    width: '100%',
-    marginBottom: 12,
-  },
-  folderButtonText: { fontSize: 16, fontWeight: '600', marginLeft: 8 },
   
   scanButton: {
     flexDirection: 'row',
