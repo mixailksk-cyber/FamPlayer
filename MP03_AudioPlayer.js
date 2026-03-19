@@ -1,4 +1,4 @@
-import { Alert } from 'react-native';
+import { Alert, AppState } from 'react-native';
 import { IS_WEB_STUB } from './MP01_Core';
 import { Audio } from 'expo-av';
 
@@ -12,11 +12,41 @@ class AudioPlayer {
     this.demoInterval = null;
     this.playlist = [];
     this.shuffleMode = false;
-    this.autoPlayMode = true;
     this.shuffledPlaylist = [];
     this.currentIndex = -1;
     this.debug = [];
+    
+    // Настройка аудио для фонового воспроизведения
+    this.setupAudioMode();
+    
+    // Отслеживаем состояние приложения
+    AppState.addEventListener('change', this.handleAppStateChange);
   }
+
+  setupAudioMode = async () => {
+    if (IS_WEB_STUB) return;
+    
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        staysActiveInBackground: true, // Ключевое свойство для фонового воспроизведения
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+        interruptionModeIOS: 1, // DO_NOT_MIX
+        interruptionModeAndroid: 1, // DO_NOT_MIX
+      });
+      console.log('✅ Audio mode configured for background playback');
+    } catch (error) {
+      console.error('❌ Failed to set audio mode:', error);
+    }
+  };
+
+  handleAppStateChange = (nextAppState) => {
+    console.log(`📱 App state changed to: ${nextAppState}`);
+    // Приложение ушло в фон - ничего не делаем, звук продолжает играть
+    // благодаря staysActiveInBackground: true
+  };
 
   addDebug(message) {
     const timestamp = new Date().toLocaleTimeString();
@@ -38,6 +68,9 @@ class AudioPlayer {
       this.demoInterval = setTimeout(() => {
         if (this.onFinishCallback) this.onFinishCallback();
       }, 30000);
+      
+      // Обновляем медиа-сессию для демо-режима
+      this.updateMediaSession();
       return true;
     }
 
@@ -52,7 +85,10 @@ class AudioPlayer {
       
       const { sound } = await Audio.Sound.createAsync(
         { uri: song.uri },
-        { shouldPlay: shouldPlay },
+        { 
+          shouldPlay: shouldPlay,
+          progressUpdateIntervalMillis: 500,
+        },
         this._onPlaybackStatusUpdate.bind(this)
       );
       
@@ -63,11 +99,27 @@ class AudioPlayer {
       
       this.addDebug(`Sound loaded successfully, shouldPlay: ${shouldPlay}`);
       
+      // Обновляем медиа-сессию для Android
+      this.updateMediaSession();
+      
       return true;
     } catch (error) {
       this.addDebug(`❌ Error loading sound: ${error.message}`);
       Alert.alert('Ошибка', 'Не удалось загрузить файл');
       return false;
+    }
+  }
+
+  updateMediaSession() {
+    if (!this.currentSong || IS_WEB_STUB) return;
+    
+    // Обновляем информацию для системной шторки Android
+    // Это автоматически обрабатывается expo-av, но мы можем добавить кастомную информацию
+    try {
+      // В будущем здесь можно добавить кастомную интеграцию с MediaSession
+      // пока expo-av делает это автоматически
+    } catch (error) {
+      console.log('Media session update error:', error);
     }
   }
 
@@ -95,6 +147,9 @@ class AudioPlayer {
       this.isPlaying = true;
       this.isPaused = false;
       this.addDebug('Playback started');
+      
+      // Обновляем состояние в медиа-сессии
+      this.updateMediaSession();
       return true;
     } catch (error) {
       this.addDebug(`Error playing: ${error.message}`);
@@ -114,6 +169,9 @@ class AudioPlayer {
       this.isPlaying = false;
       this.isPaused = true;
       this.addDebug('Playback paused');
+      
+      // Обновляем состояние в медиа-сессии
+      this.updateMediaSession();
       return true;
     } catch (error) {
       this.addDebug(`Error pausing: ${error.message}`);
@@ -149,7 +207,6 @@ class AudioPlayer {
       isPlaying: this.isPlaying,
       isPaused: this.isPaused,
       shuffleMode: this.shuffleMode,
-      autoPlayMode: this.autoPlayMode,
     };
   }
 
@@ -175,11 +232,6 @@ class AudioPlayer {
     } else {
       this.currentIndex = this.playlist.findIndex(s => s.id === this.currentSong?.id);
     }
-  }
-
-  toggleAutoPlay() {
-    this.autoPlayMode = !this.autoPlayMode;
-    this.addDebug(`AutoPlay mode: ${this.autoPlayMode ? 'ON' : 'OFF'}`);
   }
 
   getNextSong() {
