@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, ScrollView, SafeAreaView, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, ScrollView, SafeAreaView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Header, EmailFooter } from './MP04_Components';
 import { getBrandColor, AUTHOR_EMAIL, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
-import * as FileSystem from './MP02_FileSystem';
+import * as FileSystem from './MP02_FileSystem'; // ВАЖНО: добавлен этот импорт
 
 export default function SettingsScreen({ navigation, route }) {
   const settings = route?.params?.settings || {};
@@ -13,11 +13,9 @@ export default function SettingsScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [selectedFolder, setSelectedFolder] = useState(null);
-  const [scanMode, setScanMode] = useState(FileSystem.SCAN_MODES.MEDIA);
-  const [allFolders, setAllFolders] = useState([]);
-  const [selectedFolders, setSelectedFolders] = useState({});
+  const [scanMode, setScanMode] = useState(FileSystem.SCAN_MODES.MEDIA); // По умолчанию MEDIA
   const [logs, setLogs] = useState([]);
-  const [showFolderSelection, setShowFolderSelection] = useState(false);
+  const [isReady, setIsReady] = useState(true);
 
   const addLog = (message, isError = false) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -40,12 +38,6 @@ export default function SettingsScreen({ navigation, route }) {
       
       const savedMode = await FileSystem.getScanMode();
       setScanMode(savedMode);
-      
-      const savedSelected = await AsyncStorage.getItem('selected_folders');
-      if (savedSelected) {
-        setSelectedFolders(JSON.parse(savedSelected));
-      }
-      
       addLog(`Режим сканирования: ${savedMode === FileSystem.SCAN_MODES.MEDIA ? 'Медиатека' : 'Выбор папки'}`);
       
     } catch (error) {
@@ -91,30 +83,37 @@ export default function SettingsScreen({ navigation, route }) {
       return;
     }
     
+    if (scanMode === FileSystem.SCAN_MODES.FOLDER && !selectedFolder) {
+      Alert.alert('Ошибка', 'Сначала выберите папку');
+      return;
+    }
+    
     addLog(`Начало сканирования (${scanMode === FileSystem.SCAN_MODES.MEDIA ? 'Медиатека' : 'Файловая система'})...`);
     setScanning(true);
     
     try {
       const result = await FileSystem.scanMusic(scanMode, selectedFolder);
       
-      addLog(`✅ Найдено: ${result.folders.length} папок/альбомов, ${result.songs.length} файлов`);
+      addLog(`✅ Найдено: ${result.folders?.length || 0} папок/альбомов, ${result.songs?.length || 0} файлов`);
       
-      setAllFolders(result.folders);
-      
-      if (Object.keys(selectedFolders).length === 0) {
-        setShowFolderSelection(true);
-      } else {
-        const selectedOnly = result.folders.filter(f => selectedFolders[f.id]);
-        
-        await AsyncStorage.setItem('scanned_folders', JSON.stringify(selectedOnly));
-        await AsyncStorage.setItem('scanned_songs', JSON.stringify(result.songs));
-        await AsyncStorage.setItem('scan_timestamp', Date.now().toString());
-        
-        setTimeout(() => {
-          navigation.replace('Playlists');
-          addLog('🚀 Переход выполнен');
-        }, 300);
+      if (result.stats) {
+        addLog(`📊 Статистика: всего ${result.stats.total} файлов в медиатеке`);
       }
+      
+      await AsyncStorage.setItem('scanned_folders', JSON.stringify(result.folders || []));
+      await AsyncStorage.setItem('scanned_songs', JSON.stringify(result.songs || []));
+      await AsyncStorage.setItem('scan_timestamp', Date.now().toString());
+      await AsyncStorage.setItem('scan_mode', scanMode);
+      
+      setTimeout(() => {
+        navigation.replace('Playlists', {
+          scanTimestamp: Date.now(),
+          foldersCount: result.folders?.length || 0,
+          songsCount: result.songs?.length || 0,
+          scanMode: scanMode
+        });
+        addLog('🚀 Переход выполнен');
+      }, 300);
       
     } catch (error) {
       addLog(`❌ Ошибка сканирования: ${error.message}`, true);
@@ -123,107 +122,6 @@ export default function SettingsScreen({ navigation, route }) {
       setScanning(false);
     }
   };
-
-  const toggleFolderSelection = (folderId) => {
-    setSelectedFolders(prev => ({
-      ...prev,
-      [folderId]: !prev[folderId]
-    }));
-  };
-
-  const selectAllFolders = () => {
-    const allSelected = {};
-    allFolders.forEach(f => {
-      allSelected[f.id] = true;
-    });
-    setSelectedFolders(allSelected);
-  };
-
-  const deselectAllFolders = () => {
-    setSelectedFolders({});
-  };
-
-  const saveFolderSelection = async () => {
-    await AsyncStorage.setItem('selected_folders', JSON.stringify(selectedFolders));
-    
-    const selectedOnly = allFolders.filter(f => selectedFolders[f.id]);
-    const songs = await FileSystem.getSongsList();
-    
-    await AsyncStorage.setItem('scanned_folders', JSON.stringify(selectedOnly));
-    await AsyncStorage.setItem('scanned_songs', JSON.stringify(songs));
-    
-    setShowFolderSelection(false);
-    
-    setTimeout(() => {
-      navigation.replace('Playlists');
-      addLog('🚀 Переход выполнен');
-    }, 300);
-  };
-
-  const renderFolderItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.folderSelectItem}
-      onPress={() => toggleFolderSelection(item.id)}
-    >
-      <View style={styles.folderSelectInfo}>
-        <MaterialIcons 
-          name={selectedFolders[item.id] ? "check-box" : "check-box-outline-blank"} 
-          size={24} 
-          color={selectedFolders[item.id] ? brandColor : "#999"} 
-        />
-        <View style={styles.folderSelectText}>
-          <Text style={styles.folderSelectName}>{item.name}</Text>
-          <Text style={styles.folderSelectCount}>{item.count} песен</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-
-  if (showFolderSelection) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <Header 
-          title="Выбор папок" 
-          showBack={false}
-          settings={settings} 
-        />
-        
-        <View style={styles.selectionContainer}>
-          <Text style={styles.selectionTitle}>
-            Выберите папки для отображения:
-          </Text>
-          
-          <View style={styles.selectionActions}>
-            <TouchableOpacity style={styles.actionButton} onPress={selectAllFolders}>
-              <MaterialIcons name="select-all" size={20} color={brandColor} />
-              <Text style={styles.actionButtonText}>Все</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.actionButton} onPress={deselectAllFolders}>
-              <MaterialIcons name="deselect" size={20} color="#999" />
-              <Text style={styles.actionButtonText}>Сброс</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <FlatList
-            data={allFolders}
-            keyExtractor={item => item.id}
-            renderItem={renderFolderItem}
-            style={styles.folderList}
-          />
-          
-          <TouchableOpacity 
-            style={[styles.saveButton, { backgroundColor: brandColor }]}
-            onPress={saveFolderSelection}
-          >
-            <Text style={styles.saveButtonText}>
-              Показать ({Object.values(selectedFolders).filter(Boolean).length})
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -300,8 +198,8 @@ export default function SettingsScreen({ navigation, route }) {
             <MaterialIcons name="info" size={16} color={brandColor} />
             <Text style={styles.infoText}>
               {scanMode === FileSystem.SCAN_MODES.MEDIA 
-                ? 'Быстрое сканирование всей медиатеки'
-                : 'Ручной выбор папки для внешних накопителей'}
+                ? 'Быстрое сканирование всей медиатеки. Работает с внутренней памятью.'
+                : 'Ручной выбор папки. Подходит для внешних SD-карт, но может быть медленнее.'}
             </Text>
           </View>
           
@@ -351,15 +249,6 @@ export default function SettingsScreen({ navigation, route }) {
               </>
             )}
           </TouchableOpacity>
-          
-          {Object.keys(selectedFolders).length > 0 && (
-            <View style={styles.infoBox}>
-              <MaterialIcons name="info" size={16} color={brandColor} />
-              <Text style={styles.infoText}>
-                Выбрано {Object.values(selectedFolders).filter(Boolean).length} папок
-              </Text>
-            </View>
-          )}
         </View>
         
         <View style={styles.logPanel}>
@@ -461,7 +350,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     width: '100%',
     elevation: 3,
-    marginBottom: 20,
   },
   scanButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600', marginLeft: 8 },
   
@@ -483,68 +371,4 @@ const styles = StyleSheet.create({
   },
   logTitle: { color: '#FFA500', fontSize: 14, fontWeight: 'bold', marginBottom: 8 },
   logLine: { color: '#0F0', fontSize: 10, fontFamily: 'monospace', marginVertical: 2 },
-  
-  selectionContainer: {
-    flex: 1,
-    padding: 16,
-  },
-  selectionTitle: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  selectionActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 16,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    gap: 8,
-  },
-  actionButtonText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  folderList: {
-    flex: 1,
-    marginBottom: 16,
-  },
-  folderSelectItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  folderSelectInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  folderSelectText: {
-    flex: 1,
-  },
-  folderSelectName: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 4,
-  },
-  folderSelectCount: {
-    fontSize: 12,
-    color: '#999',
-  },
-  saveButton: {
-    padding: 16,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
 });
