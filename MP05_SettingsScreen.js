@@ -14,15 +14,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const SELECTED_FOLDERS_KEY = '@selected_folders';
 const BRAND_COLOR_KEY = '@brand_color';
 
-// Доступные цвета бренда
 const BRAND_COLORS = [
-  '#20A0A0', // Бирюзовый (новый)
-  '#E91E63', // Розовый
-  '#FF9800', // Оранжевый
-  '#4CAF50', // Зеленый
-  '#2196F3', // Синий
-  '#9C27B0', // Фиолетовый
-  '#795548', // Коричневый
+  '#20A0A0',
+  '#E91E63',
+  '#FF9800',
+  '#4CAF50',
+  '#2196F3',
+  '#9C27B0',
+  '#795548',
 ];
 
 export default function SettingsScreen({ navigation, route }) {
@@ -48,7 +47,6 @@ export default function SettingsScreen({ navigation, route }) {
       const saved = await AsyncStorage.getItem(BRAND_COLOR_KEY);
       if (saved) {
         setCurrentBrandColor(saved);
-        // Обновляем цвет во всем приложении
         updateAppBrandColor(saved);
       }
     } catch (error) {
@@ -60,7 +58,6 @@ export default function SettingsScreen({ navigation, route }) {
     try {
       await AsyncStorage.setItem(BRAND_COLOR_KEY, color);
       setCurrentBrandColor(color);
-      // Обновляем цвет во всем приложении
       updateAppBrandColor(color);
     } catch (error) {
       console.error('Ошибка сохранения цвета:', error);
@@ -68,15 +65,8 @@ export default function SettingsScreen({ navigation, route }) {
   };
 
   const updateAppBrandColor = (color) => {
-    // Обновляем цвет в параметрах навигации для всех экранов
     navigation.setParams({ 
       settings: { brandColor: color }
-    });
-    
-    // Также обновляем на экране плейлистов, если он есть в стеке
-    navigation.navigate('Playlists', {
-      updateBrandColor: true,
-      brandColor: color
     });
   };
 
@@ -127,7 +117,6 @@ export default function SettingsScreen({ navigation, route }) {
 
   const saveSelection = async () => {
     try {
-      // Сохраняем временный выбор в постоянное хранилище
       await AsyncStorage.setItem(SELECTED_FOLDERS_KEY, JSON.stringify(tempSelectedFolders));
       setSelectedFolders(tempSelectedFolders);
       setModalVisible(false);
@@ -144,7 +133,6 @@ export default function SettingsScreen({ navigation, route }) {
   };
 
   const cancelSelection = () => {
-    // Возвращаем временный выбор к сохраненному
     setTempSelectedFolders(selectedFolders);
     setModalVisible(false);
   };
@@ -358,7 +346,6 @@ const styles = StyleSheet.create({
   },
   demoText: { color: '#333', fontSize: 12, fontWeight: '600' },
   
-  // Секции
   section: {
     paddingHorizontal: 20,
     paddingVertical: 16,
@@ -372,7 +359,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  // Цвет бренда
   colorOptions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -389,7 +375,6 @@ const styles = StyleSheet.create({
     borderColor: '#333',
   },
 
-  // Управление папками
   folderButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -431,7 +416,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
-  // Modal styles
   modalContainer: {
     flex: 1,
     backgroundColor: '#FFFFFF',
