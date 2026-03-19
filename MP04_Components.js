@@ -122,11 +122,12 @@ export const MoveSongDialog = ({ visible, folders, onSelect, onCancel, settings,
 
 export const PlayerControls = ({ currentSong, isPlaying, onPlayPause, onNext, onPrevious, settings }) => {
   const brandColor = getBrandColor(settings);
+  const insets = useSafeAreaInsets();
   
   if (!currentSong) return null;
   
   return (
-    <View style={styles.playerContainer}>
+    <View style={[styles.playerContainer, { paddingBottom: insets.bottom + 8 }]}>
       <View style={styles.nowPlayingRow}>
         <MaterialIcons name="audiotrack" size={16} color={brandColor} />
         <Text style={styles.nowPlayingTitle} numberOfLines={1}>
