@@ -14,7 +14,7 @@ export default function SettingsScreen({ navigation, route }) {
   const [logs, setLogs] = useState([]);
 
   const addLog = (message, isError = false) => {
-    const timestamp = new Date().toLocaleTimeString();
+    const timestamp = new Date().toLocaleTimeString().slice(0, 5);
     const prefix = isError ? '❌' : '📌';
     setLogs(prev => [...prev, `${timestamp} - ${prefix} ${message}`]);
     console.log(message);
@@ -38,18 +38,19 @@ export default function SettingsScreen({ navigation, route }) {
         addLog(`📊 Статистика: всего ${result.stats.total} треков в медиатеке`);
       }
       
+      // Сохраняем данные
       await saveFoldersList(result.folders || []);
       await saveSongsList(result.songs || []);
       await AsyncStorage.setItem('scan_timestamp', Date.now().toString());
       
-      setTimeout(() => {
-        navigation.replace('Playlists', {
-          scanTimestamp: Date.now(),
-          foldersCount: result.folders?.length || 0,
-          songsCount: result.songs?.length || 0
-        });
-        addLog('🚀 Переход выполнен');
-      }, 300);
+      addLog('🚀 Переход выполнен');
+      
+      // Переходим на экран плейлистов с параметрами
+      navigation.replace('Playlists', {
+        folders: result.folders || [],
+        songs: result.songs || [],
+        scanTimestamp: Date.now()
+      });
       
     } catch (error) {
       addLog(`❌ Ошибка сканирования: ${error.message}`, true);
