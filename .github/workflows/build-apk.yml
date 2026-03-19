@@ -23,16 +23,33 @@ jobs:
           node-version: '20'
           cache: 'npm'
           
+      - name: Clear npm cache
+        run: npm cache clean --force
+          
       - name: Install dependencies
         run: |
+          rm -rf node_modules
           npm install --legacy-peer-deps
           npx expo install --fix
+          
+      - name: Clear Metro cache
+        run: npx expo start --clear
           
       - name: Setup Expo and EAS
         uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
+          
+      - name: Clear Android build cache
+        run: |
+          if [ -d "android" ]; then
+            cd android
+            chmod +x gradlew
+            ./gradlew clean
+            cd ..
+            rm -rf android/app/build
+          fi
           
       - name: Prebuild project
         run: npx expo prebuild --platform android --clean
@@ -41,7 +58,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew assembleRelease --no-daemon --refresh-dependencies
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
