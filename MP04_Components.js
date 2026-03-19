@@ -11,7 +11,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND_COLOR, getBrandColor, formatDuration, width, PLAYLIST_COLORS, APP_FAVORITES_NAME, TRASH_FOLDER_NAME, TRASH_COLOR } from './MP01_Core';
 
-export const Header = ({ title, rightIcon, onRightPress, showBack, onBack, showSearch, onSearchPress, showShuffle, onShufflePress, shuffleMode, showAutoPlay, onAutoPlayPress, autoPlayMode, showSort, onSortPress, children, settings }) => {
+export const Header = ({ title, rightIcon, onRightPress, showBack, onBack, showSearch, onSearchPress, showShuffle, onShufflePress, shuffleMode, children, settings }) => {
   const insets = useSafeAreaInsets();
   const brandColor = getBrandColor(settings);
   return (
@@ -26,23 +26,9 @@ export const Header = ({ title, rightIcon, onRightPress, showBack, onBack, showS
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         {children}
-        {showAutoPlay && (
-          <TouchableOpacity onPress={onAutoPlayPress} style={{ marginRight: 18 }}>
-            <MaterialIcons 
-              name={autoPlayMode ? "repeat" : "repeat-one"} 
-              size={24} 
-              color={autoPlayMode ? brandColor : "white"} 
-            />
-          </TouchableOpacity>
-        )}
         {showShuffle && (
           <TouchableOpacity onPress={onShufflePress} style={{ marginRight: 18 }}>
             <MaterialIcons name="shuffle" size={24} color={shuffleMode ? brandColor : "white"} />
-          </TouchableOpacity>
-        )}
-        {showSort && (
-          <TouchableOpacity onPress={onSortPress} style={{ marginRight: 18 }}>
-            <MaterialIcons name="sort" size={24} color="white" />
           </TouchableOpacity>
         )}
         {showSearch && (
@@ -197,45 +183,6 @@ export const ColorPickerDialog = ({ visible, onClose, onSelect, currentColor, se
   );
 };
 
-export const SortMenu = ({ visible, onClose, onSelect, currentSort }) => {
-  const sorts = [
-    { key: 'title', label: 'По алфавиту', icon: 'sort-by-alpha' },
-    { key: 'addedAt', label: 'Сначала новые', icon: 'new-releases' },
-    { key: 'random', label: 'Случайно', icon: 'shuffle' },
-  ];
-
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
-        <View style={styles.sortMenu}>
-          {sorts.map((sort) => (
-            <TouchableOpacity
-              key={sort.key}
-              style={[styles.sortItem, currentSort === sort.key && styles.sortItemActive]}
-              onPress={() => {
-                onSelect(sort.key);
-                onClose();
-              }}
-            >
-              <MaterialIcons 
-                name={sort.icon} 
-                size={20} 
-                color={currentSort === sort.key ? BRAND_COLOR : '#333'} 
-              />
-              <Text style={[styles.sortItemText, currentSort === sort.key && { color: BRAND_COLOR }]}>
-                {sort.label}
-              </Text>
-              {currentSort === sort.key && (
-                <MaterialIcons name="check" size={20} color={BRAND_COLOR} style={styles.sortCheck} />
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-      </TouchableOpacity>
-    </Modal>
-  );
-};
-
 const styles = StyleSheet.create({
   songContainer: { padding: 12, borderBottomWidth: 1, borderColor: '#E0E0E0', flexDirection: 'row', alignItems: 'center' },
   songIcon: { width: 44, height: 44, borderRadius: 22, marginRight: 16, justifyContent: 'center', alignItems: 'center' },
@@ -322,35 +269,4 @@ const styles = StyleSheet.create({
   colorGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginVertical: 16 },
   colorOption: { width: 44, height: 44, borderRadius: 22, margin: 6 },
   selectedColorOption: { borderWidth: 3, borderColor: '#333' },
-
-  sortMenu: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 8,
-    width: width - 80,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-  sortItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  sortItemActive: {
-    backgroundColor: '#F0F8FF',
-  },
-  sortItemText: {
-    fontSize: 16,
-    color: '#333',
-    marginLeft: 12,
-    flex: 1,
-  },
-  sortCheck: {
-    marginLeft: 'auto',
-  },
 });
