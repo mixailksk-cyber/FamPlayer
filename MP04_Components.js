@@ -1,15 +1,18 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Modal,
-  FlatList
+  FlatList,
+  Animated,
+  PanResponder
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND_COLOR, getBrandColor, formatDuration, width, PLAYLIST_COLORS, APP_FAVORITES_NAME, TRASH_FOLDER_NAME, TRASH_COLOR } from './MP01_Core';
+import AudioPlayer from './MP03_AudioPlayer';
 
 export const Header = ({ 
   title, 
@@ -40,7 +43,6 @@ export const Header = ({
       </View>
       
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        {/* Кнопка автовоспроизведения */}
         {showAutoPlay && (
           <TouchableOpacity onPress={onAutoPlayPress} style={{ marginRight: 20 }}>
             <MaterialIcons 
@@ -51,7 +53,6 @@ export const Header = ({
           </TouchableOpacity>
         )}
         
-        {/* Кнопка сортировки */}
         {showSort && (
           <TouchableOpacity onPress={onSortPress} style={{ marginRight: 20 }}>
             <MaterialIcons 
@@ -66,7 +67,6 @@ export const Header = ({
           </TouchableOpacity>
         )}
         
-        {/* Кнопка настроек */}
         {showSettings && (
           <TouchableOpacity onPress={onSettingsPress}>
             <MaterialIcons name="settings" size={24} color="white" />
@@ -151,9 +151,106 @@ export const MoveSongDialog = ({ visible, folders, onSelect, onCancel, settings,
   );
 };
 
+// Компонент прогресс-бара
+export const ProgressBar = ({ currentTime, duration, onSeek, settings }) => {
+  const brandColor = getBrandColor(settings);
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const pan = useRef(new Animated.Value(0)).current;
+  
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        // Начало перетаскивания
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        // Вычисляем позицию касания относительно ширины прогресс-бара
+        const { locationX } = evt.nativeEvent;
+        const newProgress = Math.min(100, Math.max(0, (locationX / (width - 80)) * 100));
+        pan.setValue(newProgress);
+        
+        // Вычисляем новое время
+        const newTime = (newProgress / 100) * duration;
+        if (onSeek) {
+          onSeek(newTime);
+        }
+      },
+      onPanResponderRelease: () => {
+        // Завершение перетаскивания
+      },
+    })
+  ).current;
+
+  useEffect(() => {
+    // Обновляем позицию при изменении текущего времени
+    Animated.timing(pan, {
+      toValue: progress,
+      duration: 100,
+      useNativeDriver: false,
+    }).start();
+  }, [progress]);
+
+  return (
+    <View style={styles.progressContainer}>
+      <View style={styles.timeContainer}>
+        <Text style={styles.timeText}>{formatDuration(currentTime)}</Text>
+        <Text style={styles.timeText}>{formatDuration(duration)}</Text>
+      </View>
+      
+      <View style={styles.progressBarContainer} {...panResponder.panHandlers}>
+        <View style={[styles.progressBarBackground, { backgroundColor: '#E0E0E0' }]}>
+          <Animated.View 
+            style={[
+              styles.progressBarFill, 
+              { 
+                backgroundColor: brandColor,
+                width: pan.interpolate({
+                  inputRange: [0, 100],
+                  outputRange: ['0%', '100%'],
+                })
+              }
+            ]} 
+          />
+        </View>
+        <Animated.View 
+          style={[
+            styles.progressHandle,
+            {
+              backgroundColor: brandColor,
+              left: pan.interpolate({
+                inputRange: [0, 100],
+                outputRange: ['-6px', `${100 - 6}%`],
+              })
+            }
+          ]} 
+        />
+      </View>
+    </View>
+  );
+};
+
 export const PlayerControls = ({ currentSong, isPlaying, onPlayPause, onNext, onPrevious, settings }) => {
   const brandColor = getBrandColor(settings);
   const insets = useSafeAreaInsets();
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const status = await AudioPlayer.getStatus();
+      if (status?.isLoaded) {
+        setCurrentTime(status.positionMillis / 1000 || 0);
+        setDuration(status.durationMillis / 1000 || 0);
+      }
+    }, 500);
+    
+    return () => clearInterval(interval);
+  }, []);
+  
+  const handleSeek = async (time) => {
+    await AudioPlayer.seekTo(time * 1000);
+  };
   
   if (!currentSong) return null;
   
@@ -165,6 +262,13 @@ export const PlayerControls = ({ currentSong, isPlaying, onPlayPause, onNext, on
           {currentSong.title}
         </Text>
       </View>
+      
+      <ProgressBar 
+        currentTime={currentTime}
+        duration={duration}
+        onSeek={handleSeek}
+        settings={settings}
+      />
       
       <View style={styles.controlsRow}>
         <TouchableOpacity onPress={onPrevious} style={styles.controlButton}>
@@ -282,7 +386,7 @@ const styles = StyleSheet.create({
   modalCancel: { marginTop: 16, paddingVertical: 12, alignItems: 'center' },
   
   playerContainer: { 
-    paddingVertical: 8, 
+    paddingVertical: 12, 
     paddingHorizontal: 16, 
     borderTopWidth: 1, 
     borderTopColor: '#E0E0E0', 
@@ -300,33 +404,79 @@ const styles = StyleSheet.create({
   nowPlayingRow: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    marginBottom: 6,
+    marginBottom: 8,
     paddingHorizontal: 4,
   },
   nowPlayingTitle: { 
-    fontSize: 12, 
+    fontSize: 14, 
     fontWeight: '500', 
-    color: '#666', 
-    marginLeft: 6,
+    color: '#333', 
+    marginLeft: 8,
     flex: 1,
   },
+  
+  // Стили для прогресс-бара
+  progressContainer: {
+    width: '100%',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  timeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  timeText: {
+    fontSize: 11,
+    color: '#999',
+  },
+  progressBarContainer: {
+    width: '100%',
+    height: 30,
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  progressBarBackground: {
+    width: '100%',
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  progressHandle: {
+    position: 'absolute',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    top: 9,
+    marginLeft: -6,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+  },
+  
   controlsRow: { 
     flexDirection: 'row', 
     justifyContent: 'center', 
     alignItems: 'center',
-    marginBottom: 2,
+    marginTop: 4,
   },
   controlButton: { 
-    padding: 6, 
-    marginHorizontal: 16,
+    padding: 8, 
+    marginHorizontal: 20,
   },
   playButton: { 
-    width: 48, 
-    height: 48, 
-    borderRadius: 24, 
+    width: 52, 
+    height: 52, 
+    borderRadius: 26, 
     justifyContent: 'center', 
     alignItems: 'center', 
-    marginHorizontal: 16,
+    marginHorizontal: 20,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
