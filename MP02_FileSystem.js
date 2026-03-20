@@ -1,6 +1,8 @@
 import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system';
+import * as IntentLauncher from 'expo-intent-launcher';
 import { APP_FAVORITES_NAME, IS_WEB_STUB } from './MP01_Core';
 
 // Демо-данные для Snack
@@ -21,6 +23,38 @@ export const SCAN_MODES = {
 
 export const saveScanMode = async () => true;
 export const getScanMode = async () => SCAN_MODES.MEDIA;
+
+// Запрос разрешения на управление файлами (для Android 11+)
+export const requestManageStoragePermission = async () => {
+  if (Platform.OS !== 'android') return true;
+  
+  try {
+    // Проверяем, есть ли разрешение MANAGE_EXTERNAL_STORAGE
+    // Для Android 11+ нужно специальное разрешение для работы с файлами вне приложения
+    const hasPermission = await FileSystem.getInfoAsync(FileSystem.documentDirectory);
+    
+    // Если нет разрешения, показываем диалог
+    Alert.alert(
+      'Разрешение на управление файлами',
+      'Для переименования, перемещения и удаления файлов необходимо предоставить разрешение на управление файлами.',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        { 
+          text: 'Открыть настройки', 
+          onPress: () => {
+            IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS, {
+              data: 'package:com.yourcompany.famplayer',
+            });
+          }
+        }
+      ]
+    );
+    return false;
+  } catch (error) {
+    console.error('Error checking permission:', error);
+    return false;
+  }
+};
 
 export const scanMusic = async () => {
   if (IS_WEB_STUB) {
@@ -73,7 +107,6 @@ export const scanMusic = async () => {
       }
     }
 
-    // Создаем папки только из альбомов, без "Все песни"
     const folders = albums.map(album => ({
       id: album.id,
       name: album.title || 'Без названия',
