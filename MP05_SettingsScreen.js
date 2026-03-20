@@ -121,7 +121,7 @@ export default function SettingsScreen({ navigation, route }) {
       setSelectedFolders(tempSelectedFolders);
       setModalVisible(false);
       
-      // Отправляем обновление на экран плейлистов
+      // Отправляем обновление на экран плейлистов, но остаемся в настройках
       navigation.navigate('Playlists', {
         updateSelection: true,
         selectedFolders: tempSelectedFolders
@@ -158,7 +158,7 @@ export default function SettingsScreen({ navigation, route }) {
       setTempSelectedFolders(defaultSelected);
       await AsyncStorage.setItem(SELECTED_FOLDERS_KEY, JSON.stringify(defaultSelected));
       
-      navigation.replace('Playlists', {
+      navigation.navigate('Playlists', {
         folders: result.folders || [],
         songs: result.songs || [],
         selectedFolders: defaultSelected
