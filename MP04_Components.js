@@ -157,11 +157,16 @@ export const ProgressBar = ({ currentTime, duration, onSeek, onSeekStart, onSeek
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
   const pan = useRef(new Animated.Value(progress)).current;
   const [isDragging, setIsDragging] = useState(false);
+  const progressBarRef = useRef(null);
   
   // Синхронизируем анимацию с actual прогрессом, когда не перетаскиваем
   useEffect(() => {
     if (!isDragging) {
-      pan.setValue(progress);
+      Animated.timing(pan, {
+        toValue: progress,
+        duration: 100,
+        useNativeDriver: false,
+      }).start();
     }
   }, [progress, isDragging]);
   
@@ -173,29 +178,20 @@ export const ProgressBar = ({ currentTime, duration, onSeek, onSeekStart, onSeek
         setIsDragging(true);
         if (onSeekStart) onSeekStart();
       },
-      onPanResponderMove: (evt, gestureState) => {
-        // Получаем позицию касания относительно прогресс-бара
-        evt.persist();
-        
-        // Используем setTimeout чтобы получить layout после рендера
-        setTimeout(() => {
-          if (this.progressBarRef) {
-            this.progressBarRef.measure((x, y, width, height, pageX, pageY) => {
-              // Вычисляем позицию касания
-              const touchX = evt.nativeEvent.pageX - pageX;
-              const newProgress = Math.min(100, Math.max(0, (touchX / width) * 100));
-              
-              // Обновляем позицию ползунка
-              pan.setValue(newProgress);
-              
-              // Вычисляем новое время
-              const newTime = (newProgress / 100) * duration;
-              if (onSeek) {
-                onSeek(newTime);
-              }
-            });
-          }
-        }, 0);
+      onPanResponderMove: (evt) => {
+        if (progressBarRef.current) {
+          progressBarRef.current.measure((x, y, width, height, pageX, pageY) => {
+            const touchX = evt.nativeEvent.pageX - pageX;
+            const newProgress = Math.min(100, Math.max(0, (touchX / width) * 100));
+            
+            pan.setValue(newProgress);
+            
+            const newTime = (newProgress / 100) * duration;
+            if (onSeek) {
+              onSeek(newTime);
+            }
+          });
+        }
       },
       onPanResponderRelease: () => {
         setIsDragging(false);
@@ -212,7 +208,7 @@ export const ProgressBar = ({ currentTime, duration, onSeek, onSeekStart, onSeek
       </View>
       
       <View 
-        ref={ref => this.progressBarRef = ref}
+        ref={progressBarRef}
         style={styles.progressBarContainer} 
         {...panResponder.panHandlers}
       >
