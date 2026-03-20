@@ -2,15 +2,19 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, FlatList, Text, Alert, SafeAreaView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Header, SongItem, PlayerControls, SortMenu } from './MP04_Components';
+import { Header, SongItem, PlayerControls, SortMenu, SongLongPressDialog } from './MP04_Components';
 import { getBrandColor, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
 import AudioPlayer from './MP03_AudioPlayer';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import { getFoldersList, saveFoldersList, saveSongsList } from './MP02_FileSystem';
 
 export default function FolderScreen({ route, navigation }) {
   const params = route?.params || {};
   const folderName = params.folderName || 'Папка';
   const settings = params.settings || {};
   const initialSongs = params.songs || [];
+  const folderId = params.folderId;
   
   const [songs, setSongs] = useState(initialSongs);
   const [currentSong, setCurrentSong] = useState(null);
@@ -19,9 +23,24 @@ export default function FolderScreen({ route, navigation }) {
   const [autoPlayMode, setAutoPlayMode] = useState(true);
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [currentSort, setCurrentSort] = useState('title');
+  const [longPressDialogVisible, setLongPressDialogVisible] = useState(false);
+  const [selectedSong, setSelectedSong] = useState(null);
+  const [allFolders, setAllFolders] = useState([]);
 
   const brandColor = getBrandColor(settings);
   const insets = useSafeAreaInsets();
+
+  // Загружаем все папки для перемещения
+  useEffect(() => {
+    loadFolders();
+  }, []);
+
+  const loadFolders = async () => {
+    const folders = await getFoldersList();
+    // Исключаем текущую папку из списка для перемещения
+    const otherFolders = folders.filter(f => f.id !== folderId);
+    setAllFolders(otherFolders);
+  };
 
   const sortSongs = useCallback((songsToSort, sortType) => {
     const sorted = [...songsToSort];
@@ -116,6 +135,55 @@ export default function FolderScreen({ route, navigation }) {
     navigation.navigate('Settings', { settings });
   };
 
+  // Обработчики долгого нажатия
+  const handleSongLongPress = (song) => {
+    if (isPlaying && currentSong?.id === song.id) {
+      Alert.alert('Воспроизведение', 'Сначала поставьте песню на паузу');
+      return;
+    }
+    setSelectedSong(song);
+    setLongPressDialogVisible(true);
+  };
+
+  const handleRename = async (song, newName) => {
+    try {
+      // Здесь должна быть логика переименования файла
+      Alert.alert('Успех', `Файл переименован в "${newName}"`);
+    } catch (error) {
+      Alert.alert('Ошибка', 'Не удалось переименовать файл');
+    }
+  };
+
+  const handleMove = async (song, destinationFolder) => {
+    try {
+      // Здесь должна быть логика перемещения файла
+      Alert.alert('Успех', `Файл перемещен в "${destinationFolder.name}"`);
+    } catch (error) {
+      Alert.alert('Ошибка', 'Не удалось переместить файл');
+    }
+  };
+
+  const handleShare = async (song) => {
+    try {
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(song.uri);
+      } else {
+        Alert.alert('Ошибка', 'Шеринг не доступен на этом устройстве');
+      }
+    } catch (error) {
+      Alert.alert('Ошибка', 'Не удалось поделиться файлом');
+    }
+  };
+
+  const handleDelete = async (song) => {
+    try {
+      // Здесь должна быть логика удаления файла
+      Alert.alert('Успех', 'Файл удален');
+    } catch (error) {
+      Alert.alert('Ошибка', 'Не удалось удалить файл');
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
       {IS_WEB_STUB && (
@@ -148,6 +216,7 @@ export default function FolderScreen({ route, navigation }) {
             item={item}
             isPlaying={currentSong?.id === item.id && isPlaying}
             onPress={() => playSong(item)}
+            onLongPress={() => handleSongLongPress(item)}
             settings={settings}
           />
         )}
@@ -165,6 +234,18 @@ export default function FolderScreen({ route, navigation }) {
         onClose={() => setSortMenuVisible(false)}
         onSelect={handleSort}
         currentSort={currentSort}
+      />
+
+      <SongLongPressDialog
+        visible={longPressDialogVisible}
+        song={selectedSong}
+        folders={allFolders}
+        onClose={() => setLongPressDialogVisible(false)}
+        onRename={handleRename}
+        onMove={handleMove}
+        onShare={handleShare}
+        onDelete={handleDelete}
+        settings={settings}
       />
 
       <PlayerControls
