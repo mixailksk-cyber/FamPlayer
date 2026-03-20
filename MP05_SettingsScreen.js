@@ -121,11 +121,21 @@ export default function SettingsScreen({ navigation, route }) {
       setSelectedFolders(tempSelectedFolders);
       setModalVisible(false);
       
-      // Отправляем обновление на экран плейлистов, но остаемся в настройках
-      navigation.navigate('Playlists', {
+      // Отправляем обновление на экран плейлистов, но НЕ переходим на него
+      // Используем navigation.setParams вместо navigation.navigate
+      navigation.setParams({
         updateSelection: true,
         selectedFolders: tempSelectedFolders
       });
+      
+      // Также обновляем через навигатор, если есть доступ
+      const parent = navigation.getParent();
+      if (parent) {
+        parent.setParams({
+          updateSelection: true,
+          selectedFolders: tempSelectedFolders
+        });
+      }
       
     } catch (error) {
       Alert.alert('Ошибка', 'Не удалось сохранить выбор');
@@ -158,11 +168,14 @@ export default function SettingsScreen({ navigation, route }) {
       setTempSelectedFolders(defaultSelected);
       await AsyncStorage.setItem(SELECTED_FOLDERS_KEY, JSON.stringify(defaultSelected));
       
-      navigation.navigate('Playlists', {
+      // Обновляем плейлисты без перехода
+      navigation.setParams({
         folders: result.folders || [],
         songs: result.songs || [],
         selectedFolders: defaultSelected
       });
+      
+      Alert.alert('Успех', 'Медиатека обновлена');
       
     } catch (error) {
       Alert.alert('Ошибка', error.message);
