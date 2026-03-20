@@ -158,6 +158,7 @@ export const ProgressBar = ({ currentTime, duration, onSeek, onSeekStart, onSeek
   const pan = useRef(new Animated.Value(progress)).current;
   const [isDragging, setIsDragging] = useState(false);
   const progressBarRef = useRef(null);
+  const [dragProgress, setDragProgress] = useState(0);
   
   // Синхронизируем анимацию с actual прогрессом, когда не перетаскиваем
   useEffect(() => {
@@ -181,10 +182,11 @@ export const ProgressBar = ({ currentTime, duration, onSeek, onSeekStart, onSeek
       onPanResponderMove: (evt) => {
         if (progressBarRef.current) {
           progressBarRef.current.measure((x, y, width, height, pageX, pageY) => {
-            const touchX = evt.nativeEvent.pageX - pageX;
-            const newProgress = Math.min(100, Math.max(0, (touchX / width) * 100));
+            const touchX = Math.max(0, Math.min(width, evt.nativeEvent.pageX - pageX));
+            const newProgress = (touchX / width) * 100;
             
             pan.setValue(newProgress);
+            setDragProgress(newProgress);
             
             const newTime = (newProgress / 100) * duration;
             if (onSeek) {
@@ -194,8 +196,12 @@ export const ProgressBar = ({ currentTime, duration, onSeek, onSeekStart, onSeek
         }
       },
       onPanResponderRelease: () => {
+        // При отпускании перематываем на позицию, где остановился ползунок
+        const newTime = (dragProgress / 100) * duration;
+        if (onSeekEnd) {
+          onSeekEnd(newTime);
+        }
         setIsDragging(false);
-        if (onSeekEnd) onSeekEnd();
       },
     })
   ).current;
@@ -264,7 +270,7 @@ export const PlayerControls = ({ currentSong, isPlaying, onPlayPause, onNext, on
     return () => clearInterval(interval);
   }, [isSeeking]);
   
-  const handleSeek = async (time) => {
+  const handleSeek = (time) => {
     setCurrentTime(time);
   };
   
@@ -272,8 +278,8 @@ export const PlayerControls = ({ currentSong, isPlaying, onPlayPause, onNext, on
     setIsSeeking(true);
   };
   
-  const handleSeekEnd = async () => {
-    await AudioPlayer.seekTo(currentTime * 1000);
+  const handleSeekEnd = async (time) => {
+    await AudioPlayer.seekTo(time * 1000);
     setIsSeeking(false);
   };
   
