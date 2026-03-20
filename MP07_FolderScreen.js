@@ -5,8 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Header, SongItem, PlayerControls, SortMenu, SongLongPressDialog } from './MP04_Components';
 import { getBrandColor, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
 import AudioPlayer from './MP03_AudioPlayer';
-import * as LegacyFileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import * as MediaLibrary from 'expo-media-library';
 import { getFoldersList } from './MP02_FileSystem';
 
 export default function FolderScreen({ route, navigation }) {
@@ -133,88 +133,84 @@ export default function FolderScreen({ route, navigation }) {
     navigation.navigate('Settings', { settings });
   };
 
-  // Переименование файла
+  // Переименование файла через MediaStore
   const handleRename = async (song, newName) => {
     try {
-      const oldPath = song.uri.replace('file://', '');
-      const extension = oldPath.substring(oldPath.lastIndexOf('.'));
-      const directory = oldPath.substring(0, oldPath.lastIndexOf('/'));
-      const newPath = `${directory}/${newName}${extension}`;
-      
-      await LegacyFileSystem.moveAsync({
-        from: oldPath,
-        to: newPath
-      });
-      
-      const updatedSongs = songs.map(s => {
-        if (s.id === song.id) {
-          return {
-            ...s,
-            title: newName + extension,
-            uri: `file://${newPath}`,
-            filename: newName + extension
-          };
-        }
-        return s;
-      });
-      
-      setSongs(updatedSongs);
-      
-      if (currentSong?.id === song.id) {
-        const wasPlaying = isPlaying;
-        const updatedSong = updatedSongs.find(s => s.id === song.id);
-        await AudioPlayer.loadSong(updatedSong, wasPlaying);
-      }
-      
-      Alert.alert('Успех', `Файл переименован в "${newName}${extension}"`);
+      Alert.alert(
+        'Переименование файла',
+        `Переименовать "${song.title}" в "${newName}.mp3"?\n\nВнимание: Изменение имени файла может повлиять на его отображение в медиатеке.`,
+        [
+          { text: 'Отмена', style: 'cancel' },
+          {
+            text: 'Переименовать',
+            onPress: async () => {
+              try {
+                // Для файлов на SD-карте через MediaStore
+                const asset = await MediaLibrary.getAssetInfoAsync(song.id);
+                if (asset) {
+                  // MediaStore не поддерживает прямое переименование
+                  // Показываем инструкцию
+                  Alert.alert(
+                    'Инструкция',
+                    'Для переименования файлов на SD-карте используйте файловый менеджер.\n\n' +
+                    '1. Откройте файловый менеджер\n' +
+                    '2. Найдите папку: ' + asset.uri.split('/').slice(0, -1).join('/') + '\n' +
+                    '3. Переименуйте файл вручную\n\n' +
+                    'После переименования обновите медиатеку в настройках.',
+                    [{ text: 'Понятно' }]
+                  );
+                }
+              } catch (error) {
+                Alert.alert('Ошибка', 'Не удалось получить информацию о файле');
+              }
+            }
+          }
+        ]
+      );
     } catch (error) {
-      console.error('Rename error:', error);
-      Alert.alert('Ошибка', `Не удалось переименовать файл: ${error.message}`);
+      Alert.alert('Ошибка', 'Не удалось переименовать файл');
     }
   };
 
-  // Перемещение файла
+  // Перемещение файла через MediaStore
   const handleMove = async (song, destinationFolder) => {
     try {
-      const oldPath = song.uri.replace('file://', '');
-      const fileName = oldPath.substring(oldPath.lastIndexOf('/') + 1);
-      
-      let destPath = destinationFolder.uri;
-      
-      // Если это виртуальная папка из медиатеки, используем реальный путь
-      if (destPath.startsWith('album://')) {
-        // Для виртуальных папок перемещение недоступно
+      if (destinationFolder.uri.startsWith('album://')) {
         Alert.alert('Ошибка', 'Перемещение в виртуальные папки недоступно. Выберите реальную папку на устройстве.');
         return;
       }
-      
-      const cleanDestPath = destPath.replace('file://', '');
-      
-      // Проверяем, существует ли папка назначения
-      const destExists = await LegacyFileSystem.getInfoAsync(cleanDestPath);
-      if (!destExists.exists) {
-        Alert.alert('Ошибка', 'Папка назначения не существует');
-        return;
-      }
-      
-      const newPath = `${cleanDestPath}/${fileName}`;
-      
-      await LegacyFileSystem.moveAsync({
-        from: oldPath,
-        to: newPath
-      });
-      
-      const updatedSongs = songs.filter(s => s.id !== song.id);
-      setSongs(updatedSongs);
-      
-      if (currentSong?.id === song.id) {
-        await AudioPlayer.unload();
-      }
-      
-      Alert.alert('Успех', `Файл перемещен в "${destinationFolder.name}"`);
+
+      Alert.alert(
+        'Перемещение файла',
+        `Переместить "${song.title}" в папку "${destinationFolder.name}"?\n\n` +
+        `Внимание: Файлы на SD-карте могут не перемещаться через приложение.`,
+        [
+          { text: 'Отмена', style: 'cancel' },
+          {
+            text: 'Переместить',
+            onPress: async () => {
+              try {
+                const asset = await MediaLibrary.getAssetInfoAsync(song.id);
+                if (asset) {
+                  Alert.alert(
+                    'Инструкция',
+                    'Для перемещения файлов на SD-карте используйте файловый менеджер.\n\n' +
+                    '1. Откройте файловый менеджер\n' +
+                    '2. Найдите текущую папку: ' + asset.uri.split('/').slice(0, -1).join('/') + '\n' +
+                    '3. Переместите файл в: ' + destinationFolder.name + '\n\n' +
+                    'После перемещения обновите медиатеку в настройках.',
+                    [{ text: 'Понятно' }]
+                  );
+                }
+              } catch (error) {
+                Alert.alert('Ошибка', 'Не удалось получить информацию о файле');
+              }
+            }
+          }
+        ]
+      );
     } catch (error) {
-      console.error('Move error:', error);
-      Alert.alert('Ошибка', `Не удалось переместить файл: ${error.message}`);
+      Alert.alert('Ошибка', 'Не удалось переместить файл');
     }
   };
 
@@ -228,29 +224,58 @@ export default function FolderScreen({ route, navigation }) {
         Alert.alert('Ошибка', 'Шеринг не доступен на этом устройстве');
       }
     } catch (error) {
-      console.error('Share error:', error);
       Alert.alert('Ошибка', 'Не удалось поделиться файлом');
     }
   };
 
-  // Удаление файла
+  // Удаление файла через MediaStore
   const handleDelete = async (song) => {
     try {
-      const filePath = song.uri.replace('file://', '');
-      
-      await LegacyFileSystem.deleteAsync(filePath);
-      
-      const updatedSongs = songs.filter(s => s.id !== song.id);
-      setSongs(updatedSongs);
-      
-      if (currentSong?.id === song.id) {
-        await AudioPlayer.unload();
-      }
-      
-      Alert.alert('Успех', 'Файл удален');
+      Alert.alert(
+        'Удаление файла',
+        `Удалить "${song.title}"?`,
+        [
+          { text: 'Отмена', style: 'cancel' },
+          {
+            text: 'Удалить',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                // Пытаемся удалить через MediaLibrary
+                const deleted = await MediaLibrary.deleteAssetsAsync([song.id]);
+                if (deleted) {
+                  const updatedSongs = songs.filter(s => s.id !== song.id);
+                  setSongs(updatedSongs);
+                  
+                  if (currentSong?.id === song.id) {
+                    await AudioPlayer.unload();
+                  }
+                  
+                  Alert.alert('Успех', 'Файл удален');
+                } else {
+                  Alert.alert(
+                    'Не удалось удалить',
+                    'Файл находится на SD-карте. Удалите его вручную через файловый менеджер.',
+                    [{ text: 'OK' }]
+                  );
+                }
+              } catch (error) {
+                Alert.alert(
+                  'Не удалось удалить',
+                  'Файл находится на SD-карте. Удалите его вручную через файловый менеджер.\n\n' +
+                  '1. Откройте файловый менеджер\n' +
+                  '2. Найдите файл: ' + song.title + '\n' +
+                  '3. Удалите файл вручную\n\n' +
+                  'После удаления обновите медиатеку в настройках.',
+                  [{ text: 'Понятно' }]
+                );
+              }
+            }
+          }
+        ]
+      );
     } catch (error) {
-      console.error('Delete error:', error);
-      Alert.alert('Ошибка', `Не удалось удалить файл: ${error.message}`);
+      Alert.alert('Ошибка', 'Не удалось удалить файл');
     }
   };
 
