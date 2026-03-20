@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, FlatList, Text, Alert, SafeAreaView } from 'react-native';
+import { View, StyleSheet, FlatList, Text, Alert, SafeAreaView, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Header, SongItem, PlayerControls, SortMenu, SongLongPressDialog } from './MP04_Components';
@@ -7,6 +7,7 @@ import { getBrandColor, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
 import AudioPlayer from './MP03_AudioPlayer';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as IntentLauncher from 'expo-intent-launcher';
 import { getFoldersList, saveFoldersList, saveSongsList, getSongsList } from './MP02_FileSystem';
 
 export default function FolderScreen({ route, navigation }) {
@@ -30,7 +31,6 @@ export default function FolderScreen({ route, navigation }) {
   const brandColor = getBrandColor(settings);
   const insets = useSafeAreaInsets();
 
-  // Загружаем все папки для перемещения
   useEffect(() => {
     loadFolders();
   }, []);
@@ -134,25 +134,53 @@ export default function FolderScreen({ route, navigation }) {
     navigation.navigate('Settings', { settings });
   };
 
-  // Реальное переименование файла
+  // Проверка возможности записи в папку
+  const canWriteToFolder = (filePath) => {
+    // Для Android, файлы в Download могут требовать специальных разрешений
+    if (Platform.OS === 'android') {
+      if (filePath.includes('/Download/') || filePath.includes('/download/')) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // Переименование файла с проверкой
   const handleRename = async (song, newName) => {
     try {
-      const oldPath = song.uri;
-      // Убираем file:// если есть
-      const cleanOldPath = oldPath.replace('file://', '');
+      const oldPath = song.uri.replace('file://', '');
       
-      // Получаем расширение файла
-      const extension = cleanOldPath.substring(cleanOldPath.lastIndexOf('.'));
-      const directory = cleanOldPath.substring(0, cleanOldPath.lastIndexOf('/'));
+      // Проверяем, можно ли писать в эту папку
+      if (!canWriteToFolder(oldPath)) {
+        Alert.alert(
+          'Ограничение доступа',
+          'Файлы в папке Download нельзя переименовать. Переместите файл в другую папку или предоставьте разрешение на управление файлами в настройках телефона.',
+          [
+            { text: 'Отмена', style: 'cancel' },
+            { 
+              text: 'Открыть настройки', 
+              onPress: () => {
+                if (Platform.OS === 'android') {
+                  IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS, {
+                    data: 'package:com.yourcompany.famplayer',
+                  });
+                }
+              }
+            }
+          ]
+        );
+        return;
+      }
+      
+      const extension = oldPath.substring(oldPath.lastIndexOf('.'));
+      const directory = oldPath.substring(0, oldPath.lastIndexOf('/'));
       const newPath = `${directory}/${newName}${extension}`;
       
-      // Переименовываем файл
       await FileSystem.moveAsync({
-        from: cleanOldPath,
+        from: oldPath,
         to: newPath
       });
       
-      // Обновляем список песен
       const updatedSongs = songs.map(s => {
         if (s.id === song.id) {
           return {
@@ -167,67 +195,73 @@ export default function FolderScreen({ route, navigation }) {
       
       setSongs(updatedSongs);
       
-      // Если это текущий играющий трек, обновляем его в плеере
       if (currentSong?.id === song.id) {
         const wasPlaying = isPlaying;
         const updatedSong = updatedSongs.find(s => s.id === song.id);
         await AudioPlayer.loadSong(updatedSong, wasPlaying);
       }
       
-      // Сохраняем обновленный список
-      await saveSongsList(await getSongsList());
-      
       Alert.alert('Успех', `Файл переименован в "${newName}${extension}"`);
     } catch (error) {
       console.error('Rename error:', error);
-      Alert.alert('Ошибка', 'Не удалось переименовать файл');
+      Alert.alert('Ошибка', `Не удалось переименовать файл: ${error.message}`);
     }
   };
 
-  // Реальное перемещение файла
+  // Перемещение файла
   const handleMove = async (song, destinationFolder) => {
     try {
       const oldPath = song.uri.replace('file://', '');
+      
+      // Проверяем, можно ли писать в исходную папку
+      if (!canWriteToFolder(oldPath)) {
+        Alert.alert(
+          'Ограничение доступа',
+          'Файлы из папки Download нельзя переместить. Скопируйте файл в другую папку вручную через файловый менеджер.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
       const fileName = oldPath.substring(oldPath.lastIndexOf('/') + 1);
       
-      // Получаем путь к папке назначения
       let destPath = destinationFolder.uri;
       if (destPath.startsWith('album://')) {
-        // Для альбомов из медиатеки нужно получить реальный путь
-        // В реальном приложении нужно получать путь из URI
-        Alert.alert('Ошибка', 'Перемещение в виртуальные папки недоступно');
+        Alert.alert('Ошибка', 'Перемещение в виртуальные папки недоступно. Выберите реальную папку.');
         return;
       }
       
       const cleanDestPath = destPath.replace('file://', '');
+      
+      // Проверяем, существует ли папка назначения
+      const destExists = await FileSystem.getInfoAsync(cleanDestPath);
+      if (!destExists.exists) {
+        Alert.alert('Ошибка', 'Папка назначения не существует');
+        return;
+      }
+      
       const newPath = `${cleanDestPath}/${fileName}`;
       
-      // Перемещаем файл
       await FileSystem.moveAsync({
         from: oldPath,
         to: newPath
       });
       
-      // Обновляем URI песни
       const updatedSongs = songs.filter(s => s.id !== song.id);
       setSongs(updatedSongs);
       
-      // Если песня была в плейлисте плеера, удаляем её
       if (currentSong?.id === song.id) {
         await AudioPlayer.unload();
       }
       
-      // Сохраняем обновленный список
-      await saveSongsList(await getSongsList());
-      
       Alert.alert('Успех', `Файл перемещен в "${destinationFolder.name}"`);
     } catch (error) {
       console.error('Move error:', error);
-      Alert.alert('Ошибка', 'Не удалось переместить файл');
+      Alert.alert('Ошибка', `Не удалось переместить файл: ${error.message}`);
     }
   };
 
-  // Реальный шаринг файла
+  // Шаринг файла
   const handleShare = async (song) => {
     try {
       const fileUri = song.uri;
@@ -242,30 +276,34 @@ export default function FolderScreen({ route, navigation }) {
     }
   };
 
-  // Реальное удаление файла
+  // Удаление файла
   const handleDelete = async (song) => {
     try {
       const filePath = song.uri.replace('file://', '');
       
-      // Удаляем файл
+      // Проверяем, можно ли удалить файл
+      if (!canWriteToFolder(filePath)) {
+        Alert.alert(
+          'Ограничение доступа',
+          'Файлы из папки Download нельзя удалить. Удалите файл вручную через файловый менеджер.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
       await FileSystem.deleteAsync(filePath);
       
-      // Удаляем из списка
       const updatedSongs = songs.filter(s => s.id !== song.id);
       setSongs(updatedSongs);
       
-      // Если песня была в плейлисте плеера, останавливаем
       if (currentSong?.id === song.id) {
         await AudioPlayer.unload();
       }
       
-      // Сохраняем обновленный список
-      await saveSongsList(await getSongsList());
-      
       Alert.alert('Успех', 'Файл удален');
     } catch (error) {
       console.error('Delete error:', error);
-      Alert.alert('Ошибка', 'Не удалось удалить файл');
+      Alert.alert('Ошибка', `Не удалось удалить файл: ${error.message}`);
     }
   };
 
