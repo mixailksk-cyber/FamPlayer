@@ -47,11 +47,6 @@
       "expo-media-library",
       "expo-file-system",
       "expo-av"
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "your-project-id"
-      }
-    }
+    ]
   }
 }
