@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Header, SongItem, PlayerControls, SortMenu, SongLongPressDialog } from './MP04_Components';
 import { getBrandColor, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
 import AudioPlayer from './MP03_AudioPlayer';
-import * as FileSystem from 'expo-file-system';
+import * as LegacyFileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { getFoldersList, saveFoldersList, saveSongsList, getSongsList } from './MP02_FileSystem';
@@ -136,7 +136,6 @@ export default function FolderScreen({ route, navigation }) {
 
   // Проверка возможности записи в папку
   const canWriteToFolder = (filePath) => {
-    // Для Android, файлы в Download могут требовать специальных разрешений
     if (Platform.OS === 'android') {
       if (filePath.includes('/Download/') || filePath.includes('/download/')) {
         return false;
@@ -145,29 +144,16 @@ export default function FolderScreen({ route, navigation }) {
     return true;
   };
 
-  // Переименование файла с проверкой
+  // Переименование файла с использованием legacy API
   const handleRename = async (song, newName) => {
     try {
       const oldPath = song.uri.replace('file://', '');
       
-      // Проверяем, можно ли писать в эту папку
       if (!canWriteToFolder(oldPath)) {
         Alert.alert(
           'Ограничение доступа',
-          'Файлы в папке Download нельзя переименовать. Переместите файл в другую папку или предоставьте разрешение на управление файлами в настройках телефона.',
-          [
-            { text: 'Отмена', style: 'cancel' },
-            { 
-              text: 'Открыть настройки', 
-              onPress: () => {
-                if (Platform.OS === 'android') {
-                  IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS, {
-                    data: 'package:com.yourcompany.famplayer',
-                  });
-                }
-              }
-            }
-          ]
+          'Файлы в папке Download нельзя переименовать. Переместите файл в другую папку через файловый менеджер.',
+          [{ text: 'OK' }]
         );
         return;
       }
@@ -176,7 +162,8 @@ export default function FolderScreen({ route, navigation }) {
       const directory = oldPath.substring(0, oldPath.lastIndexOf('/'));
       const newPath = `${directory}/${newName}${extension}`;
       
-      await FileSystem.moveAsync({
+      // Используем legacy API
+      await LegacyFileSystem.moveAsync({
         from: oldPath,
         to: newPath
       });
@@ -213,11 +200,10 @@ export default function FolderScreen({ route, navigation }) {
     try {
       const oldPath = song.uri.replace('file://', '');
       
-      // Проверяем, можно ли писать в исходную папку
       if (!canWriteToFolder(oldPath)) {
         Alert.alert(
           'Ограничение доступа',
-          'Файлы из папки Download нельзя переместить. Скопируйте файл в другую папку вручную через файловый менеджер.',
+          'Файлы из папки Download нельзя переместить. Скопируйте файл вручную через файловый менеджер.',
           [{ text: 'OK' }]
         );
         return;
@@ -227,6 +213,8 @@ export default function FolderScreen({ route, navigation }) {
       
       let destPath = destinationFolder.uri;
       if (destPath.startsWith('album://')) {
+        // Для папок из медиатеки нужно получить реальный путь
+        // В реальном приложении нужно получать путь из URI
         Alert.alert('Ошибка', 'Перемещение в виртуальные папки недоступно. Выберите реальную папку.');
         return;
       }
@@ -234,7 +222,7 @@ export default function FolderScreen({ route, navigation }) {
       const cleanDestPath = destPath.replace('file://', '');
       
       // Проверяем, существует ли папка назначения
-      const destExists = await FileSystem.getInfoAsync(cleanDestPath);
+      const destExists = await LegacyFileSystem.getInfoAsync(cleanDestPath);
       if (!destExists.exists) {
         Alert.alert('Ошибка', 'Папка назначения не существует');
         return;
@@ -242,7 +230,7 @@ export default function FolderScreen({ route, navigation }) {
       
       const newPath = `${cleanDestPath}/${fileName}`;
       
-      await FileSystem.moveAsync({
+      await LegacyFileSystem.moveAsync({
         from: oldPath,
         to: newPath
       });
@@ -276,12 +264,11 @@ export default function FolderScreen({ route, navigation }) {
     }
   };
 
-  // Удаление файла
+  // Удаление файла с использованием legacy API
   const handleDelete = async (song) => {
     try {
       const filePath = song.uri.replace('file://', '');
       
-      // Проверяем, можно ли удалить файл
       if (!canWriteToFolder(filePath)) {
         Alert.alert(
           'Ограничение доступа',
@@ -291,7 +278,8 @@ export default function FolderScreen({ route, navigation }) {
         return;
       }
       
-      await FileSystem.deleteAsync(filePath);
+      // Используем legacy API
+      await LegacyFileSystem.deleteAsync(filePath);
       
       const updatedSongs = songs.filter(s => s.id !== song.id);
       setSongs(updatedSongs);
