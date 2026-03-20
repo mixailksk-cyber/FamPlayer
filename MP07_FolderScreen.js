@@ -7,8 +7,7 @@ import { getBrandColor, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
 import AudioPlayer from './MP03_AudioPlayer';
 import * as LegacyFileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import * as IntentLauncher from 'expo-intent-launcher';
-import { getFoldersList, saveFoldersList, saveSongsList, getSongsList } from './MP02_FileSystem';
+import { getFoldersList } from './MP02_FileSystem';
 
 export default function FolderScreen({ route, navigation }) {
   const params = route?.params || {};
@@ -134,35 +133,14 @@ export default function FolderScreen({ route, navigation }) {
     navigation.navigate('Settings', { settings });
   };
 
-  // Проверка возможности записи в папку
-  const canWriteToFolder = (filePath) => {
-    if (Platform.OS === 'android') {
-      if (filePath.includes('/Download/') || filePath.includes('/download/')) {
-        return false;
-      }
-    }
-    return true;
-  };
-
-  // Переименование файла с использованием legacy API
+  // Переименование файла
   const handleRename = async (song, newName) => {
     try {
       const oldPath = song.uri.replace('file://', '');
-      
-      if (!canWriteToFolder(oldPath)) {
-        Alert.alert(
-          'Ограничение доступа',
-          'Файлы в папке Download нельзя переименовать. Переместите файл в другую папку через файловый менеджер.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-      
       const extension = oldPath.substring(oldPath.lastIndexOf('.'));
       const directory = oldPath.substring(0, oldPath.lastIndexOf('/'));
       const newPath = `${directory}/${newName}${extension}`;
       
-      // Используем legacy API
       await LegacyFileSystem.moveAsync({
         from: oldPath,
         to: newPath
@@ -199,23 +177,14 @@ export default function FolderScreen({ route, navigation }) {
   const handleMove = async (song, destinationFolder) => {
     try {
       const oldPath = song.uri.replace('file://', '');
-      
-      if (!canWriteToFolder(oldPath)) {
-        Alert.alert(
-          'Ограничение доступа',
-          'Файлы из папки Download нельзя переместить. Скопируйте файл вручную через файловый менеджер.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-      
       const fileName = oldPath.substring(oldPath.lastIndexOf('/') + 1);
       
       let destPath = destinationFolder.uri;
+      
+      // Если это виртуальная папка из медиатеки, используем реальный путь
       if (destPath.startsWith('album://')) {
-        // Для папок из медиатеки нужно получить реальный путь
-        // В реальном приложении нужно получать путь из URI
-        Alert.alert('Ошибка', 'Перемещение в виртуальные папки недоступно. Выберите реальную папку.');
+        // Для виртуальных папок перемещение недоступно
+        Alert.alert('Ошибка', 'Перемещение в виртуальные папки недоступно. Выберите реальную папку на устройстве.');
         return;
       }
       
@@ -264,21 +233,11 @@ export default function FolderScreen({ route, navigation }) {
     }
   };
 
-  // Удаление файла с использованием legacy API
+  // Удаление файла
   const handleDelete = async (song) => {
     try {
       const filePath = song.uri.replace('file://', '');
       
-      if (!canWriteToFolder(filePath)) {
-        Alert.alert(
-          'Ограничение доступа',
-          'Файлы из папки Download нельзя удалить. Удалите файл вручную через файловый менеджер.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-      
-      // Используем legacy API
       await LegacyFileSystem.deleteAsync(filePath);
       
       const updatedSongs = songs.filter(s => s.id !== song.id);
