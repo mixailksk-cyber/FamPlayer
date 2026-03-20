@@ -20,19 +20,22 @@ export default function PlaylistsScreen({ navigation, route }) {
     loadData();
   }, []);
 
-  // Слушаем обновления выбора из настроек
+  // Слушаем обновления из настроек
   useEffect(() => {
     if (route.params?.updateSelection && route.params?.selectedFolders) {
       setSelectedFolders(route.params.selectedFolders);
     }
     
-    // Слушаем обновления цвета
     if (route.params?.updateBrandColor && route.params?.brandColor) {
       setSettings({ brandColor: route.params.brandColor });
     }
+    
+    if (route.params?.folders) {
+      setAllFolders(route.params.folders);
+    }
   }, [route.params]);
 
-  // Фильтруем при изменении allFolders или selectedFolders
+  // Фильтруем при изменении
   useEffect(() => {
     filterFolders();
   }, [allFolders, selectedFolders]);
@@ -40,14 +43,12 @@ export default function PlaylistsScreen({ navigation, route }) {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Загружаем папки
       const foldersStr = await AsyncStorage.getItem('scanned_folders');
       if (foldersStr) {
         const parsed = JSON.parse(foldersStr);
         setAllFolders(parsed);
       }
       
-      // Загружаем выбранные папки
       const saved = await AsyncStorage.getItem(SELECTED_FOLDERS_KEY);
       if (saved) {
         setSelectedFolders(JSON.parse(saved));
