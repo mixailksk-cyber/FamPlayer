@@ -7,13 +7,12 @@ import { APP_FAVORITES_NAME, IS_WEB_STUB } from './MP01_Core';
 const DEMO_FOLDERS = [
   { id: 'folder1', name: 'Жатва', uri: 'demo://root/Жатва', count: 3, songs: [] },
   { id: 'folder2', name: 'Пасха', uri: 'demo://root/Пасха', count: 2, songs: [] },
-  { id: 'folder3', name: 'Избранное', uri: 'demo://root/Избранное', count: 3, songs: [] },
 ];
 
 const DEMO_SONGS = [
-  { id: '1', title: 'sdvsd.mp3', uri: 'demo://root/sdvsd.mp3', folder: 'Избранное', addedAt: Date.now() - 100000, duration: 180 },
-  { id: '2', title: 'sfdb.mp3', uri: 'demo://root/sfdb.mp3', folder: 'Избранное', addedAt: Date.now() - 90000, duration: 240 },
-  { id: '3', title: 'sdvs.mp3', uri: 'demo://root/sdvs.mp3', folder: 'Избранное', addedAt: Date.now() - 80000, duration: 195 },
+  { id: '1', title: 'sdvsd.mp3', uri: 'demo://root/sdvsd.mp3', folder: 'Жатва', addedAt: Date.now() - 100000, duration: 180 },
+  { id: '2', title: 'sfdb.mp3', uri: 'demo://root/sfdb.mp3', folder: 'Жатва', addedAt: Date.now() - 90000, duration: 240 },
+  { id: '3', title: 'sdvs.mp3', uri: 'demo://root/sdvs.mp3', folder: 'Пасха', addedAt: Date.now() - 80000, duration: 195 },
 ];
 
 export const SCAN_MODES = {
@@ -74,6 +73,7 @@ export const scanMusic = async () => {
       }
     }
 
+    // Создаем папки только из альбомов, без "Все песни"
     const folders = albums.map(album => ({
       id: album.id,
       name: album.title || 'Без названия',
@@ -82,20 +82,10 @@ export const scanMusic = async () => {
       songs: songsByAlbum[album.id] || [],
     })).filter(folder => folder.count > 0);
 
-    const allSongsFolder = {
-      id: 'all_songs',
-      name: APP_FAVORITES_NAME,
-      uri: 'album://all',
-      count: allSongs.length,
-      songs: allSongs,
-    };
-
-    const allFolders = [allSongsFolder, ...folders];
-
-    console.log(`✅ MediaLibrary scan complete: ${allFolders.length} folders, ${allSongs.length} songs`);
+    console.log(`✅ MediaLibrary scan complete: ${folders.length} folders, ${allSongs.length} songs`);
 
     return { 
-      folders: allFolders, 
+      folders: folders, 
       songs: allSongs,
       stats: {
         total: media.totalCount,
