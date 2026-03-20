@@ -7,12 +7,157 @@ import {
   Modal,
   FlatList,
   Animated,
-  PanResponder
+  PanResponder,
+  TextInput,
+  Alert,
+  Share
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND_COLOR, getBrandColor, formatDuration, width, PLAYLIST_COLORS, APP_FAVORITES_NAME, TRASH_FOLDER_NAME, TRASH_COLOR } from './MP01_Core';
 import AudioPlayer from './MP03_AudioPlayer';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+
+// Диалог долгого нажатия на песню
+export const SongLongPressDialog = ({ visible, song, folders, onClose, onRename, onMove, onShare, onDelete, settings }) => {
+  const brandColor = getBrandColor(settings);
+  const [renameMode, setRenameMode] = useState(false);
+  const [moveMode, setMoveMode] = useState(false);
+  const [newName, setNewName] = useState(song?.title || '');
+  
+  if (!song) return null;
+  
+  const handleRename = () => {
+    if (renameMode) {
+      onRename(song, newName);
+      setRenameMode(false);
+    } else {
+      setRenameMode(true);
+      setMoveMode(false);
+    }
+  };
+  
+  const handleMove = () => {
+    if (moveMode) {
+      // Будет вызван после выбора папки
+    } else {
+      setMoveMode(true);
+      setRenameMode(false);
+    }
+  };
+  
+  const handleMoveToFolder = (folder) => {
+    onMove(song, folder);
+    setMoveMode(false);
+    onClose();
+  };
+  
+  const handleShare = () => {
+    onShare(song);
+    onClose();
+  };
+  
+  const handleDelete = () => {
+    Alert.alert(
+      'Удаление файла',
+      `Вы уверены, что хотите удалить "${song.title}"?`,
+      [
+        { text: 'Отмена', style: 'cancel' },
+        { 
+          text: 'Удалить', 
+          style: 'destructive',
+          onPress: () => {
+            onDelete(song);
+            onClose();
+          }
+        }
+      ]
+    );
+  };
+  
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
+        <View style={styles.longPressMenu}>
+          <View style={styles.longPressHeader}>
+            {renameMode ? (
+              <TextInput
+                style={styles.renameInput}
+                value={newName}
+                onChangeText={setNewName}
+                autoFocus
+                onSubmitEditing={handleRename}
+                placeholder="Новое название"
+              />
+            ) : moveMode ? (
+              <Text style={styles.moveTitle}>Выберите папку:</Text>
+            ) : (
+              <>
+                <MaterialIcons name="audiotrack" size={24} color={brandColor} />
+                <Text style={styles.longPressTitle} numberOfLines={1}>{song.title}</Text>
+              </>
+            )}
+          </View>
+          
+          {moveMode ? (
+            // Список папок для перемещения
+            <FlatList
+              data={folders}
+              keyExtractor={item => item.id}
+              style={styles.folderList}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.folderListItem}
+                  onPress={() => handleMoveToFolder(item)}
+                >
+                  <MaterialIcons name="folder" size={20} color={brandColor} />
+                  <Text style={styles.folderListItemText}>{item.name}</Text>
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <Text style={styles.emptyFoldersText}>Нет папок для перемещения</Text>
+              }
+            />
+          ) : (
+            // Кнопки действий
+            <View style={styles.longPressActions}>
+              <TouchableOpacity style={styles.longPressAction} onPress={handleRename}>
+                <MaterialIcons name="edit" size={24} color={brandColor} />
+                <Text style={[styles.longPressActionText, { color: brandColor }]}>
+                  {renameMode ? 'Сохранить' : 'Переименовать'}
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.longPressAction} onPress={handleMove}>
+                <MaterialIcons name="drive-file-move" size={24} color={brandColor} />
+                <Text style={[styles.longPressActionText, { color: brandColor }]}>
+                  {moveMode ? 'Отмена' : 'Переместить'}
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.longPressAction} onPress={handleShare}>
+                <MaterialIcons name="share" size={24} color={brandColor} />
+                <Text style={[styles.longPressActionText, { color: brandColor }]}>Поделиться</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.longPressAction} onPress={handleDelete}>
+                <MaterialIcons name="delete" size={24} color={TRASH_COLOR} />
+                <Text style={[styles.longPressActionText, { color: TRASH_COLOR }]}>Удалить</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          
+          {!renameMode && !moveMode && (
+            <TouchableOpacity style={styles.longPressCancel} onPress={onClose}>
+              <Text style={{ color: '#999' }}>Отмена</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+};
 
 export const Header = ({ 
   title, 
@@ -581,5 +726,82 @@ const styles = StyleSheet.create({
   },
   sortCheck: {
     marginLeft: 'auto',
+  },
+
+  // Стили для диалога долгого нажатия
+  longPressMenu: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    width: width - 40,
+    maxHeight: '80%',
+  },
+  longPressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    marginBottom: 16,
+  },
+  longPressTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+    marginLeft: 12,
+    flex: 1,
+  },
+  longPressActions: {
+    marginBottom: 16,
+  },
+  longPressAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  longPressActionText: {
+    fontSize: 16,
+    marginLeft: 16,
+  },
+  longPressCancel: {
+    alignItems: 'center',
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  renameInput: {
+    flex: 1,
+    fontSize: 16,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    color: '#333',
+  },
+  moveTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+  },
+  folderList: {
+    maxHeight: 300,
+    marginBottom: 16,
+  },
+  folderListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  folderListItemText: {
+    fontSize: 16,
+    color: '#333',
+    marginLeft: 12,
+  },
+  emptyFoldersText: {
+    textAlign: 'center',
+    color: '#999',
+    padding: 20,
   },
 });
