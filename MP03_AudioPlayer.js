@@ -12,10 +12,12 @@ class AudioPlayer {
     this.demoInterval = null;
     this.playlist = [];
     this.shuffleMode = false;
-    this.autoPlayMode = true; // По умолчанию автовоспроизведение включено
+    this.autoPlayMode = true;
     this.shuffledPlaylist = [];
     this.currentIndex = -1;
     this.debug = [];
+    this.position = 0;
+    this.duration = 0;
     
     this.setupAudioMode();
     
@@ -60,13 +62,19 @@ class AudioPlayer {
       this.currentSong = song;
       this.isPlaying = shouldPlay;
       this.isPaused = !shouldPlay;
+      this.duration = song.duration || 180;
       
       if (this.demoInterval) clearTimeout(this.demoInterval);
-      this.demoInterval = setTimeout(() => {
-        if (this.onFinishCallback) this.onFinishCallback();
-      }, 30000);
+      this.demoInterval = setInterval(() => {
+        if (this.isPlaying) {
+          this.position += 1;
+          if (this.position >= this.duration) {
+            this.position = 0;
+            if (this.onFinishCallback) this.onFinishCallback();
+          }
+        }
+      }, 1000);
       
-      this.updateMediaSession();
       return true;
     }
 
@@ -93,9 +101,13 @@ class AudioPlayer {
       this.isPlaying = shouldPlay;
       this.isPaused = !shouldPlay;
       
-      this.addDebug(`Sound loaded successfully, shouldPlay: ${shouldPlay}`);
+      // Получаем длительность
+      const status = await sound.getStatusAsync();
+      if (status.isLoaded) {
+        this.duration = status.durationMillis / 1000;
+      }
       
-      this.updateMediaSession();
+      this.addDebug(`Sound loaded successfully, shouldPlay: ${shouldPlay}`);
       
       return true;
     } catch (error) {
@@ -105,14 +117,12 @@ class AudioPlayer {
     }
   }
 
-  updateMediaSession() {
-    // Обновление медиа-сессии
-  }
-
   _onPlaybackStatusUpdate(status) {
     if (status.isLoaded) {
       this.isPlaying = status.isPlaying;
       this.isPaused = !status.isPlaying && status.isLoaded;
+      this.position = status.positionMillis / 1000;
+      this.duration = status.durationMillis / 1000;
       
       if (status.didJustFinish && this.onFinishCallback) {
         this.addDebug('Song finished, calling callback');
@@ -133,8 +143,6 @@ class AudioPlayer {
       this.isPlaying = true;
       this.isPaused = false;
       this.addDebug('Playback started');
-      
-      this.updateMediaSession();
       return true;
     } catch (error) {
       this.addDebug(`Error playing: ${error.message}`);
@@ -154,8 +162,6 @@ class AudioPlayer {
       this.isPlaying = false;
       this.isPaused = true;
       this.addDebug('Playback paused');
-      
-      this.updateMediaSession();
       return true;
     } catch (error) {
       this.addDebug(`Error pausing: ${error.message}`);
@@ -168,16 +174,35 @@ class AudioPlayer {
     return this.isPlaying ? this.pause() : this.play();
   }
 
+  async seekTo(positionMillis) {
+    this.addDebug(`seekTo: ${positionMillis}ms`);
+    if (!this.sound || !this.currentSong) {
+      this.addDebug('No sound loaded');
+      return false;
+    }
+    
+    try {
+      await this.sound.setPositionAsync(positionMillis);
+      this.position = positionMillis / 1000;
+      return true;
+    } catch (error) {
+      this.addDebug(`Error seeking: ${error.message}`);
+      return false;
+    }
+  }
+
   async unload() {
     this.addDebug('unload called');
     if (this.sound) {
       await this.sound.unloadAsync();
       this.sound = null;
     }
-    if (this.demoInterval) clearTimeout(this.demoInterval);
+    if (this.demoInterval) clearInterval(this.demoInterval);
     this.currentSong = null;
     this.isPlaying = false;
     this.isPaused = false;
+    this.position = 0;
+    this.duration = 0;
     this.addDebug('Unloaded');
   }
 
@@ -192,6 +217,9 @@ class AudioPlayer {
       isPaused: this.isPaused,
       shuffleMode: this.shuffleMode,
       autoPlayMode: this.autoPlayMode,
+      positionMillis: this.position * 1000,
+      durationMillis: this.duration * 1000,
+      isLoaded: true,
     };
   }
 
