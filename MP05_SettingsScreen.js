@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
   ActivityIndicator, Alert, SafeAreaView, Modal,
-  FlatList, ScrollView
+  FlatList, ScrollView, Platform
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -10,6 +10,7 @@ import { Header } from './MP04_Components';
 import { BRAND_COLOR, getBrandColor, IS_WEB_STUB, WEB_STUB_MESSAGE } from './MP01_Core';
 import { scanMusic, saveFoldersList, saveSongsList, getFoldersList } from './MP02_FileSystem';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as IntentLauncher from 'expo-intent-launcher';
 
 const SELECTED_FOLDERS_KEY = '@selected_folders';
 const BRAND_COLOR_KEY = '@brand_color';
@@ -40,7 +41,28 @@ export default function SettingsScreen({ navigation, route }) {
   useEffect(() => {
     loadFolders();
     loadBrandColor();
+    requestManageStoragePermission();
   }, []);
+
+  const requestManageStoragePermission = async () => {
+    if (Platform.OS === 'android') {
+      Alert.alert(
+        'Разрешение на управление файлами',
+        'Для работы с файлами на SD-карте необходимо предоставить разрешение на управление файлами.',
+        [
+          { text: 'Отмена', style: 'cancel' },
+          { 
+            text: 'Открыть настройки', 
+            onPress: () => {
+              IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS, {
+                data: 'package:com.yourcompany.famplayer',
+              });
+            }
+          }
+        ]
+      );
+    }
+  };
 
   const loadBrandColor = async () => {
     try {
@@ -121,21 +143,10 @@ export default function SettingsScreen({ navigation, route }) {
       setSelectedFolders(tempSelectedFolders);
       setModalVisible(false);
       
-      // Отправляем обновление на экран плейлистов, но НЕ переходим на него
-      // Используем navigation.setParams вместо navigation.navigate
       navigation.setParams({
         updateSelection: true,
         selectedFolders: tempSelectedFolders
       });
-      
-      // Также обновляем через навигатор, если есть доступ
-      const parent = navigation.getParent();
-      if (parent) {
-        parent.setParams({
-          updateSelection: true,
-          selectedFolders: tempSelectedFolders
-        });
-      }
       
     } catch (error) {
       Alert.alert('Ошибка', 'Не удалось сохранить выбор');
@@ -168,7 +179,6 @@ export default function SettingsScreen({ navigation, route }) {
       setTempSelectedFolders(defaultSelected);
       await AsyncStorage.setItem(SELECTED_FOLDERS_KEY, JSON.stringify(defaultSelected));
       
-      // Обновляем плейлисты без перехода
       navigation.setParams({
         folders: result.folders || [],
         songs: result.songs || [],
@@ -205,7 +215,6 @@ export default function SettingsScreen({ navigation, route }) {
       )}
       
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Цвет бренда */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Цвет бренда</Text>
           <View style={styles.colorOptions}>
@@ -227,7 +236,6 @@ export default function SettingsScreen({ navigation, route }) {
           </View>
         </View>
 
-        {/* Управление папками */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Управление папками</Text>
           
@@ -269,7 +277,6 @@ export default function SettingsScreen({ navigation, route }) {
         </View>
       </ScrollView>
 
-      {/* Модальное окно выбора папок */}
       <Modal
         visible={modalVisible}
         animationType="slide"
