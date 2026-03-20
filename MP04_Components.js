@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
+ StyleSheet,
   TouchableOpacity,
   Modal,
   FlatList,
@@ -152,59 +152,74 @@ export const MoveSongDialog = ({ visible, folders, onSelect, onCancel, settings,
 };
 
 // Компонент прогресс-бара
-export const ProgressBar = ({ currentTime, duration, onSeek, onSeekStart, onSeekEnd, settings }) => {
+export const ProgressBar = ({ currentTime, duration, onSeek, settings }) => {
   const brandColor = getBrandColor(settings);
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const pan = useRef(new Animated.Value(progress)).current;
+  const [sliderWidth, setSliderWidth] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const pan = useRef(new Animated.Value(0)).current;
   const progressBarRef = useRef(null);
-  const [dragProgress, setDragProgress] = useState(0);
   
-  // Синхронизируем анимацию с actual прогрессом, когда не перетаскиваем
+  // Сбрасываем позицию ползунка при изменении трека или когда не тащим
   useEffect(() => {
     if (!isDragging) {
-      Animated.timing(pan, {
-        toValue: progress,
-        duration: 100,
-        useNativeDriver: false,
-      }).start();
+      pan.setValue(progress);
     }
   }, [progress, isDragging]);
   
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        setIsDragging(true);
-        if (onSeekStart) onSeekStart();
-      },
-      onPanResponderMove: (evt) => {
-        if (progressBarRef.current) {
-          progressBarRef.current.measure((x, y, width, height, pageX, pageY) => {
-            const touchX = Math.max(0, Math.min(width, evt.nativeEvent.pageX - pageX));
-            const newProgress = (touchX / width) * 100;
-            
-            pan.setValue(newProgress);
-            setDragProgress(newProgress);
-            
-            const newTime = (newProgress / 100) * duration;
-            if (onSeek) {
-              onSeek(newTime);
-            }
-          });
-        }
-      },
-      onPanResponderRelease: () => {
-        // При отпускании перематываем на позицию, где остановился ползунок
-        const newTime = (dragProgress / 100) * duration;
-        if (onSeekEnd) {
-          onSeekEnd(newTime);
-        }
-        setIsDragging(false);
-      },
-    })
-  ).current;
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: () => {
+      setIsDragging(true);
+    },
+    onPanResponderMove: (evt, gestureState) => {
+      if (sliderWidth > 0) {
+        // Вычисляем новую позицию на основе перемещения
+        const { dx } = gestureState;
+        const startX = evt.nativeEvent.pageX - dx;
+        const currentX = evt.nativeEvent.pageX;
+        const deltaX = currentX - startX;
+        
+        // Получаем процент перемещения
+        const progressPercent = (deltaX / sliderWidth) * 100;
+        const newProgress = Math.min(100, Math.max(0, progress + progressPercent));
+        
+        // Обновляем позицию ползунка
+        pan.setValue(newProgress);
+        
+        // Обновляем время для отображения
+        const newTime = (newProgress / 100) * duration;
+        onSeek(newTime);
+      }
+    },
+    onPanResponderRelease: (evt, gestureState) => {
+      if (sliderWidth > 0) {
+        // Получаем финальную позицию
+        const { dx } = gestureState;
+        const startX = evt.nativeEvent.pageX - dx;
+        const currentX = evt.nativeEvent.pageX;
+        const deltaX = currentX - startX;
+        
+        const progressPercent = (deltaX / sliderWidth) * 100;
+        const newProgress = Math.min(100, Math.max(0, progress + progressPercent));
+        const newTime = (newProgress / 100) * duration;
+        
+        // Перематываем на новую позицию
+        AudioPlayer.seekTo(newTime * 1000);
+      }
+      setIsDragging(false);
+    },
+  });
+
+  // Получаем ширину компонента для расчета
+  const onLayout = () => {
+    if (progressBarRef.current) {
+      progressBarRef.current.measure((x, y, width, height, pageX, pageY) => {
+        setSliderWidth(width);
+      });
+    }
+  };
 
   return (
     <View style={styles.progressContainer}>
@@ -215,6 +230,7 @@ export const ProgressBar = ({ currentTime, duration, onSeek, onSeekStart, onSeek
       
       <View 
         ref={progressBarRef}
+        onLayout={onLayout}
         style={styles.progressBarContainer} 
         {...panResponder.panHandlers}
       >
@@ -254,33 +270,21 @@ export const PlayerControls = ({ currentSong, isPlaying, onPlayPause, onNext, on
   const insets = useSafeAreaInsets();
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [isSeeking, setIsSeeking] = useState(false);
   
   useEffect(() => {
     const interval = setInterval(async () => {
-      if (!isSeeking) {
-        const status = await AudioPlayer.getStatus();
-        if (status?.isLoaded) {
-          setCurrentTime(status.positionMillis / 1000 || 0);
-          setDuration(status.durationMillis / 1000 || 0);
-        }
+      const status = await AudioPlayer.getStatus();
+      if (status?.isLoaded) {
+        setCurrentTime(status.positionMillis / 1000 || 0);
+        setDuration(status.durationMillis / 1000 || 0);
       }
     }, 100);
     
     return () => clearInterval(interval);
-  }, [isSeeking]);
+  }, []);
   
   const handleSeek = (time) => {
     setCurrentTime(time);
-  };
-  
-  const handleSeekStart = () => {
-    setIsSeeking(true);
-  };
-  
-  const handleSeekEnd = async (time) => {
-    await AudioPlayer.seekTo(time * 1000);
-    setIsSeeking(false);
   };
   
   if (!currentSong) return null;
@@ -298,8 +302,6 @@ export const PlayerControls = ({ currentSong, isPlaying, onPlayPause, onNext, on
         currentTime={currentTime}
         duration={duration}
         onSeek={handleSeek}
-        onSeekStart={handleSeekStart}
-        onSeekEnd={handleSeekEnd}
         settings={settings}
       />
       
