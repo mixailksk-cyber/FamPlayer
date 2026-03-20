@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
- StyleSheet,
+  StyleSheet,
   TouchableOpacity,
   Modal,
   FlatList,
@@ -270,18 +270,42 @@ export const PlayerControls = ({ currentSong, isPlaying, onPlayPause, onNext, on
   const insets = useSafeAreaInsets();
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [songId, setSongId] = useState(null);
   
+  // Обновляем time и duration каждые 100мс
   useEffect(() => {
     const interval = setInterval(async () => {
       const status = await AudioPlayer.getStatus();
       if (status?.isLoaded) {
         setCurrentTime(status.positionMillis / 1000 || 0);
         setDuration(status.durationMillis / 1000 || 0);
+        
+        // Если сменилась песня, обновляем ID
+        if (status.currentSong?.id !== songId) {
+          setSongId(status.currentSong?.id);
+        }
       }
     }, 100);
     
     return () => clearInterval(interval);
-  }, []);
+  }, [songId]);
+  
+  // Сбрасываем время при смене песни
+  useEffect(() => {
+    if (currentSong?.id !== songId) {
+      setCurrentTime(0);
+      setSongId(currentSong?.id);
+      
+      // Получаем актуальную длительность для новой песни
+      const getDuration = async () => {
+        const status = await AudioPlayer.getStatus();
+        if (status?.isLoaded) {
+          setDuration(status.durationMillis / 1000 || 0);
+        }
+      };
+      getDuration();
+    }
+  }, [currentSong]);
   
   const handleSeek = (time) => {
     setCurrentTime(time);
@@ -467,7 +491,7 @@ const styles = StyleSheet.create({
   },
   progressBarContainer: {
     width: '100%',
-    height: 30,
+    height: 40,
     justifyContent: 'center',
     position: 'relative',
   },
@@ -483,16 +507,18 @@ const styles = StyleSheet.create({
   },
   progressHandle: {
     position: 'absolute',
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    top: 9,
-    marginLeft: -6,
-    elevation: 2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    top: 10,
+    marginLeft: -10,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   
   controlsRow: { 
