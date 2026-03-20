@@ -152,44 +152,57 @@ export const MoveSongDialog = ({ visible, folders, onSelect, onCancel, settings,
 };
 
 // Компонент прогресс-бара
-export const ProgressBar = ({ currentTime, duration, onSeek, settings }) => {
+export const ProgressBar = ({ currentTime, duration, onSeek, onSeekStart, onSeekEnd, settings }) => {
   const brandColor = getBrandColor(settings);
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const pan = useRef(new Animated.Value(0)).current;
+  const pan = useRef(new Animated.Value(progress)).current;
+  const [isDragging, setIsDragging] = useState(false);
+  
+  // Синхронизируем анимацию с actual прогрессом, когда не перетаскиваем
+  useEffect(() => {
+    if (!isDragging) {
+      pan.setValue(progress);
+    }
+  }, [progress, isDragging]);
   
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
-        // Начало перетаскивания
+        setIsDragging(true);
+        if (onSeekStart) onSeekStart();
       },
       onPanResponderMove: (evt, gestureState) => {
-        // Вычисляем позицию касания относительно ширины прогресс-бара
-        const { locationX } = evt.nativeEvent;
-        const newProgress = Math.min(100, Math.max(0, (locationX / (width - 80)) * 100));
-        pan.setValue(newProgress);
+        // Получаем позицию касания относительно прогресс-бара
+        evt.persist();
         
-        // Вычисляем новое время
-        const newTime = (newProgress / 100) * duration;
-        if (onSeek) {
-          onSeek(newTime);
-        }
+        // Используем setTimeout чтобы получить layout после рендера
+        setTimeout(() => {
+          if (this.progressBarRef) {
+            this.progressBarRef.measure((x, y, width, height, pageX, pageY) => {
+              // Вычисляем позицию касания
+              const touchX = evt.nativeEvent.pageX - pageX;
+              const newProgress = Math.min(100, Math.max(0, (touchX / width) * 100));
+              
+              // Обновляем позицию ползунка
+              pan.setValue(newProgress);
+              
+              // Вычисляем новое время
+              const newTime = (newProgress / 100) * duration;
+              if (onSeek) {
+                onSeek(newTime);
+              }
+            });
+          }
+        }, 0);
       },
       onPanResponderRelease: () => {
-        // Завершение перетаскивания
+        setIsDragging(false);
+        if (onSeekEnd) onSeekEnd();
       },
     })
   ).current;
-
-  useEffect(() => {
-    // Обновляем позицию при изменении текущего времени
-    Animated.timing(pan, {
-      toValue: progress,
-      duration: 100,
-      useNativeDriver: false,
-    }).start();
-  }, [progress]);
 
   return (
     <View style={styles.progressContainer}>
@@ -198,7 +211,11 @@ export const ProgressBar = ({ currentTime, duration, onSeek, settings }) => {
         <Text style={styles.timeText}>{formatDuration(duration)}</Text>
       </View>
       
-      <View style={styles.progressBarContainer} {...panResponder.panHandlers}>
+      <View 
+        ref={ref => this.progressBarRef = ref}
+        style={styles.progressBarContainer} 
+        {...panResponder.panHandlers}
+      >
         <View style={[styles.progressBarBackground, { backgroundColor: '#E0E0E0' }]}>
           <Animated.View 
             style={[
@@ -220,7 +237,7 @@ export const ProgressBar = ({ currentTime, duration, onSeek, settings }) => {
               backgroundColor: brandColor,
               left: pan.interpolate({
                 inputRange: [0, 100],
-                outputRange: ['-6px', `${100 - 6}%`],
+                outputRange: ['0%', '100%'],
               })
             }
           ]} 
@@ -235,21 +252,33 @@ export const PlayerControls = ({ currentSong, isPlaying, onPlayPause, onNext, on
   const insets = useSafeAreaInsets();
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isSeeking, setIsSeeking] = useState(false);
   
   useEffect(() => {
     const interval = setInterval(async () => {
-      const status = await AudioPlayer.getStatus();
-      if (status?.isLoaded) {
-        setCurrentTime(status.positionMillis / 1000 || 0);
-        setDuration(status.durationMillis / 1000 || 0);
+      if (!isSeeking) {
+        const status = await AudioPlayer.getStatus();
+        if (status?.isLoaded) {
+          setCurrentTime(status.positionMillis / 1000 || 0);
+          setDuration(status.durationMillis / 1000 || 0);
+        }
       }
-    }, 500);
+    }, 100);
     
     return () => clearInterval(interval);
-  }, []);
+  }, [isSeeking]);
   
   const handleSeek = async (time) => {
-    await AudioPlayer.seekTo(time * 1000);
+    setCurrentTime(time);
+  };
+  
+  const handleSeekStart = () => {
+    setIsSeeking(true);
+  };
+  
+  const handleSeekEnd = async () => {
+    await AudioPlayer.seekTo(currentTime * 1000);
+    setIsSeeking(false);
   };
   
   if (!currentSong) return null;
@@ -267,6 +296,8 @@ export const PlayerControls = ({ currentSong, isPlaying, onPlayPause, onNext, on
         currentTime={currentTime}
         duration={duration}
         onSeek={handleSeek}
+        onSeekStart={handleSeekStart}
+        onSeekEnd={handleSeekEnd}
         settings={settings}
       />
       
