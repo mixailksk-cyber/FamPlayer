@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 import { BRAND_COLOR, getBrandColor } from './BL02_Constants';
 import Header from './BL04_Header';
 
@@ -10,7 +11,7 @@ const AppContent = () => {
   const brandColor = BRAND_COLOR;
   
   const NotesScreen = () => (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: 'white' }}>
       <Header 
         title="Главная" 
         rightIcon="settings" 
@@ -32,7 +33,12 @@ const AppContent = () => {
           borderRadius: 35, 
           backgroundColor: brandColor, 
           justifyContent: 'center', 
-          alignItems: 'center' 
+          alignItems: 'center',
+          elevation: 5,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84
         }} 
         onPress={() => console.log('Add note')}>
         <Icon name="add" size={36} color="white" />
@@ -41,7 +47,7 @@ const AppContent = () => {
   );
   
   const SettingsScreen = () => (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: 'white' }}>
       <Header 
         title="Настройки" 
         showBack 
