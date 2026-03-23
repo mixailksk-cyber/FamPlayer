@@ -12,6 +12,9 @@ import SearchScreen from './BL20_SearchScreen';
 import NoteActionDialog from './BL07_NoteActionDialog';
 import { useNotesData } from './BL12_DataHooks';
 
+// Принудительная загрузка иконок
+Icon.loadFont();
+
 const AppContent = () => {
   const insets = useSafeAreaInsets();
   const [currentScreen, setCurrentScreen] = React.useState('notes');
@@ -77,14 +80,12 @@ const AppContent = () => {
   };
   
   const handleMoveNote = (note, targetFolder) => {
-    const updatedNote = { ...note, folder: targetFolder, deleted: false, updatedAt: Date.now() };
-    const index = notes.findIndex(n => n.id === note.id);
-    const newNotes = [...notes.slice(0, index), updatedNote, ...notes.slice(index + 1)];
-    saveNotes(newNotes);
-  };
-  
-  const handleRestoreFromTrash = (note) => {
-    const updatedNote = { ...note, folder: 'Главная', deleted: false, updatedAt: Date.now() };
+    const updatedNote = { 
+      ...note, 
+      folder: targetFolder, 
+      deleted: targetFolder === 'Корзина' ? true : false,
+      updatedAt: Date.now() 
+    };
     const index = notes.findIndex(n => n.id === note.id);
     const newNotes = [...notes.slice(0, index), updatedNote, ...notes.slice(index + 1)];
     saveNotes(newNotes);
@@ -133,18 +134,31 @@ const AppContent = () => {
   };
   
   const handleDeleteFolder = (folderName) => {
-    const updatedNotes = notes.map(note =>
-      note.folder === folderName
-        ? { ...note, folder: 'Корзина', deleted: true, updatedAt: Date.now() }
-        : note
+    Alert.alert(
+      'Удалить папку',
+      `Все заметки из папки "${folderName}" будут перемещены в корзину. Продолжить?`,
+      [
+        { text: 'Отмена', style: 'cancel' },
+        { 
+          text: 'Удалить', 
+          style: 'destructive',
+          onPress: () => {
+            const updatedNotes = notes.map(note =>
+              note.folder === folderName
+                ? { ...note, folder: 'Корзина', deleted: true, updatedAt: Date.now() }
+                : note
+            );
+            const updatedFolders = folders.filter(f => {
+              const name = typeof f === 'object' ? f.name : f;
+              return name !== folderName;
+            });
+            saveNotes(updatedNotes);
+            saveFolders(updatedFolders);
+            if (currentFolder === folderName) setCurrentFolder('Главная');
+          }
+        }
+      ]
     );
-    const updatedFolders = folders.filter(f => {
-      const name = typeof f === 'object' ? f.name : f;
-      return name !== folderName;
-    });
-    saveNotes(updatedNotes);
-    saveFolders(updatedFolders);
-    if (currentFolder === folderName) setCurrentFolder('Главная');
   };
   
   const handleColorChange = (folderName, newColor) => {
@@ -220,7 +234,11 @@ const AppContent = () => {
             backgroundColor: brandColor, 
             justifyContent: 'center', 
             alignItems: 'center', 
-            elevation: 5 
+            elevation: 5,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.25,
+            shadowRadius: 3.84
           }} 
           onPress={handleAddNote}>
           <Icon name="add" size={36} color="white" />
