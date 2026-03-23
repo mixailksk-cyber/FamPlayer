@@ -77,3 +77,15 @@ To learn more about React Native, take a look at the following resources:
 - [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
 - [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
 - [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+cd /workspaces/FamNotes
+
+# Добавляем обновленные файлы
+git add package.json package-lock.json
+
+# Коммитим
+git commit -m "Remove async-storage, clean dependencies"
+
+# Пушим
+git push origin maincdcd
+
+cdcd
