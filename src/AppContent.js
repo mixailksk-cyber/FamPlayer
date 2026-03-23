@@ -1,55 +1,67 @@
 import React from 'react';
-import {
-  SafeAreaView,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Alert
-} from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BRAND_COLOR, getBrandColor } from './BL02_Constants';
+import Header from './BL04_Header';
 
-export default function AppContent() {
-  return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>FamNotes</Text>
-      <Text style={styles.subtitle}>Ваши заметки всегда с вами</Text>
-      
+const AppContent = () => {
+  const insets = useSafeAreaInsets();
+  const [currentScreen, setCurrentScreen] = React.useState('notes');
+  const brandColor = BRAND_COLOR;
+  
+  const NotesScreen = () => (
+    <View style={{ flex: 1 }}>
+      <Header 
+        title="Главная" 
+        rightIcon="settings" 
+        onRightPress={() => setCurrentScreen('settings')} 
+        showBack={false}
+        brandColor={brandColor}
+      />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ fontSize: 18, color: '#333' }}>Список заметок</Text>
+        <Text style={{ marginTop: 16, color: '#666' }}>Здесь будут ваши заметки</Text>
+      </View>
       <TouchableOpacity 
-        style={styles.button}
-        onPress={() => Alert.alert('Привет!', 'Добро пожаловать в FamNotes')}
-      >
-        <Text style={styles.buttonText}>Нажми меня</Text>
+        style={{ 
+          position: 'absolute', 
+          bottom: insets.bottom + 24, 
+          right: insets.right + 24, 
+          width: 70, 
+          height: 70, 
+          borderRadius: 35, 
+          backgroundColor: brandColor, 
+          justifyContent: 'center', 
+          alignItems: 'center' 
+        }} 
+        onPress={() => console.log('Add note')}>
+        <Icon name="add" size={36} color="white" />
       </TouchableOpacity>
-    </SafeAreaView>
+    </View>
   );
-}
+  
+  const SettingsScreen = () => (
+    <View style={{ flex: 1 }}>
+      <Header 
+        title="Настройки" 
+        showBack 
+        onBack={() => setCurrentScreen('notes')} 
+        rightIcon="close" 
+        onRightPress={() => setCurrentScreen('notes')}
+        brandColor={brandColor}
+      />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Text style={{ fontSize: 18, color: '#333' }}>Настройки приложения</Text>
+        <Text style={{ marginTop: 16, color: '#666' }}>Здесь будут настройки</Text>
+      </View>
+    </View>
+  );
+  
+  return (
+    <View style={{ flex: 1, backgroundColor: 'white' }}>
+      {currentScreen === 'notes' ? <NotesScreen /> : <SettingsScreen />}
+    </View>
+  );
+};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#20A0A0',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 16,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: 'white',
-    marginBottom: 32,
-  },
-  button: {
-    backgroundColor: 'white',
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  buttonText: {
-    color: '#20A0A0',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-});
+export default AppContent;
