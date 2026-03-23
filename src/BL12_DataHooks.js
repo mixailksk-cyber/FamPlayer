@@ -31,7 +31,7 @@ export const useNotesData = () => {
         const demoNote = {
           id: Date.now().toString(),
           title: 'Пример заметки',
-          content: 'Это пример заметки. Нажмите на нее, чтобы редактировать.',
+          content: 'Это пример заметки. Нажмите на нее, чтобы редактировать. Нажмите + чтобы создать новую.',
           folder: 'Главная',
           color: NOTE_COLORS[0],
           createdAt: Date.now(),
@@ -41,14 +41,17 @@ export const useNotesData = () => {
         };
         setNotes([demoNote]);
         await AsyncStorage.setItem('notes', JSON.stringify([demoNote]));
+        console.log('📝 Created demo note');
       }
       
       if (savedFolders) {
         setFolders(JSON.parse(savedFolders));
+        console.log(`📁 Loaded folders`);
       }
       
       if (savedSettings) {
         setSettings(JSON.parse(savedSettings));
+        console.log(`⚙️ Loaded settings`);
       }
     } catch (e) {
       console.log('Error loading data:', e);
@@ -60,7 +63,9 @@ export const useNotesData = () => {
     setNotes(normalized);
     try {
       await AsyncStorage.setItem('notes', JSON.stringify(normalized));
+      console.log(`💾 Saved ${normalized.length} notes`);
     } catch (e) {
+      console.log('Error saving notes:', e);
       if (Platform.OS === 'web') Alert.alert('Внимание', 'Данные сохранены только в памяти');
     }
   }, []);
@@ -68,11 +73,13 @@ export const useNotesData = () => {
   const saveFolders = useCallback(async (newFolders) => {
     setFolders(newFolders);
     await AsyncStorage.setItem('folders', JSON.stringify(newFolders));
+    console.log(`💾 Saved folders`);
   }, []);
 
   const saveSettings = useCallback(async (newSettings) => {
     setSettings(newSettings);
     await AsyncStorage.setItem('settings', JSON.stringify(newSettings));
+    console.log(`💾 Saved settings`);
   }, []);
 
   return { 
