@@ -78,11 +78,13 @@ const NoteActionDialog = ({
               <TouchableOpacity 
                 onPress={() => { onMove('Главная'); onClose(); }} 
                 style={{ marginTop: 16, padding: 12, backgroundColor: '#4CAF50', borderRadius: 5, alignItems: 'center' }}>
+                <Icon name="restore" size={20} color="white" style={{ marginRight: 8 }} />
                 <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Восстановить</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 onPress={() => { onPermanentDelete(); onClose(); }} 
                 style={{ marginTop: 8, padding: 12, backgroundColor: '#FF4444', borderRadius: 5, alignItems: 'center' }}>
+                <Icon name="delete-forever" size={20} color="white" style={{ marginRight: 8 }} />
                 <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Удалить навсегда</Text>
               </TouchableOpacity>
             </>
@@ -90,6 +92,7 @@ const NoteActionDialog = ({
             <TouchableOpacity 
               onPress={() => { onDelete(); onClose(); }} 
               style={{ marginTop: 16, padding: 12, backgroundColor: '#F57C00', borderRadius: 5, alignItems: 'center' }}>
+              <Icon name="delete" size={20} color="white" style={{ marginRight: 8 }} />
               <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Переместить в корзину</Text>
             </TouchableOpacity>
           )}
