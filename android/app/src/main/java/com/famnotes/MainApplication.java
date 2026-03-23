@@ -7,6 +7,7 @@ import com.facebook.react.ReactPackage;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
 import com.facebook.react.defaults.DefaultReactNativeHost;
 import com.facebook.soloader.SoLoader;
+import java.util.ArrayList;
 import java.util.List;
 
 public class MainApplication extends Application implements ReactApplication {
@@ -20,7 +21,8 @@ public class MainApplication extends Application implements ReactApplication {
 
         @Override
         protected List<ReactPackage> getPackages() {
-          return new PackageList(this).getPackages();
+          List<ReactPackage> packages = new ArrayList<>();
+          return packages;
         }
 
         @Override
