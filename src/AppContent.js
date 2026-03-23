@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, FlatList, Text, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, FlatList, Text, TouchableOpacity, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { getBrandColor } from './BL02_Constants';
@@ -21,9 +21,8 @@ const AppContent = () => {
   const [showNoteDialog, setShowNoteDialog] = React.useState(false);
   const [selectedNoteForAction, setSelectedNoteForAction] = React.useState(null);
   
-  const { notes, folders, settings, saveNotes, saveFolders, saveSettings, loadData } = useNotesData();
+  const { notes, folders, settings, saveNotes, saveFolders, saveSettings } = useNotesData();
   
-  // Фильтруем заметки по текущей папке
   const filteredNotes = React.useMemo(() => {
     if (currentFolder === 'Корзина') {
       return notes.filter(n => n.deleted === true);
@@ -31,7 +30,6 @@ const AppContent = () => {
     return notes.filter(n => n.folder === currentFolder && !n.deleted);
   }, [notes, currentFolder]);
   
-  // Сортируем заметки
   const sortedNotes = React.useMemo(() => {
     return [...filteredNotes].sort((a, b) => {
       if (a.pinned && !b.pinned) return -1;
@@ -43,7 +41,6 @@ const AppContent = () => {
   const brandColor = getBrandColor(settings);
   const isInTrash = currentFolder === 'Корзина';
   
-  // Создание новой заметки
   const handleAddNote = () => {
     const newNote = {
       id: Date.now().toString(),
@@ -61,7 +58,6 @@ const AppContent = () => {
     setCurrentScreen('edit');
   };
   
-  // Сохранение заметки
   const handleSaveNote = (updatedNote) => {
     if (Array.isArray(updatedNote)) {
       saveNotes(updatedNote);
@@ -80,7 +76,6 @@ const AppContent = () => {
     setSelectedNote(null);
   };
   
-  // Перемещение заметки в другую папку
   const handleMoveNote = (note, targetFolder) => {
     const updatedNote = { ...note, folder: targetFolder, deleted: false, updatedAt: Date.now() };
     const index = notes.findIndex(n => n.id === note.id);
@@ -88,7 +83,6 @@ const AppContent = () => {
     saveNotes(newNotes);
   };
   
-  // Восстановление из корзины
   const handleRestoreFromTrash = (note) => {
     const updatedNote = { ...note, folder: 'Главная', deleted: false, updatedAt: Date.now() };
     const index = notes.findIndex(n => n.id === note.id);
@@ -96,19 +90,16 @@ const AppContent = () => {
     saveNotes(newNotes);
   };
   
-  // Закрепление/открепление
   const handleTogglePin = (noteId) => {
     const updatedNotes = notes.map(n => n.id === noteId ? { ...n, pinned: !n.pinned, updatedAt: Date.now() } : n);
     saveNotes(updatedNotes);
   };
   
-  // Блокировка/разблокировка
   const handleToggleLock = (noteId) => {
     const updatedNotes = notes.map(n => n.id === noteId ? { ...n, locked: !n.locked, updatedAt: Date.now() } : n);
     saveNotes(updatedNotes);
   };
   
-  // Очистка корзины
   const handleEmptyTrash = () => {
     Alert.alert(
       'Очистить корзину',
@@ -127,7 +118,6 @@ const AppContent = () => {
     );
   };
   
-  // Обработчики для экрана папок
   const handleRenameFolder = (oldName, newName) => {
     const updatedFolders = folders.map(f => {
       if (typeof f === 'object' && f.name === oldName) return { ...f, name: newName };
@@ -170,7 +160,6 @@ const AppContent = () => {
     saveFolders(updatedFolders);
   };
   
-  // Экран списка заметок
   const NotesListScreen = () => (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
       <Header 
@@ -240,7 +229,6 @@ const AppContent = () => {
     </View>
   );
   
-  // Рендерим нужный экран
   switch (currentScreen) {
     case 'notes':
       return <NotesListScreen />;
@@ -252,7 +240,7 @@ const AppContent = () => {
           saveSettings={saveSettings}
           notes={notes}
           folders={folders}
-          onBrandColorChange={(color) => {}}
+          onBrandColorChange={() => {}}
         />
       );
     case 'folders':
@@ -286,14 +274,9 @@ const AppContent = () => {
           currentFolder={currentFolder}
           notes={notes}
           settings={settings}
-          navigationStack={navigationStack}
           onSave={handleSaveNote}
           setCurrentScreen={setCurrentScreen}
-          setNavigationStack={setNavigationStack}
-          setSearchQuery={() => {}}
           insets={insets}
-          searchQuery=""
-          setCurrentFolder={setCurrentFolder}
         />
       );
     case 'search':
@@ -304,10 +287,7 @@ const AppContent = () => {
           setSelectedNote={setSelectedNote}
           setSelectedNoteForAction={setSelectedNoteForAction}
           setShowNoteDialog={setShowNoteDialog}
-          goBack={() => {
-            setCurrentScreen('notes');
-            setNavigationStack(prev => prev.slice(0, -1));
-          }}
+          goBack={() => setCurrentScreen('notes')}
           navigationStack={navigationStack}
           setNavigationStack={setNavigationStack}
           setSearchQuery={() => {}}
