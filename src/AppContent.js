@@ -182,7 +182,7 @@ const AppContent = () => {
     </View>
   );
   
-  // Экран редактирования (временный)
+  // Экран редактирования
   const EditNoteScreen = () => (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
       <Header 
@@ -196,14 +196,16 @@ const AppContent = () => {
       />
       <View style={{ flex: 1, padding: 20 }}>
         <TextInput
-          style={{ fontSize: 20, fontWeight: 'bold', padding: 8, borderBottomWidth: 1, borderBottomColor: '#E0E0E0' }}
+          style={{ fontSize: 20, fontWeight: 'bold', padding: 8, borderBottomWidth: 1, borderBottomColor: '#E0E0E0', color: '#333' }}
           placeholder="Заголовок"
+          placeholderTextColor="#999"
           value={selectedNote?.title || ''}
           onChangeText={(text) => setSelectedNote({ ...selectedNote, title: text })}
         />
         <TextInput
-          style={{ flex: 1, fontSize: 16, padding: 8, textAlignVertical: 'top', marginTop: 16 }}
+          style={{ flex: 1, fontSize: 16, padding: 8, textAlignVertical: 'top', marginTop: 16, color: '#333' }}
           placeholder="Текст заметки..."
+          placeholderTextColor="#999"
           multiline
           value={selectedNote?.content || ''}
           onChangeText={(text) => setSelectedNote({ ...selectedNote, content: text })}
@@ -218,7 +220,8 @@ const AppContent = () => {
             borderRadius: 35, 
             backgroundColor: selectedNote?.color || brandColor, 
             justifyContent: 'center', 
-            alignItems: 'center' 
+            alignItems: 'center',
+            elevation: 5
           }} 
           onPress={() => handleSaveNote(selectedNote)}>
           <Icon name="check" size={36} color="white" />
@@ -241,8 +244,5 @@ const AppContent = () => {
       return <NotesListScreen />;
   }
 };
-
-// Добавляем TextInput, который забыли импортировать
-import { TextInput } from 'react-native';
 
 export default AppContent;
