@@ -1,12 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
-import { AsyncStorage } from '../imports';
 import { NOTE_COLORS } from '../constants';
 
+// Временное хранилище в памяти
+let memoryNotes = [];
+let memoryFolders = ['Главная', 'Корзина'];
+let memorySettings = { fontSize: 16 };
+
 export const useNotesData = () => {
-  const [notes, setNotes] = useState([]);
-  const [folders, setFolders] = useState(['Главная', 'Корзина']);
-  const [settings, setSettings] = useState({ fontSize: 16 });
+  const [notes, setNotes] = useState(memoryNotes);
+  const [folders, setFolders] = useState(memoryFolders);
+  const [settings, setSettings] = useState(memorySettings);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -16,23 +20,8 @@ export const useNotesData = () => {
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [savedNotes, savedFolders, savedSettings] = await Promise.all([
-        AsyncStorage.getItem('notes'),
-        AsyncStorage.getItem('folders'),
-        AsyncStorage.getItem('settings')
-      ]);
       
-      if (savedNotes) {
-        const parsed = JSON.parse(savedNotes);
-        const normalized = parsed.map(n => ({ 
-          ...n, 
-          color: n.color || NOTE_COLORS[0],
-          locked: n.locked || false,
-          pinned: n.pinned || false,
-          deleted: n.deleted || false
-        }));
-        setNotes(normalized);
-      } else {
+      if (memoryNotes.length === 0) {
         const demoNote = {
           id: Date.now().toString(),
           title: 'Добро пожаловать!',
@@ -45,12 +34,14 @@ export const useNotesData = () => {
           pinned: false,
           locked: false
         };
-        setNotes([demoNote]);
-        await AsyncStorage.setItem('notes', JSON.stringify([demoNote]));
+        memoryNotes = [demoNote];
+        setNotes(memoryNotes);
+      } else {
+        setNotes(memoryNotes);
       }
       
-      if (savedFolders) setFolders(JSON.parse(savedFolders));
-      if (savedSettings) setSettings(JSON.parse(savedSettings));
+      setFolders(memoryFolders);
+      setSettings(memorySettings);
     } catch (e) {
       console.log('Error loading data:', e);
     } finally {
@@ -60,18 +51,18 @@ export const useNotesData = () => {
 
   const saveNotes = useCallback(async (newNotes) => {
     const normalized = newNotes.map(n => ({ ...n, color: n.color || NOTE_COLORS[0] }));
+    memoryNotes = normalized;
     setNotes(normalized);
-    await AsyncStorage.setItem('notes', JSON.stringify(normalized));
   }, []);
 
   const saveFolders = useCallback(async (newFolders) => {
+    memoryFolders = newFolders;
     setFolders(newFolders);
-    await AsyncStorage.setItem('folders', JSON.stringify(newFolders));
   }, []);
 
   const saveSettings = useCallback(async (newSettings) => {
+    memorySettings = newSettings;
     setSettings(newSettings);
-    await AsyncStorage.setItem('settings', JSON.stringify(newSettings));
   }, []);
 
   return { notes, folders, settings, isLoading, saveNotes, saveFolders, saveSettings, loadData };
