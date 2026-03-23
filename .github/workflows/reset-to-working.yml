@@ -12,6 +12,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+          fetch-depth: 0  # 👈 ЭТО ВАЖНО - загружает всю историю
           
       - name: Reset to 5c9cc96
         run: |
