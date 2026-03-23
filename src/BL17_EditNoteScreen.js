@@ -10,14 +10,9 @@ const EditNoteScreen = ({
   currentFolder, 
   notes, 
   settings, 
-  navigationStack, 
   onSave, 
   setCurrentScreen, 
-  setNavigationStack, 
-  setSearchQuery, 
-  insets, 
-  searchQuery, 
-  setCurrentFolder 
+  insets
 }) => {
   const brandColor = getBrandColor(settings);
   const [note, setNote] = useState(selectedNote ? { ...selectedNote } : { 
@@ -33,27 +28,21 @@ const EditNoteScreen = ({
     locked: false
   });
   const [showColor, setShowColor] = useState(false);
-  const [isEditing, setIsEditing] = useState(selectedNote?.isNew || !selectedNote);
+  const [isEditing, setIsEditing] = useState(true);
   const contentInputRef = useRef(null);
   const titleInputRef = useRef(null);
-  const scrollViewRef = useRef(null);
   
-  const comingFromSearch = navigationStack && navigationStack[navigationStack.length - 1] === 'search';
-  const hasChanges = () => {
-    if (!selectedNote) return note.title !== '' || note.content !== '' || note.color !== brandColor;
-    return selectedNote.title !== note.title || selectedNote.content !== note.content || selectedNote.color !== note.color;
-  };
   const isInTrash = note.folder === 'Корзина' || note.deleted === true;
   const isLocked = note.locked === true;
 
-  // Фокус на content при включении режима редактирования
+  // Фокус на content при монтировании
   useEffect(() => {
-    if (isEditing && contentInputRef.current && !isLocked) {
+    if (contentInputRef.current && !isLocked) {
       setTimeout(() => {
         contentInputRef.current.focus();
       }, 100);
     }
-  }, [isEditing, note.content.length, isLocked]);
+  }, []);
 
   const handleShare = async () => {
     try {
@@ -82,7 +71,6 @@ const EditNoteScreen = ({
               onSave(updatedNote);
             }
             setCurrentScreen('notes');
-            setSelectedNote(null);
           }
         }
       ]
@@ -99,14 +87,24 @@ const EditNoteScreen = ({
     const updatedNote = { ...note, locked: !note.locked, updatedAt: Date.now() };
     setNote(updatedNote);
     if (!updatedNote.locked) {
-      // Если разблокировали, переключаем в режим редактирования
       setIsEditing(true);
+      setTimeout(() => {
+        if (contentInputRef.current) contentInputRef.current.focus();
+      }, 100);
+    } else {
+      setIsEditing(false);
     }
     onSave(updatedNote);
   };
 
   const handleBack = () => {
-    if (hasChanges()) {
+    // Проверяем, есть ли изменения
+    const hasChanges = () => {
+      if (!selectedNote) return note.title !== '' || note.content !== '';
+      return selectedNote.title !== note.title || selectedNote.content !== note.content || selectedNote.color !== note.color;
+    };
+    
+    if (hasChanges() && !isInTrash) {
       Alert.alert(
         'Несохраненные изменения',
         'У вас есть несохраненные изменения. Выйти без сохранения?',
@@ -116,27 +114,26 @@ const EditNoteScreen = ({
             text: 'Выйти', 
             onPress: () => {
               setCurrentScreen('notes');
-              setSelectedNote(null);
             }
           }
         ]
       );
     } else {
       setCurrentScreen('notes');
-      setSelectedNote(null);
     }
   };
 
   const handleSave = () => {
-    if (hasChanges()) {
-      onSave({ ...note, updatedAt: Date.now() });
-    }
+    onSave({ ...note, updatedAt: Date.now() });
     setIsEditing(false);
   };
 
   const handleEditPress = () => {
     if (!isLocked) {
       setIsEditing(true);
+      setTimeout(() => {
+        if (contentInputRef.current) contentInputRef.current.focus();
+      }, 100);
     } else {
       Alert.alert('Заметка заблокирована', 'Нажмите на замок в шапке для разблокировки');
     }
@@ -160,7 +157,7 @@ const EditNoteScreen = ({
         {/* Кнопка закрепления */}
         {!isInTrash && (
           <TouchableOpacity onPress={handleTogglePin}>
-            <Icon name={note.pinned ? "push-pin" : "push-pin"} size={24} color="white" />
+            <Icon name="push-pin" size={24} color={note.pinned ? "white" : "rgba(255,255,255,0.7)"} />
           </TouchableOpacity>
         )}
         
@@ -183,7 +180,6 @@ const EditNoteScreen = ({
       </Header>
 
       <ScrollView 
-        ref={scrollViewRef}
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={true}
@@ -202,7 +198,7 @@ const EditNoteScreen = ({
               editable={!isInTrash && isEditing && !isLocked}
             />
           ) : (
-            <TouchableOpacity onPress={() => !isLocked && setIsEditing(true)} activeOpacity={0.7}>
+            <TouchableOpacity onPress={handleEditPress} activeOpacity={0.7}>
               <Text style={{ fontSize: settings.fontSize + 2, fontWeight: 'bold', paddingVertical: 8, color: '#333' }}>
                 {note.title || 'Заголовок'}
               </Text>
@@ -227,6 +223,7 @@ const EditNoteScreen = ({
         ) : (
           <Text 
             selectable={true}
+            onPress={handleEditPress}
             style={{ fontSize: settings.fontSize, paddingHorizontal: 16, paddingVertical: 12, color: '#333', lineHeight: settings.fontSize * 1.5 }}
           >
             {note.content || '...'}
