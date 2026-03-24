@@ -173,46 +173,48 @@ const NoteActionDialog = ({
             Действия с заметкой
           </Text>
           
-          {/* Кнопки закрепления и напоминания */}
-          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
-            <TouchableOpacity 
-              onPress={() => { onTogglePin(); onClose(); }} 
-              style={{ 
-                flex: 1,
-                padding: 12, 
-                alignItems: 'center', 
-                flexDirection: 'row',
-                justifyContent: 'center',
-                backgroundColor: brandColor,
-                borderRadius: 8,
-              }}>
-              <Icon name="push-pin" size={20} color="white" />
-              <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
-                {isPinned ? "Открепить" : "Закрепить"}
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              onPress={showDateTimePicker} 
-              style={{ 
-                flex: 1,
-                padding: 12, 
-                alignItems: 'center', 
-                flexDirection: 'row',
-                justifyContent: 'center',
-                backgroundColor: brandColor,
-                borderRadius: 8,
-              }}>
-              <Icon name="alarm" size={20} color="white" />
-              <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
-                {reminderTime && reminderTime > Date.now() 
-                  ? formatReminderTime(reminderTime)
-                  : "Напомнить"}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {/* Кнопки закрепления и напоминания (только не в корзине) */}
+          {!isInTrash && (
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+              <TouchableOpacity 
+                onPress={() => { onTogglePin(); onClose(); }} 
+                style={{ 
+                  flex: 1,
+                  padding: 12, 
+                  alignItems: 'center', 
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  backgroundColor: brandColor,
+                  borderRadius: 8,
+                }}>
+                <Icon name="push-pin" size={20} color="white" />
+                <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
+                  {isPinned ? "Открепить" : "Закрепить"}
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                onPress={showDateTimePicker} 
+                style={{ 
+                  flex: 1,
+                  padding: 12, 
+                  alignItems: 'center', 
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  backgroundColor: brandColor,
+                  borderRadius: 8,
+                }}>
+                <Icon name="alarm" size={20} color="white" />
+                <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
+                  {reminderTime && reminderTime > Date.now() 
+                    ? formatReminderTime(reminderTime)
+                    : "Напомнить"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
           
-          {reminderTime && reminderTime > Date.now() && (
+          {reminderTime && reminderTime > Date.now() && !isInTrash && (
             <TouchableOpacity 
               onPress={() => onSetReminder(null)} 
               style={{ 
@@ -224,8 +226,8 @@ const NoteActionDialog = ({
             </TouchableOpacity>
           )}
           
-          {/* Перемещение в папки с прокруткой */}
-          {availableFolders.length > 0 && !isInTrash && (
+          {/* Перемещение в папки (для всех заметок, включая корзину) */}
+          {availableFolders.length > 0 && (
             <>
               <Text style={{ marginBottom: 8, color: '#666', marginTop: 8 }}>Переместить в папку:</Text>
               <ScrollView style={{ maxHeight: 200 }}>
@@ -242,9 +244,23 @@ const NoteActionDialog = ({
             </>
           )}
           
-          {/* Кнопки в корзину и безвозвратно */}
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
-            {!isInTrash && (
+          {/* Кнопки для обычных заметок (не в корзине) */}
+          {!isInTrash && (
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+              <TouchableOpacity 
+                onPress={() => { onPermanentDelete(); onClose(); }} 
+                style={{ 
+                  flex: 1,
+                  padding: 12, 
+                  backgroundColor: '#FF4444', 
+                  borderRadius: 8, 
+                  alignItems: 'center', 
+                  flexDirection: 'row', 
+                  justifyContent: 'center' }}>
+                <Icon name="delete-forever" size={20} color="white" style={{ marginRight: 6 }} />
+                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>Безвозвратно</Text>
+              </TouchableOpacity>
+              
               <TouchableOpacity 
                 onPress={() => { onDelete(); onClose(); }} 
                 style={{ 
@@ -258,22 +274,8 @@ const NoteActionDialog = ({
                 <Icon name="delete" size={20} color="white" style={{ marginRight: 6 }} />
                 <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>В корзину</Text>
               </TouchableOpacity>
-            )}
-            
-            <TouchableOpacity 
-              onPress={() => { onPermanentDelete(); onClose(); }} 
-              style={{ 
-                flex: 1,
-                padding: 12, 
-                backgroundColor: '#FF4444', 
-                borderRadius: 8, 
-                alignItems: 'center', 
-                flexDirection: 'row', 
-                justifyContent: 'center' }}>
-              <Icon name="delete-forever" size={20} color="white" style={{ marginRight: 6 }} />
-              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>Безвозвратно</Text>
-            </TouchableOpacity>
-          </View>
+            </View>
+          )}
           
           {/* Кнопка "Восстановить" для корзины */}
           {isInTrash && (
@@ -282,6 +284,16 @@ const NoteActionDialog = ({
               style={{ marginTop: 16, padding: 12, backgroundColor: '#4CAF50', borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
               <Icon name="restore" size={24} color="white" style={{ marginRight: 8 }} />
               <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Восстановить</Text>
+            </TouchableOpacity>
+          )}
+          
+          {/* Кнопка "Удалить безвозвратно" для корзины */}
+          {isInTrash && (
+            <TouchableOpacity 
+              onPress={() => { onPermanentDelete(); onClose(); }} 
+              style={{ marginTop: 8, padding: 12, backgroundColor: '#FF4444', borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
+              <Icon name="delete-forever" size={24} color="white" style={{ marginRight: 8 }} />
+              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Удалить безвозвратно</Text>
             </TouchableOpacity>
           )}
           
