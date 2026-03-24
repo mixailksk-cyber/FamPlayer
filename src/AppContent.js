@@ -33,17 +33,15 @@ const AppContent = () => {
         return true;
       }
       
-      // Если на экране редактирования и пришли из поиска
-      if (currentScreen === 'edit' && navigationStack[navigationStack.length - 1] === 'search') {
-        setCurrentScreen('search');
-        setSelectedNote(null);
-        setNavigationStack(prev => prev.slice(0, -1));
-        return true;
-      }
-      
       // Если на экране редактирования
       if (currentScreen === 'edit') {
-        setCurrentScreen('notes');
+        // Проверяем, пришли ли из поиска
+        const cameFromSearch = navigationStack[navigationStack.length - 1] === 'search';
+        if (cameFromSearch) {
+          setCurrentScreen('search');
+        } else {
+          setCurrentScreen('notes');
+        }
         setSelectedNote(null);
         setNavigationStack(prev => prev.slice(0, -1));
         return true;
@@ -111,8 +109,7 @@ const AppContent = () => {
       createdAt: Date.now(),
       updatedAt: Date.now(),
       deleted: false,
-      pinned: false,
-      locked: false
+      pinned: false
     };
     setSelectedNote(newNote);
     setCurrentScreen('edit');
@@ -178,19 +175,6 @@ const AppContent = () => {
     );
   };
   
-  // Удаление заметки без подтверждения
-  const handleQuickDelete = (note) => {
-    if (note.folder === 'Корзина') {
-      const updatedNotes = notes.filter(n => n.id !== note.id);
-      saveNotes(updatedNotes);
-    } else {
-      const updatedNote = { ...note, folder: 'Корзина', deleted: true, pinned: false, updatedAt: Date.now() };
-      const index = notes.findIndex(n => n.id === note.id);
-      const newNotes = [...notes.slice(0, index), updatedNote, ...notes.slice(index + 1)];
-      saveNotes(newNotes);
-    }
-  };
-  
   const handleRenameFolder = (oldName, newName) => {
     const updatedFolders = folders.map(f => {
       if (typeof f === 'object' && f.name === oldName) return { ...f, name: newName };
@@ -238,6 +222,18 @@ const AppContent = () => {
     setShowNoteDialog(true);
   };
   
+  const handleQuickDelete = (note) => {
+    if (note.folder === 'Корзина') {
+      const updatedNotes = notes.filter(n => n.id !== note.id);
+      saveNotes(updatedNotes);
+    } else {
+      const updatedNote = { ...note, folder: 'Корзина', deleted: true, pinned: false, updatedAt: Date.now() };
+      const index = notes.findIndex(n => n.id === note.id);
+      const newNotes = [...notes.slice(0, index), updatedNote, ...notes.slice(index + 1)];
+      saveNotes(newNotes);
+    }
+  };
+  
   const NotesListScreen = () => (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
       <Header 
@@ -254,13 +250,8 @@ const AppContent = () => {
         brandColor={brandColor}
       >
         {isInTrash && sortedNotes.length > 0 && (
-          <TouchableOpacity onPress={handleEmptyTrash} style={{ marginRight: 20 }}>
+          <TouchableOpacity onPress={handleEmptyTrash}>
             <Icon name="delete-sweep" size={24} color="white" />
-          </TouchableOpacity>
-        )}
-        {!isInTrash && (
-          <TouchableOpacity onPress={() => handleQuickDelete(selectedNoteForAction || {})}>
-            <Icon name="delete" size={24} color="white" />
           </TouchableOpacity>
         )}
       </Header>
@@ -350,9 +341,7 @@ const AppContent = () => {
           setSelectedNoteForAction(null);
         }} 
         onTogglePin={() => handleTogglePin(selectedNoteForAction.id)}
-        onToggleLock={() => {}}
         isPinned={selectedNoteForAction?.pinned || false}
-        isLocked={false}
         settings={settings} 
       />
     );
