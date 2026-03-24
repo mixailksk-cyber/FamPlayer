@@ -32,19 +32,14 @@ const Header = ({
       alignItems: 'center' 
     }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-        {showBack && (
-          <TouchableOpacity onPress={onBack} style={{ marginRight: 16 }}>
-            <Icon name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
-        )}
         <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 20, flex: 1 }} numberOfLines={1}>
           {title}
         </Text>
       </View>
       
-      <View style={{ flexDirection: 'row', alignItems: 'center', columnGap: 20 }}>
-        {children && React.Children.map(children, (child) => (
-          <View style={{ marginLeft: 0 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+        {children && React.Children.map(children, (child, index) => (
+          <View key={index}>
             {child}
           </View>
         ))}
