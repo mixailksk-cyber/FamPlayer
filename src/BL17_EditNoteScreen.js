@@ -140,17 +140,17 @@ const EditNoteScreen = ({
         showSearch={false} 
         brandColor={note.color || brandColor}
       >
-        {/* Кнопка поделиться */}
-        <TouchableOpacity onPress={handleShare}>
-          <Icon name="share" size={24} color="white" />
-        </TouchableOpacity>
-        
         {/* Кнопка выбора цвета (только не в корзине) */}
         {!isInTrash && (
           <TouchableOpacity onPress={() => setShowColor(true)}>
             <Icon name="palette" size={24} color="white" />
           </TouchableOpacity>
         )}
+        
+        {/* Кнопка поделиться */}
+        <TouchableOpacity onPress={handleShare}>
+          <Icon name="share" size={24} color="white" />
+        </TouchableOpacity>
         
         {/* Кнопка корзины - удаляет без подтверждения */}
         <TouchableOpacity onPress={handleDelete}>
