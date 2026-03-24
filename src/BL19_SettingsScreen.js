@@ -13,7 +13,7 @@ const SettingsScreen = ({
   notes, 
   folders, 
   onBrandColorChange,
-  loadData  // добавляем функцию перезагрузки данных
+  loadData
 }) => {
   const fontSizeOptions = [14, 16, 18, 20, 22, 24];
   const brandColor = getBrandColor(settings);
@@ -51,7 +51,6 @@ const SettingsScreen = ({
 
   const handleBackup = async () => {
     try {
-      // Формируем данные для бэкапа
       const backupData = {
         notes: notes.map(note => ({
           id: note.id,
@@ -94,7 +93,6 @@ const SettingsScreen = ({
         return;
       }
 
-      // Для Android используем RNFS
       const path = RNFS.DocumentDirectoryPath + '/' + fileName;
       await RNFS.writeFile(path, backupStr, 'utf8');
       
@@ -159,7 +157,6 @@ const SettingsScreen = ({
         
         const backup = JSON.parse(content);
         
-        // Проверяем структуру бэкапа
         if (!backup.notes || !backup.folders) {
           throw new Error('Неверный формат файла. Файл должен содержать notes и folders.');
         }
@@ -179,7 +176,6 @@ const SettingsScreen = ({
               text: 'Восстановить', 
               onPress: async () => {
                 try {
-                  // Нормализуем заметки
                   const normalizedNotes = backup.notes.map(note => ({
                     id: note.id || Date.now().toString() + Math.random(),
                     title: note.title || '',
@@ -193,10 +189,8 @@ const SettingsScreen = ({
                     locked: note.locked || false
                   }));
                   
-                  // Нормализуем папки (добавляем "Главная" и "Корзина" если их нет)
                   let normalizedFolders = [...backup.folders];
                   
-                  // Проверяем наличие системных папок
                   const hasMain = normalizedFolders.some(f => {
                     const name = typeof f === 'object' ? f.name : f;
                     return name === 'Главная';
@@ -209,7 +203,6 @@ const SettingsScreen = ({
                   if (!hasMain) normalizedFolders.unshift('Главная');
                   if (!hasTrash) normalizedFolders.push('Корзина');
                   
-                  // Получаем настройки
                   const restoredSettings = backup.settings || {
                     fontSize: 16,
                     brandColor: brandColor
@@ -217,21 +210,19 @@ const SettingsScreen = ({
                   
                   console.log('💾 Saving to AsyncStorage...');
                   
-                  // Сохраняем в AsyncStorage
                   await AsyncStorage.setItem('notes', JSON.stringify(normalizedNotes));
                   await AsyncStorage.setItem('folders', JSON.stringify(normalizedFolders));
                   await AsyncStorage.setItem('settings', JSON.stringify(restoredSettings));
                   
                   console.log('✅ Data saved to AsyncStorage');
                   
-                  // Обновляем состояние через loadData
                   if (loadData) {
                     await loadData();
                   }
                   
                   Alert.alert(
                     '✅ Успех', 
-                    `Восстановлено ${normalizedNotes.length} заметок и ${normalizedFolders.length} папок.\n\nПерезапустите приложение для полного применения изменений.`,
+                    `Восстановлено ${normalizedNotes.length} заметок и ${normalizedFolders.length} папок.`,
                     [
                       { 
                         text: 'OK', 
@@ -278,7 +269,6 @@ const SettingsScreen = ({
       />
       
       <ScrollView style={{ flex: 1, padding: 20 }}>
-        {/* Статистика */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16 }}>Статистика</Text>
           <View style={{ backgroundColor: '#F8F9FA', borderRadius: 16, padding: 20 }}>
@@ -297,7 +287,6 @@ const SettingsScreen = ({
           </View>
         </View>
 
-        {/* Размер текста */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16 }}>Размер текста</Text>
           <View style={{ backgroundColor: '#F8F9FA', borderRadius: 16, padding: 20 }}>
@@ -321,14 +310,11 @@ const SettingsScreen = ({
               ))}
             </View>
             <View style={{ marginTop: 16, alignItems: 'center' }}>
-              <Text style={{ fontSize: settings.fontSize, color: '#333' }}>
-                Пример текста
-              </Text>
+              <Text style={{ fontSize: settings.fontSize, color: '#333' }}>Пример текста</Text>
             </View>
           </View>
         </View>
 
-        {/* Цвет бренда */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16 }}>Цвет бренда</Text>
           <View style={{ backgroundColor: '#F8F9FA', borderRadius: 16, padding: 20 }}>
@@ -352,7 +338,6 @@ const SettingsScreen = ({
           </View>
         </View>
 
-        {/* Резервное копирование */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16 }}>Резервное копирование</Text>
           <View style={{ backgroundColor: '#F8F9FA', borderRadius: 16, padding: 20, gap: 12 }}>
@@ -396,16 +381,11 @@ const SettingsScreen = ({
           </View>
         </View>
 
-        {/* Информация о приложении */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16 }}>О приложении</Text>
           <View style={{ backgroundColor: '#F8F9FA', borderRadius: 16, padding: 20 }}>
-            <Text style={{ color: '#666', textAlign: 'center' }}>
-              FamNotes v1.0.0
-            </Text>
-            <Text style={{ color: '#999', textAlign: 'center', marginTop: 8, fontSize: 12 }}>
-              Приложение для заметок
-            </Text>
+            <Text style={{ color: '#666', textAlign: 'center' }}>FamNotes v1.0.0</Text>
+            <Text style={{ color: '#999', textAlign: 'center', marginTop: 8, fontSize: 12 }}>Приложение для заметок</Text>
           </View>
         </View>
       </ScrollView>
