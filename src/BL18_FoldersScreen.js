@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, FlatList, Text, TouchableOpacity, Alert } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 import Header from './BL04_Header';
 import { getBrandColor } from './BL02_Constants';
 
@@ -156,13 +157,15 @@ const FoldersScreen = ({
           alignItems: 'center' 
         }}>
           {name === 'Корзина' ? (
-            <Text style={{ fontSize: 24, color: 'white' }}>🗑</Text>
+            <Icon name="delete" size={24} color="white" />
           ) : (
             <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>{count}</Text>
           )}
         </View>
         
         <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#333', flex: 1 }}>{name}</Text>
+        
+        <Icon name="chevron-right" size={24} color="#CCC" />
       </TouchableOpacity>
     );
   };
@@ -209,7 +212,7 @@ const FoldersScreen = ({
         onPress={handleAddFolderPress}
         activeOpacity={0.7}
       >
-        <Text style={{ fontSize: 36, color: 'white' }}>+</Text>
+        <Icon name="add" size={36} color="white" />
       </TouchableOpacity>
     </View>
   );
