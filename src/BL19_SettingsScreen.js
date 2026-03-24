@@ -217,9 +217,14 @@ const SettingsScreen = ({
                   
                   console.log('✅ Data saved to AsyncStorage');
                   
+                  // Автоматическая перезагрузка данных
                   if (loadData) {
                     await loadData();
                   }
+                  
+                  // Принудительное обновление текущей папки
+                  setCurrentScreen('notes');
+                  setCurrentFolder('Главная');
                   
                   Alert.alert(
                     '✅ Успех', 
@@ -229,7 +234,6 @@ const SettingsScreen = ({
                         text: 'OK', 
                         onPress: () => {
                           setIsRestoring(false);
-                          setCurrentScreen('notes');
                         }
                       }
                     ]
@@ -270,7 +274,6 @@ const SettingsScreen = ({
       />
       
       <ScrollView style={{ flex: 1, padding: 20 }}>
-        {/* Статистика */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16 }}>Статистика</Text>
           <View style={{ backgroundColor: '#F8F9FA', borderRadius: 16, padding: 20 }}>
@@ -289,7 +292,6 @@ const SettingsScreen = ({
           </View>
         </View>
 
-        {/* Размер текста */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16 }}>Размер текста</Text>
           <View style={{ backgroundColor: '#F8F9FA', borderRadius: 16, padding: 20 }}>
@@ -318,7 +320,6 @@ const SettingsScreen = ({
           </View>
         </View>
 
-        {/* Цвет бренда */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16 }}>Цвет бренда</Text>
           <View style={{ backgroundColor: '#F8F9FA', borderRadius: 16, padding: 20 }}>
@@ -342,7 +343,6 @@ const SettingsScreen = ({
           </View>
         </View>
 
-        {/* Резервное копирование */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16 }}>Резервное копирование</Text>
           <View style={{ backgroundColor: '#F8F9FA', borderRadius: 16, padding: 20, gap: 12 }}>
@@ -386,7 +386,6 @@ const SettingsScreen = ({
           </View>
         </View>
 
-        {/* Информация о приложении */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16 }}>О приложении</Text>
           <View style={{ backgroundColor: '#F8F9FA', borderRadius: 16, padding: 20 }}>
