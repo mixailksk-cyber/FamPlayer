@@ -13,6 +13,7 @@ import com.facebook.react.bridge.Promise;
 
 import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
 
 public class WidgetDataModule extends ReactContextBaseJavaModule {
     private static final String SHARED_PREFS_NAME = "FamNotesWidgetPrefs";
@@ -49,12 +50,27 @@ public class WidgetDataModule extends ReactContextBaseJavaModule {
                     if (notesArray.length() == 0) {
                         notesText.append("Нет заметок");
                     } else {
-                        for (int i = 0; i < Math.min(notesArray.length(), 5); i++) {
-                            String title = notesArray.getJSONObject(i).optString("title", "Без названия");
-                            notesText.append("• ").append(title).append("\n");
-                        }
-                        if (notesArray.length() > 5) {
-                            notesText.append("+ еще ").append(notesArray.length() - 5);
+                        for (int i = 0; i < notesArray.length(); i++) {
+                            JSONObject note = notesArray.getJSONObject(i);
+                            String title = note.optString("title", "");
+                            String content = note.optString("content", "");
+                            
+                            // Форматируем как в приложении: заголовок жирным, затем текст
+                            if (!title.isEmpty()) {
+                                notesText.append("• ").append(title);
+                                if (!content.isEmpty()) {
+                                    notesText.append("\n  ").append(content);
+                                }
+                                notesText.append("\n");
+                            } else if (!content.isEmpty()) {
+                                // Если нет заголовка, показываем только текст
+                                notesText.append("• ").append(content).append("\n");
+                            }
+                            
+                            // Добавляем разделитель между заметками (кроме последней)
+                            if (i < notesArray.length() - 1) {
+                                notesText.append("\n");
+                            }
                         }
                     }
                     
