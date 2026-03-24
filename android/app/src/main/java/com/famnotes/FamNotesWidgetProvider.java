@@ -27,33 +27,40 @@ public class FamNotesWidgetProvider extends AppWidgetProvider {
                 JSONArray notesArray = new JSONArray(notesJson);
                 StringBuilder notesText = new StringBuilder();
                 
-                for (int i = 0; i < Math.min(notesArray.length(), 5); i++) {
-                    JSONObject note = notesArray.getJSONObject(i);
-                    String title = note.optString("title", "Без названия");
-                    String content = note.optString("content", "...");
-                    notesText.append("• ").append(title).append("\n");
-                    if (content.length() > 30) {
-                        notesText.append("  ").append(content.substring(0, 30)).append("...\n");
-                    } else {
-                        notesText.append("  ").append(content).append("\n");
-                    }
-                }
-                
                 if (notesArray.length() == 0) {
-                    notesText.append("Нет заметок");
-                } else if (notesArray.length() > 5) {
-                    notesText.append("\n+ еще ").append(notesArray.length() - 5).append(" заметок");
+                    notesText.append("Нет заметок\n\nНажмите + чтобы создать");
+                } else {
+                    for (int i = 0; i < Math.min(notesArray.length(), 5); i++) {
+                        JSONObject note = notesArray.getJSONObject(i);
+                        String title = note.optString("title", "Без названия");
+                        notesText.append("• ").append(title).append("\n");
+                    }
+                    if (notesArray.length() > 5) {
+                        notesText.append("\n+ еще ").append(notesArray.length() - 5);
+                    }
                 }
                 
                 views.setTextViewText(R.id.widget_notes_list, notesText.toString());
                 views.setTextViewText(R.id.widget_notes_count, String.valueOf(notesArray.length()));
                 
             } catch (JSONException e) {
-                views.setTextViewText(R.id.widget_notes_list, "Ошибка загрузки заметок");
+                views.setTextViewText(R.id.widget_notes_list, "Ошибка: " + e.getMessage());
                 views.setTextViewText(R.id.widget_notes_count, "0");
             }
             
             appWidgetManager.updateAppWidget(appWidgetId, views);
         }
+    }
+    
+    @Override
+    public void onEnabled(Context context) {
+        // Виджет добавлен на экран
+        super.onEnabled(context);
+    }
+    
+    @Override
+    public void onDisabled(Context context) {
+        // Все виджеты удалены
+        super.onDisabled(context);
     }
 }
