@@ -1,14 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, Animated, Platform, Alert, ScrollView, Dimensions, LayoutAnimation, UIManager } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, Animated, Platform, Alert, ScrollView, Dimensions } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { width, getBrandColor } from './BL02_Constants';
 
 const { height: screenHeight } = Dimensions.get('window');
-
-// Включаем LayoutAnimation для Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 const NoteActionDialog = ({ 
   visible, 
@@ -34,7 +29,6 @@ const NoteActionDialog = ({
       .map(f => typeof f === 'object' ? f.name : f);
   }, [folders, currentFolder]);
   
-  const [contentHeight, setContentHeight] = useState(0);
   const [fadeAnim] = React.useState(new Animated.Value(0));
   const [scaleAnim] = React.useState(new Animated.Value(0.9));
   
@@ -60,6 +54,12 @@ const NoteActionDialog = ({
   }, [visible]);
   
   const brandColor = getBrandColor(settings);
+  
+  // Расчет высоты для папок
+  const folderItemHeight = 52; // примерная высота одного элемента папки
+  const maxFolderHeight = screenHeight * 0.4; // максимум 40% экрана
+  const folderScrollHeight = Math.min(availableFolders.length * folderItemHeight, maxFolderHeight);
+  const needScroll = availableFolders.length * folderItemHeight > maxFolderHeight;
   
   const formatReminderTime = (timestamp) => {
     if (!timestamp) return null;
@@ -158,13 +158,6 @@ const NoteActionDialog = ({
     );
   };
   
-  // Рассчитываем максимальную высоту диалога (80% экрана)
-  const maxDialogHeight = screenHeight * 0.8;
-  // Минимальная высота для отображения без скролла
-  const minDialogHeight = 300;
-  // Нужен ли скролл для папок
-  const needScroll = contentHeight > maxDialogHeight - 100;
-  
   if (!visible) return null;
   
   return (
@@ -176,20 +169,14 @@ const NoteActionDialog = ({
         backgroundColor: 'rgba(0,0,0,0.5)',
         opacity: fadeAnim
       }}>
-        <Animated.View 
-          style={{ 
-            backgroundColor: 'white', 
-            padding: 20, 
-            borderRadius: 10, 
-            width: width - 40,
-            maxHeight: maxDialogHeight,
-            transform: [{ scale: scaleAnim }]
-          }}
-          onLayout={(event) => {
-            const { height } = event.nativeEvent.layout;
-            setContentHeight(height);
-          }}
-        >
+        <Animated.View style={{ 
+          backgroundColor: 'white', 
+          padding: 20, 
+          borderRadius: 10, 
+          width: width - 40,
+          maxHeight: screenHeight * 0.85,
+          transform: [{ scale: scaleAnim }]
+        }}>
           <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center', color: brandColor }}>
             Действия с заметкой
           </Text>
@@ -247,12 +234,12 @@ const NoteActionDialog = ({
             </TouchableOpacity>
           )}
           
-          {/* Перемещение в папки - скролл только если не влезает */}
+          {/* Перемещение в папки - скролл только если не вмещаются */}
           {availableFolders.length > 0 && (
             <>
               <Text style={{ marginBottom: 8, color: '#666', marginTop: 8 }}>Переместить в папку:</Text>
               {needScroll ? (
-                <ScrollView style={{ maxHeight: 200 }}>
+                <ScrollView style={{ maxHeight: folderScrollHeight }}>
                   {availableFolders.map((n, i) => (
                     <TouchableOpacity 
                       key={i} 
