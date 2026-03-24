@@ -15,13 +15,13 @@ import org.json.JSONArray;
 import org.json.JSONException;
 
 public class WidgetDataModule extends ReactContextBaseJavaModule {
-    private static ReactApplicationContext reactContext;
     private static final String SHARED_PREFS_NAME = "FamNotesWidgetPrefs";
     private static final String KEY_WIDGET_NOTES = "widget_notes";
+    private final ReactApplicationContext reactContext;
 
     public WidgetDataModule(ReactApplicationContext context) {
         super(context);
-        reactContext = context;
+        this.reactContext = context;
     }
 
     @Override
@@ -35,27 +35,26 @@ public class WidgetDataModule extends ReactContextBaseJavaModule {
             SharedPreferences prefs = reactContext.getSharedPreferences(SHARED_PREFS_NAME, Context.MODE_PRIVATE);
             prefs.edit().putString(KEY_WIDGET_NOTES, notesJson).apply();
 
-            Context context = reactContext;
-            AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
-            ComponentName componentName = new ComponentName(context, FamNotesWidgetProvider.class);
+            AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(reactContext);
+            ComponentName componentName = new ComponentName(reactContext, FamNotesWidgetProvider.class);
             int[] appWidgetIds = appWidgetManager.getAppWidgetIds(componentName);
 
             if (appWidgetIds.length > 0) {
                 JSONArray notesArray = new JSONArray(notesJson);
                 
                 for (int appWidgetId : appWidgetIds) {
-                    RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_layout);
+                    RemoteViews views = new RemoteViews(reactContext.getPackageName(), R.layout.widget_layout);
                     
                     StringBuilder notesText = new StringBuilder();
                     if (notesArray.length() == 0) {
-                        notesText.append("Нет заметок\n\nНажмите + чтобы создать");
+                        notesText.append("Нет заметок");
                     } else {
                         for (int i = 0; i < Math.min(notesArray.length(), 5); i++) {
                             String title = notesArray.getJSONObject(i).optString("title", "Без названия");
                             notesText.append("• ").append(title).append("\n");
                         }
                         if (notesArray.length() > 5) {
-                            notesText.append("\n+ еще ").append(notesArray.length() - 5);
+                            notesText.append("+ еще ").append(notesArray.length() - 5);
                         }
                     }
                     
