@@ -48,14 +48,18 @@ export const useNotesData = () => {
         };
         setNotes([demoNote]);
         await AsyncStorage.setItem('notes', JSON.stringify([demoNote]));
+        updateWidgetData([demoNote]);
       }
       
       if (savedFolders) {
         setFolders(JSON.parse(savedFolders));
+        console.log(`📁 Loaded ${JSON.parse(savedFolders).length} folders`);
       }
       
       if (savedSettings) {
-        setSettings(JSON.parse(savedSettings));
+        const parsedSettings = JSON.parse(savedSettings);
+        setSettings(parsedSettings);
+        console.log(`⚙️ Loaded settings`);
       }
     } catch (e) {
       console.log('Error loading data:', e);
@@ -72,19 +76,31 @@ export const useNotesData = () => {
     try {
       await AsyncStorage.setItem('notes', JSON.stringify(normalized));
       updateWidgetData(normalized);
+      console.log(`💾 Saved ${normalized.length} notes`);
     } catch (e) {
       if (Platform.OS === 'web') Alert.alert('Внимание', 'Данные сохранены только в памяти');
+      console.error('Error saving notes:', e);
     }
   }, []);
 
   const saveFolders = useCallback(async (newFolders) => {
     setFolders(newFolders);
-    await AsyncStorage.setItem('folders', JSON.stringify(newFolders));
+    try {
+      await AsyncStorage.setItem('folders', JSON.stringify(newFolders));
+      console.log(`💾 Saved ${newFolders.length} folders`);
+    } catch (e) {
+      console.error('Error saving folders:', e);
+    }
   }, []);
 
   const saveSettings = useCallback(async (newSettings) => {
     setSettings(newSettings);
-    await AsyncStorage.setItem('settings', JSON.stringify(newSettings));
+    try {
+      await AsyncStorage.setItem('settings', JSON.stringify(newSettings));
+      console.log(`💾 Saved settings`);
+    } catch (e) {
+      console.error('Error saving settings:', e);
+    }
   }, []);
 
   return { 
