@@ -42,9 +42,9 @@ const Header = ({
         </Text>
       </View>
       
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
-        {children && React.Children.map(children, (child, index) => (
-          <View key={index}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', columnGap: 20 }}>
+        {children && React.Children.map(children, (child) => (
+          <View style={{ marginLeft: 0 }}>
             {child}
           </View>
         ))}
