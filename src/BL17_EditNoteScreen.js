@@ -24,7 +24,8 @@ const EditNoteScreen = ({
     createdAt: Date.now(), 
     updatedAt: Date.now(), 
     deleted: false,
-    locked: false
+    locked: false,
+    reminder: null
   });
   const [showColor, setShowColor] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -102,7 +103,6 @@ const EditNoteScreen = ({
 
   const handleColorSelect = (color) => {
     setNote({ ...note, color, updatedAt: Date.now() });
-    // При смене цвета открываем режим редактирования
     if (!isEditing && !isInTrash) {
       setIsEditing(true);
     }
@@ -116,8 +116,6 @@ const EditNoteScreen = ({
     >
       <Header 
         title={isEditing ? "Редактирование" : "Просмотр"}
-        showBack 
-        onBack={handleBack} 
         showPalette 
         onPalettePress={() => setShowColor(true)} 
         showSearch={false} 
