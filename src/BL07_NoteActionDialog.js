@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, Animated } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { width, getBrandColor } from './BL02_Constants';
 
@@ -13,7 +13,8 @@ const NoteActionDialog = ({
   onTogglePin, 
   isPinned, 
   currentFolder, 
-  settings 
+  settings,
+  isInTrash
 }) => {
   const availableFolders = useMemo(() => {
     return folders
@@ -24,30 +25,73 @@ const NoteActionDialog = ({
       .map(f => typeof f === 'object' ? f.name : f);
   }, [folders, currentFolder]);
   
+  const [fadeAnim] = React.useState(new Animated.Value(0));
+  const [scaleAnim] = React.useState(new Animated.Value(0.9));
+  
+  React.useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 5,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      fadeAnim.setValue(0);
+      scaleAnim.setValue(0.9);
+    }
+  }, [visible]);
+  
   const brandColor = getBrandColor(settings);
-  const isInTrash = currentFolder === 'Корзина';
   
   if (!visible) return null;
   
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-        <View style={{ backgroundColor: 'white', padding: 20, borderRadius: 10, width: width - 40 }}>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+      <Animated.View style={{ 
+        flex: 1, 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        opacity: fadeAnim
+      }}>
+        <Animated.View style={{ 
+          backgroundColor: 'white', 
+          padding: 20, 
+          borderRadius: 10, 
+          width: width - 40,
+          transform: [{ scale: scaleAnim }]
+        }}>
           <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center', color: brandColor }}>
             Действия с заметкой
           </Text>
           
-          {!isInTrash && (
-            <TouchableOpacity 
-              onPress={() => { onTogglePin(); onClose(); }} 
-              style={{ padding: 12, alignItems: 'center', marginBottom: 8 }}>
-              <Icon name="push-pin" size={28} color={isPinned ? brandColor : '#999'} />
-              <Text style={{ fontSize: 12, color: '#333', marginTop: 4 }}>
-                {isPinned ? "Открепить" : "Закрепить"}
-              </Text>
-            </TouchableOpacity>
-          )}
+          {/* Кнопка закрепления */}
+          <TouchableOpacity 
+            onPress={() => { onTogglePin(); onClose(); }} 
+            style={{ 
+              padding: 12, 
+              alignItems: 'center', 
+              flexDirection: 'row',
+              justifyContent: 'center',
+              backgroundColor: '#F5F5F5',
+              borderRadius: 8,
+              marginBottom: 16
+            }}>
+            <Icon name="push-pin" size={24} color={isPinned ? brandColor : '#666'} />
+            <Text style={{ fontSize: 16, color: isPinned ? brandColor : '#333', marginLeft: 8 }}>
+              {isPinned ? "Открепить" : "Закрепить"}
+            </Text>
+          </TouchableOpacity>
           
+          {/* Перемещение в папки */}
           {availableFolders.length > 0 && !isInTrash && (
             <>
               <Text style={{ marginBottom: 8, color: '#666', marginTop: 8 }}>Переместить в папку:</Text>
@@ -63,35 +107,39 @@ const NoteActionDialog = ({
             </>
           )}
           
-          {isInTrash ? (
-            <>
-              <TouchableOpacity 
-                onPress={() => { onMove('Главная'); onClose(); }} 
-                style={{ marginTop: 16, padding: 12, backgroundColor: '#4CAF50', borderRadius: 5, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
-                <Icon name="restore" size={24} color="white" style={{ marginRight: 8 }} />
-                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Восстановить</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={() => { onPermanentDelete(); onClose(); }} 
-                style={{ marginTop: 8, padding: 12, backgroundColor: '#FF4444', borderRadius: 5, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
-                <Icon name="delete-forever" size={24} color="white" style={{ marginRight: 8 }} />
-                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Удалить навсегда</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
+          {/* Кнопка "Переместить в корзину" (только для обычных заметок) */}
+          {!isInTrash && (
             <TouchableOpacity 
               onPress={() => { onDelete(); onClose(); }} 
-              style={{ marginTop: 16, padding: 12, backgroundColor: '#F57C00', borderRadius: 5, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
+              style={{ marginTop: 16, padding: 12, backgroundColor: '#F57C00', borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
               <Icon name="delete" size={24} color="white" style={{ marginRight: 8 }} />
               <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Переместить в корзину</Text>
             </TouchableOpacity>
           )}
           
-          <TouchableOpacity onPress={onClose} style={{ marginTop: 8, padding: 12, alignItems: 'center' }}>
+          {/* Кнопка "Удалить безвозвратно" (для всех заметок) */}
+          <TouchableOpacity 
+            onPress={() => { onPermanentDelete(); onClose(); }} 
+            style={{ marginTop: 8, padding: 12, backgroundColor: '#FF4444', borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
+            <Icon name="delete-forever" size={24} color="white" style={{ marginRight: 8 }} />
+            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Удалить безвозвратно</Text>
+          </TouchableOpacity>
+          
+          {/* Кнопка "Восстановить" для корзины */}
+          {isInTrash && (
+            <TouchableOpacity 
+              onPress={() => { onMove('Главная'); onClose(); }} 
+              style={{ marginTop: 8, padding: 12, backgroundColor: '#4CAF50', borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
+              <Icon name="restore" size={24} color="white" style={{ marginRight: 8 }} />
+              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Восстановить</Text>
+            </TouchableOpacity>
+          )}
+          
+          <TouchableOpacity onPress={onClose} style={{ marginTop: 16, padding: 12, alignItems: 'center' }}>
             <Text style={{ color: brandColor, fontSize: 16 }}>Отмена</Text>
           </TouchableOpacity>
-        </View>
-      </View>
+        </Animated.View>
+      </Animated.View>
     </Modal>
   );
 };
