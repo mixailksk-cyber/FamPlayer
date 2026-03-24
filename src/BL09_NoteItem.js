@@ -62,12 +62,12 @@ const NoteItem = ({ item, onPress, onLongPress, settings, showPin, onPinPress })
           style={{ 
             padding: 8,
             borderRadius: 20,
-            backgroundColor: item.pinned ? `${defaultColor}20` : 'transparent'
+            backgroundColor: item.pinned ? defaultColor : 'transparent'
           }}>
           <Icon 
             name="push-pin" 
             size={20} 
-            color={item.pinned ? defaultColor : '#CCC'} 
+            color="white" 
           />
         </TouchableOpacity>
       )}
