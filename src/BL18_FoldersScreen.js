@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, FlatList, Text, TouchableOpacity, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Header from './BL04_Header';
+import CreateFolderDialog from './BL05_CreateFolderDialog';
+import FolderSettingsDialog from './BL06_FolderSettingsDialog';
 import { getBrandColor } from './BL02_Constants';
 
 const FoldersScreen = ({ 
@@ -18,40 +20,21 @@ const FoldersScreen = ({
   handleColorChange 
 }) => {
   const brandColor = getBrandColor(settings);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [selectedFolder, setSelectedFolder] = useState(null);
+  const [selectedFolderColor, setSelectedFolderColor] = useState(brandColor);
 
   const getNoteCount = (folderName) => {
     if (folderName === 'Корзина') return 0;
     return notes.filter(n => n.folder === folderName && !n.deleted).length;
   };
 
-  const handleAddFolderPress = () => {
-    Alert.prompt(
-      'Новая папка',
-      'Введите название папки',
-      [
-        { text: 'Отмена', style: 'cancel' },
-        { 
-          text: 'Создать', 
-          onPress: (name) => {
-            if (name && name.trim()) {
-              const folderNames = folders.map(f => typeof f === 'object' ? f.name : f);
-              if (folderNames.includes(name.trim())) {
-                Alert.alert('Ошибка', 'Папка с таким именем уже существует');
-                return;
-              }
-              if (/[<>:"/\\|?*]/.test(name.trim())) {
-                Alert.alert('Ошибка', 'Недопустимые символы в названии папки');
-                return;
-              }
-              const newFolders = [...folders, name.trim()];
-              saveFolders(newFolders);
-              Alert.alert('✅ Успех', `Папка "${name.trim()}" создана`);
-            }
-          }
-        }
-      ],
-      'plain-text'
-    );
+  const getFolderColor = (folder) => {
+    if (typeof folder === 'object') return folder.color || brandColor;
+    if (folder === 'Главная' || folder === 'Корзина') return brandColor;
+    const found = folders.find(f => typeof f === 'object' && f.name === folder);
+    return found ? found.color : brandColor;
   };
 
   const handleFolderLongPress = (item) => {
@@ -60,67 +43,10 @@ const FoldersScreen = ({
       Alert.alert('Системная папка', 'Эту папку нельзя редактировать');
       return;
     }
-    
-    Alert.alert(
-      'Действия с папкой',
-      `Что вы хотите сделать с папкой "${name}"?`,
-      [
-        { text: 'Отмена', style: 'cancel' },
-        { 
-          text: 'Переименовать', 
-          onPress: () => {
-            Alert.prompt(
-              'Переименовать папку',
-              'Введите новое название',
-              [
-                { text: 'Отмена', style: 'cancel' },
-                { 
-                  text: 'Сохранить', 
-                  onPress: (newName) => {
-                    if (newName && newName.trim() && newName !== name) {
-                      const folderNames = folders.map(f => typeof f === 'object' ? f.name : f);
-                      if (folderNames.includes(newName.trim())) {
-                        Alert.alert('Ошибка', 'Папка с таким именем уже существует');
-                        return;
-                      }
-                      if (/[<>:"/\\|?*]/.test(newName.trim())) {
-                        Alert.alert('Ошибка', 'Недопустимые символы в названии папки');
-                        return;
-                      }
-                      handleRenameFolder(name, newName.trim());
-                      Alert.alert('✅ Успех', `Папка переименована в "${newName.trim()}"`);
-                    }
-                  }
-                }
-              ],
-              'plain-text',
-              name
-            );
-          }
-        },
-        { 
-          text: 'Удалить', 
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert(
-              'Удалить папку',
-              `Все заметки из папки "${name}" будут перемещены в корзину. Продолжить?`,
-              [
-                { text: 'Отмена', style: 'cancel' },
-                { 
-                  text: 'Удалить', 
-                  style: 'destructive', 
-                  onPress: () => {
-                    handleDeleteFolder(name);
-                    Alert.alert('🗑 Удалено', `Папка "${name}" удалена`);
-                  }
-                }
-              ]
-            );
-          }
-        }
-      ]
-    );
+    const color = getFolderColor(item);
+    setSelectedFolder(name);
+    setSelectedFolderColor(color);
+    setShowSettingsDialog(true);
   };
 
   const handleFolderPress = (item) => {
@@ -129,9 +55,40 @@ const FoldersScreen = ({
     setCurrentScreen('notes');
   };
 
+  const handleRename = (newName) => {
+    if (newName && newName !== selectedFolder) {
+      handleRenameFolder(selectedFolder, newName);
+    }
+  };
+
+  const handleColorChangeForFolder = (newColor) => {
+    if (newColor && newColor !== selectedFolderColor) {
+      handleColorChange(selectedFolder, newColor);
+    }
+  };
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Удалить папку',
+      `Вы уверены, что хотите удалить папку "${selectedFolder}"? Все заметки будут перемещены в корзину.`,
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Удалить',
+          style: 'destructive',
+          onPress: () => {
+            handleDeleteFolder(selectedFolder);
+            setShowSettingsDialog(false);
+            setSelectedFolder(null);
+          }
+        }
+      ]
+    );
+  };
+
   const FolderItem = ({ item }) => {
     const name = typeof item === 'object' ? item.name : item;
-    const color = typeof item === 'object' ? (item.color || brandColor) : brandColor;
+    const color = getFolderColor(item);
     const count = getNoteCount(name);
     
     return (
@@ -209,11 +166,33 @@ const FoldersScreen = ({
           shadowOpacity: 0.25,
           shadowRadius: 3.84
         }} 
-        onPress={handleAddFolderPress}
+        onPress={() => setShowCreateDialog(true)}
         activeOpacity={0.7}
       >
         <Icon name="add" size={36} color="white" />
       </TouchableOpacity>
+      
+      <CreateFolderDialog 
+        visible={showCreateDialog}
+        onClose={() => setShowCreateDialog(false)}
+        folders={folders}
+        setFolders={saveFolders}
+        settings={settings}
+      />
+      
+      <FolderSettingsDialog 
+        visible={showSettingsDialog}
+        onClose={() => {
+          setShowSettingsDialog(false);
+          setSelectedFolder(null);
+        }}
+        folderName={selectedFolder}
+        currentColor={selectedFolderColor}
+        onRename={handleRename}
+        onColorChange={handleColorChangeForFolder}
+        onDelete={handleDelete}
+        settings={settings}
+      />
     </View>
   );
 };
