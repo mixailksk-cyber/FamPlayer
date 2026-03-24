@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Share, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Header from './BL04_Header';
@@ -23,7 +23,8 @@ const EditNoteScreen = ({
     folder: currentFolder, 
     createdAt: Date.now(), 
     updatedAt: Date.now(), 
-    deleted: false
+    deleted: false,
+    locked: false
   });
   const [showColor, setShowColor] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -31,14 +32,6 @@ const EditNoteScreen = ({
   const titleInputRef = useRef(null);
   
   const isInTrash = note.folder === 'Корзина' || note.deleted === true;
-
-  useEffect(() => {
-    if (isEditing && contentInputRef.current) {
-      setTimeout(() => {
-        contentInputRef.current.focus();
-      }, 100);
-    }
-  }, [isEditing]);
 
   const handleShare = async () => {
     try {
@@ -50,15 +43,27 @@ const EditNoteScreen = ({
   };
 
   const handleDelete = () => {
-    // Без подтверждения, сразу удаляем
-    if (isInTrash) {
-      const updatedNotes = notes.filter(n => n.id !== note.id);
-      onSave(updatedNotes);
-    } else {
-      const updatedNote = { ...note, folder: 'Корзина', deleted: true, updatedAt: Date.now() };
-      onSave(updatedNote);
-    }
-    setCurrentScreen('notes');
+    Alert.alert(
+      'Удалить заметку',
+      isInTrash ? 'Удалить заметку безвозвратно?' : 'Переместить заметку в корзину?',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        { 
+          text: 'Удалить', 
+          style: 'destructive',
+          onPress: () => {
+            if (isInTrash) {
+              const updatedNotes = notes.filter(n => n.id !== note.id);
+              onSave(updatedNotes);
+            } else {
+              const updatedNote = { ...note, folder: 'Корзина', deleted: true, updatedAt: Date.now() };
+              onSave(updatedNote);
+            }
+            setCurrentScreen('notes');
+          }
+        }
+      ]
+    );
   };
 
   const handleBack = () => {
@@ -93,6 +98,14 @@ const EditNoteScreen = ({
 
   const handleEditPress = () => {
     setIsEditing(true);
+  };
+
+  const handleColorSelect = (color) => {
+    setNote({ ...note, color, updatedAt: Date.now() });
+    // При смене цвета открываем режим редактирования
+    if (!isEditing && !isInTrash) {
+      setIsEditing(true);
+    }
   };
 
   return (
@@ -138,9 +151,11 @@ const EditNoteScreen = ({
               editable={!isInTrash && isEditing}
             />
           ) : (
-            <Text style={{ fontSize: settings.fontSize + 2, fontWeight: 'bold', paddingVertical: 8, color: '#333' }}>
-              {note.title || 'Заголовок'}
-            </Text>
+            <TouchableOpacity onPress={handleEditPress} activeOpacity={0.7}>
+              <Text style={{ fontSize: settings.fontSize + 2, fontWeight: 'bold', paddingVertical: 8, color: '#333' }}>
+                {note.title || 'Заголовок'}
+              </Text>
+            </TouchableOpacity>
           )}
           <View style={{ height: 2, backgroundColor: note.color || brandColor, width: '100%', marginTop: 4 }} />
         </View>
@@ -161,6 +176,7 @@ const EditNoteScreen = ({
         ) : (
           <Text 
             selectable={true}
+            onPress={handleEditPress}
             style={{ fontSize: settings.fontSize, paddingHorizontal: 16, paddingVertical: 12, color: '#333', lineHeight: settings.fontSize * 1.5 }}
           >
             {note.content || '...'}
@@ -191,7 +207,7 @@ const EditNoteScreen = ({
         visible={showColor} 
         onClose={() => setShowColor(false)} 
         selectedColor={note.color} 
-        onSelect={(color) => setNote({ ...note, color, updatedAt: Date.now() })} 
+        onSelect={handleColorSelect}
         settings={settings}
       />
     </KeyboardAvoidingView>
