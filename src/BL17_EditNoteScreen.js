@@ -12,7 +12,8 @@ const EditNoteScreen = ({
   settings, 
   onSave, 
   setCurrentScreen, 
-  insets
+  insets,
+  onQuickDelete
 }) => {
   const brandColor = getBrandColor(settings);
   const [note, setNote] = useState(selectedNote ? { ...selectedNote } : { 
@@ -44,27 +45,21 @@ const EditNoteScreen = ({
   };
 
   const handleDelete = () => {
-    Alert.alert(
-      'Удалить заметку',
-      isInTrash ? 'Удалить заметку безвозвратно?' : 'Переместить заметку в корзину?',
-      [
-        { text: 'Отмена', style: 'cancel' },
-        { 
-          text: 'Удалить', 
-          style: 'destructive',
-          onPress: () => {
-            if (isInTrash) {
-              const updatedNotes = notes.filter(n => n.id !== note.id);
-              onSave(updatedNotes);
-            } else {
-              const updatedNote = { ...note, folder: 'Корзина', deleted: true, updatedAt: Date.now() };
-              onSave(updatedNote);
-            }
-            setCurrentScreen('notes');
-          }
-        }
-      ]
-    );
+    // Быстрое удаление без подтверждения
+    if (onQuickDelete) {
+      onQuickDelete(note);
+      setCurrentScreen('notes');
+    } else {
+      // fallback
+      if (isInTrash) {
+        const updatedNotes = notes.filter(n => n.id !== note.id);
+        onSave(updatedNotes);
+      } else {
+        const updatedNote = { ...note, folder: 'Корзина', deleted: true, updatedAt: Date.now() };
+        onSave(updatedNote);
+      }
+      setCurrentScreen('notes');
+    }
   };
 
   const handleBack = () => {
@@ -155,6 +150,7 @@ const EditNoteScreen = ({
           </TouchableOpacity>
         )}
         
+        {/* Кнопка корзины - удаляет без подтверждения */}
         <TouchableOpacity onPress={handleDelete}>
           <Icon name="delete" size={24} color="white" />
         </TouchableOpacity>
