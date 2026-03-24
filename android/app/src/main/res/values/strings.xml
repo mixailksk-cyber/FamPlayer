@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">FamNotes</string>
+    <string name="add_widget">FamNotes Widget</string>
 </resources>
