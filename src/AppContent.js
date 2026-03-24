@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, FlatList, Text, TouchableOpacity, Alert } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, FlatList, Text, TouchableOpacity, Alert, BackHandler } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { getBrandColor } from './BL02_Constants';
@@ -22,6 +22,56 @@ const AppContent = () => {
   const [selectedNoteForAction, setSelectedNoteForAction] = React.useState(null);
   
   const { notes, folders, settings, saveNotes, saveFolders, saveSettings, loadData } = useNotesData();
+  
+  // Блокировка поворота экрана
+  useEffect(() => {
+    if (Platform.OS !== 'web') {
+      import('react-native-orientation-locker').then(Orientation => {
+        Orientation.default.lockToPortrait();
+      }).catch(() => {
+        console.log('Orientation locker not available');
+      });
+    }
+  }, []);
+  
+  // Обработка кнопки "Назад" на Android
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      // Если открыт диалог - закрываем его
+      if (showNoteDialog) {
+        setShowNoteDialog(false);
+        setSelectedNoteForAction(null);
+        return true;
+      }
+      
+      // Если не в корневом экране - возвращаемся назад
+      if (currentScreen !== 'notes' || navigationStack.length > 1) {
+        if (currentScreen === 'edit') {
+          setCurrentScreen('notes');
+          setSelectedNote(null);
+          setNavigationStack(prev => prev.slice(0, -1));
+        } else if (currentScreen === 'folders') {
+          setCurrentScreen('notes');
+          setNavigationStack(prev => prev.slice(0, -1));
+        } else if (currentScreen === 'settings') {
+          setCurrentScreen('notes');
+          setNavigationStack(prev => prev.slice(0, -1));
+        } else if (currentScreen === 'search') {
+          setCurrentScreen('notes');
+          setNavigationStack(prev => prev.slice(0, -1));
+        } else {
+          const prevScreen = navigationStack[navigationStack.length - 2] || 'notes';
+          setCurrentScreen(prevScreen);
+          setNavigationStack(prev => prev.slice(0, -1));
+        }
+        return true;
+      }
+      
+      return false;
+    });
+    
+    return () => backHandler.remove();
+  }, [currentScreen, navigationStack, showNoteDialog]);
   
   const filteredNotes = React.useMemo(() => {
     if (currentFolder === 'Корзина') {
@@ -165,9 +215,7 @@ const AppContent = () => {
     saveFolders(updatedFolders);
   };
   
-  // Функция для обработки долгого нажатия на заметку
   const handleLongPressOnNote = (note) => {
-    console.log('Long press detected on note:', note.id, note.title);
     setSelectedNoteForAction(note);
     setShowNoteDialog(true);
   };
@@ -238,7 +286,6 @@ const AppContent = () => {
     </View>
   );
   
-  // Диалог действий с заметкой
   const ActionDialog = () => {
     if (!selectedNoteForAction) return null;
     
