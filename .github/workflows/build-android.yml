@@ -1,16 +1,9 @@
-name: Manual Build APK
+name: Build Android APK
 
 on:
+  push:
+    branches: [ main, master ]
   workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Тип сборки'
-        required: true
-        default: 'release'
-        type: choice
-        options:
-          - release
-          - debug
 
 jobs:
   build:
@@ -35,15 +28,11 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          if [ "${{ github.event.inputs.build_type }}" = "release" ]; then
-            ./gradlew assembleRelease
-          else
-            ./gradlew assembleDebug
-          fi
+          ./gradlew assembleRelease
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
       
       - uses: actions/upload-artifact@v4
         with:
-          name: famnotes-${{ github.event.inputs.build_type }}
-          path: android/app/build/outputs/apk/${{ github.event.inputs.build_type }}/app-${{ github.event.inputs.build_type }}.apk
+          name: app-release
+          path: android/app/build/outputs/apk/release/app-release.apk
