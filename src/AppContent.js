@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, FlatList, Text, TouchableOpacity, Alert, BackHandler } from 'react-native';
+import { View, FlatList, Text, TouchableOpacity, Alert, BackHandler, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { getBrandColor } from './BL02_Constants';
@@ -22,18 +22,7 @@ const AppContent = () => {
   const [selectedNoteForAction, setSelectedNoteForAction] = React.useState(null);
   
   const { notes, folders, settings, saveNotes, saveFolders, saveSettings, loadData } = useNotesData();
-  
-  // Блокировка поворота экрана
-  useEffect(() => {
-    if (Platform.OS !== 'web') {
-      import('react-native-orientation-locker').then(Orientation => {
-        Orientation.default.lockToPortrait();
-      }).catch(() => {
-        console.log('Orientation locker not available');
-      });
-    }
-  }, []);
-  
+
   // Обработка кнопки "Назад" на Android
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -44,34 +33,55 @@ const AppContent = () => {
         return true;
       }
       
-      // Если не в корневом экране - возвращаемся назад
-      if (currentScreen !== 'notes' || navigationStack.length > 1) {
-        if (currentScreen === 'edit') {
-          setCurrentScreen('notes');
-          setSelectedNote(null);
-          setNavigationStack(prev => prev.slice(0, -1));
-        } else if (currentScreen === 'folders') {
-          setCurrentScreen('notes');
-          setNavigationStack(prev => prev.slice(0, -1));
-        } else if (currentScreen === 'settings') {
-          setCurrentScreen('notes');
-          setNavigationStack(prev => prev.slice(0, -1));
-        } else if (currentScreen === 'search') {
-          setCurrentScreen('notes');
-          setNavigationStack(prev => prev.slice(0, -1));
-        } else {
-          const prevScreen = navigationStack[navigationStack.length - 2] || 'notes';
-          setCurrentScreen(prevScreen);
-          setNavigationStack(prev => prev.slice(0, -1));
-        }
+      // Если на экране редактирования и пришли из поиска
+      if (currentScreen === 'edit' && navigationStack[navigationStack.length - 1] === 'search') {
+        setCurrentScreen('search');
+        setSelectedNote(null);
+        setNavigationStack(prev => prev.slice(0, -1));
         return true;
       }
       
+      // Если на экране редактирования
+      if (currentScreen === 'edit') {
+        setCurrentScreen('notes');
+        setSelectedNote(null);
+        setNavigationStack(prev => prev.slice(0, -1));
+        return true;
+      }
+      
+      // Если на экране поиска
+      if (currentScreen === 'search') {
+        setCurrentScreen('notes');
+        setNavigationStack(prev => prev.slice(0, -1));
+        return true;
+      }
+      
+      // Если на экране папок
+      if (currentScreen === 'folders') {
+        setCurrentScreen('notes');
+        setNavigationStack(prev => prev.slice(0, -1));
+        return true;
+      }
+      
+      // Если на экране настроек
+      if (currentScreen === 'settings') {
+        setCurrentScreen('notes');
+        setNavigationStack(prev => prev.slice(0, -1));
+        return true;
+      }
+      
+      // Если на экране заметок, но не в Главной папке
+      if (currentScreen === 'notes' && currentFolder !== 'Главная') {
+        setCurrentFolder('Главная');
+        return true;
+      }
+      
+      // Если на главном экране с папкой Главная - закрываем приложение
       return false;
     });
     
     return () => backHandler.remove();
-  }, [currentScreen, navigationStack, showNoteDialog]);
+  }, [currentScreen, currentFolder, navigationStack, showNoteDialog]);
   
   const filteredNotes = React.useMemo(() => {
     if (currentFolder === 'Корзина') {
@@ -150,11 +160,6 @@ const AppContent = () => {
     saveNotes(updatedNotes);
   };
   
-  const handleToggleLock = (noteId) => {
-    const updatedNotes = notes.map(n => n.id === noteId ? { ...n, locked: !n.locked, updatedAt: Date.now() } : n);
-    saveNotes(updatedNotes);
-  };
-  
   const handleEmptyTrash = () => {
     Alert.alert(
       'Очистить корзину',
@@ -171,6 +176,19 @@ const AppContent = () => {
         }
       ]
     );
+  };
+  
+  // Удаление заметки без подтверждения
+  const handleQuickDelete = (note) => {
+    if (note.folder === 'Корзина') {
+      const updatedNotes = notes.filter(n => n.id !== note.id);
+      saveNotes(updatedNotes);
+    } else {
+      const updatedNote = { ...note, folder: 'Корзина', deleted: true, pinned: false, updatedAt: Date.now() };
+      const index = notes.findIndex(n => n.id === note.id);
+      const newNotes = [...notes.slice(0, index), updatedNote, ...notes.slice(index + 1)];
+      saveNotes(newNotes);
+    }
   };
   
   const handleRenameFolder = (oldName, newName) => {
@@ -238,6 +256,11 @@ const AppContent = () => {
         {isInTrash && sortedNotes.length > 0 && (
           <TouchableOpacity onPress={handleEmptyTrash} style={{ marginRight: 20 }}>
             <Icon name="delete-sweep" size={24} color="white" />
+          </TouchableOpacity>
+        )}
+        {!isInTrash && (
+          <TouchableOpacity onPress={() => handleQuickDelete(selectedNoteForAction || {})}>
+            <Icon name="delete" size={24} color="white" />
           </TouchableOpacity>
         )}
       </Header>
@@ -327,9 +350,9 @@ const AppContent = () => {
           setSelectedNoteForAction(null);
         }} 
         onTogglePin={() => handleTogglePin(selectedNoteForAction.id)}
-        onToggleLock={() => handleToggleLock(selectedNoteForAction.id)}
+        onToggleLock={() => {}}
         isPinned={selectedNoteForAction?.pinned || false}
-        isLocked={selectedNoteForAction?.locked || false}
+        isLocked={false}
         settings={settings} 
       />
     );
@@ -343,19 +366,19 @@ const AppContent = () => {
           <ActionDialog />
         </>
       );
-case 'settings':
-  return (
-    <SettingsScreen 
-      setCurrentScreen={setCurrentScreen}
-      settings={settings}
-      saveSettings={saveSettings}
-      notes={notes}
-      folders={folders}
-      onBrandColorChange={() => {}}
-      loadData={loadData}
-      setCurrentFolder={setCurrentFolder}
-    />
-  );
+    case 'settings':
+      return (
+        <SettingsScreen 
+          setCurrentScreen={setCurrentScreen}
+          settings={settings}
+          saveSettings={saveSettings}
+          notes={notes}
+          folders={folders}
+          onBrandColorChange={() => {}}
+          loadData={loadData}
+          setCurrentFolder={setCurrentFolder}
+        />
+      );
     case 'folders':
       return (
         <FoldersScreen 
