@@ -20,6 +20,7 @@ const SettingsScreen = ({
   const fontSizeOptions = [14, 16, 18, 20, 22, 24];
   const brandColor = getBrandColor(settings);
   const [isRestoring, setIsRestoring] = React.useState(false);
+  const [isBackingUp, setIsBackingUp] = React.useState(false);
 
   const handleFontSizeChange = (size) => {
     saveSettings({ ...settings, fontSize: size });
@@ -52,6 +53,8 @@ const SettingsScreen = ({
 
   const handleBackup = async () => {
     try {
+      setIsBackingUp(true);
+      
       const backupData = {
         notes: notes.map(note => ({
           id: note.id,
@@ -91,49 +94,52 @@ const SettingsScreen = ({
         link.click();
         URL.revokeObjectURL(url);
         Alert.alert('✅ Успех', 'Резервная копия создана');
+        setIsBackingUp(false);
         return;
       }
 
-      // Для Android используем RNFS с выбором места через DocumentPicker
-      const result = await DocumentPicker.pickDirectory({
-        allowMultiSelection: false,
-      });
+      // Для Android используем RNFS - сохраняем в Downloads
+      const downloadsPath = RNFS.DownloadDirectoryPath;
+      const path = downloadsPath + '/' + fileName;
       
-      if (result && result[0]) {
-        const selectedUri = result[0].uri;
-        const filePath = `${selectedUri}/${fileName}`;
-        
-        await RNFS.writeFile(filePath, backupStr, 'utf8');
+      await RNFS.writeFile(path, backupStr, 'utf8');
+      
+      const fileExists = await RNFS.exists(path);
+      if (fileExists) {
+        const fileInfo = await RNFS.stat(path);
         
         Alert.alert(
           '✅ Резервная копия создана',
-          `Файл сохранен:\n${filePath}\n\nРазмер: ${(backupStr.length / 1024).toFixed(2)} KB`,
+          `Файл: ${fileName}\nРазмер: ${(fileInfo.size / 1024).toFixed(2)} KB\n\nСохранено в папку "Downloads"`,
           [
-            { text: 'OK', style: 'cancel' },
+            { 
+              text: 'OK', 
+              onPress: () => setIsBackingUp(false)
+            },
             { 
               text: 'Поделиться', 
               onPress: async () => {
                 try {
                   await Share.share({
                     title: 'Резервная копия FamNotes',
-                    url: `file://${filePath}`,
+                    url: `file://${path}`,
                     message: `Резервная копия заметок от ${new Date().toLocaleString()}`
                   });
                 } catch (e) {
                   console.log('Share error:', e);
                 }
+                setIsBackingUp(false);
               }
             }
           ]
         );
       } else {
-        Alert.alert('Отмена', 'Выбор места сохранения отменен');
+        throw new Error('Файл не был создан');
       }
     } catch (e) {
-      if (e.code !== 'DOCUMENT_PICKER_CANCELED') {
-        console.error('Backup error:', e);
-        Alert.alert('❌ Ошибка', 'Не удалось создать резервную копию: ' + e.message);
-      }
+      console.error('Backup error:', e);
+      Alert.alert('❌ Ошибка', 'Не удалось создать резервную копию: ' + e.message);
+      setIsBackingUp(false);
     }
   };
 
@@ -343,10 +349,16 @@ const SettingsScreen = ({
                 justifyContent: 'center'
               }} 
               onPress={handleBackup}
-              disabled={isRestoring}
+              disabled={isBackingUp || isRestoring}
             >
-              <Icon name="backup" size={24} color="white" style={{ marginRight: 8 }} />
-              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Создать копию</Text>
+              {isBackingUp ? (
+                <ActivityIndicator color="white" size="small" />
+              ) : (
+                <>
+                  <Icon name="backup" size={24} color="white" style={{ marginRight: 8 }} />
+                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Создать копию</Text>
+                </>
+              )}
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -359,7 +371,7 @@ const SettingsScreen = ({
                 justifyContent: 'center'
               }} 
               onPress={handleRestore}
-              disabled={isRestoring}
+              disabled={isBackingUp || isRestoring}
             >
               {isRestoring ? (
                 <ActivityIndicator color="white" size="small" />
@@ -371,6 +383,9 @@ const SettingsScreen = ({
               )}
             </TouchableOpacity>
           </View>
+          <Text style={{ color: '#999', fontSize: 12, marginTop: 8, textAlign: 'center' }}>
+            Копия сохраняется в папку "Downloads"
+          </Text>
         </View>
 
         <View style={{ marginBottom: 32 }}>
