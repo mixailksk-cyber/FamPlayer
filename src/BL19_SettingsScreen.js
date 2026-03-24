@@ -47,8 +47,8 @@ const SettingsScreen = ({
     const year = date.getFullYear();
     const hours = date.getHours();
     const minutes = date.getMinutes();
-    const seconds = date.getSeconds();
-    return `${day}-${month}-${year}_${hours}-${minutes}-${seconds}`;
+    // Без секунд
+    return `${day}-${month}-${year}_${hours}-${minutes}`;
   };
 
   const handleBackup = async () => {
@@ -81,7 +81,7 @@ const SettingsScreen = ({
       const backupStr = JSON.stringify(backupData, null, 2);
       const fileName = `FamNote_Backup_${formatDateForFilename()}.bak`;
       
-      console.log('📦 Creating backup:', { fileName, size: backupStr.length, notesCount: backupData.notes.length });
+      console.log('📦 Creating backup:', { fileName, size: backupStr.length });
 
       if (Platform.OS === 'web') {
         const blob = new Blob([backupStr], { type: 'application/json' });
@@ -101,13 +101,18 @@ const SettingsScreen = ({
       const fileExists = await RNFS.exists(path);
       if (fileExists) {
         const fileInfo = await RNFS.stat(path);
-        console.log('✅ Backup created:', { path, size: fileInfo.size });
         
         Alert.alert(
           '✅ Резервная копия создана',
-          `Файл: ${fileName}\nРазмер: ${(fileInfo.size / 1024).toFixed(2)} KB\n\nСкопируйте этот файл на другое устройство для восстановления.`,
+          `Файл: ${fileName}\nРазмер: ${(fileInfo.size / 1024).toFixed(2)} KB\n\nСохранить или поделиться?`,
           [
-            { text: 'OK', style: 'cancel' },
+            { text: 'Отмена', style: 'cancel' },
+            { 
+              text: 'Сохранить', 
+              onPress: () => {
+                Alert.alert('Сохранено', `Файл сохранен в:\n${path}`);
+              }
+            },
             { 
               text: 'Поделиться', 
               onPress: async () => {
@@ -155,19 +160,11 @@ const SettingsScreen = ({
           content = await RNFS.readFile(fileUri, 'utf8');
         }
         
-        console.log('📄 File content length:', content.length);
-        
         const backup = JSON.parse(content);
         
         if (!backup.notes || !backup.folders) {
           throw new Error('Неверный формат файла. Файл должен содержать notes и folders.');
         }
-        
-        console.log('📊 Backup structure:', {
-          notesCount: backup.notes.length,
-          foldersCount: backup.folders.length,
-          hasSettings: !!backup.settings
-        });
         
         Alert.alert(
           'Восстановление данных',
@@ -210,13 +207,9 @@ const SettingsScreen = ({
                     brandColor: brandColor
                   };
                   
-                  console.log('💾 Saving to AsyncStorage...');
-                  
                   await AsyncStorage.setItem('notes', JSON.stringify(normalizedNotes));
                   await AsyncStorage.setItem('folders', JSON.stringify(normalizedFolders));
                   await AsyncStorage.setItem('settings', JSON.stringify(restoredSettings));
-                  
-                  console.log('✅ Data saved to AsyncStorage');
                   
                   if (loadData) {
                     await loadData();
@@ -231,14 +224,7 @@ const SettingsScreen = ({
                   Alert.alert(
                     '✅ Успех', 
                     `Восстановлено ${normalizedNotes.length} заметок и ${normalizedFolders.length} папок.`,
-                    [
-                      { 
-                        text: 'OK', 
-                        onPress: () => {
-                          setIsRestoring(false);
-                        }
-                      }
-                    ]
+                    [{ text: 'OK', onPress: () => setIsRestoring(false) }]
                   );
                 } catch (saveError) {
                   console.error('Restore save error:', saveError);
@@ -380,24 +366,4 @@ const SettingsScreen = ({
                 <ActivityIndicator color="white" size="small" />
               ) : (
                 <>
-                  <Icon name="restore" size={24} color="white" style={{ marginRight: 8 }} />
-                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Восстановить</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={{ marginBottom: 32 }}>
-          <Text style={{ fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16 }}>О приложении</Text>
-          <View style={{ backgroundColor: '#F8F9FA', borderRadius: 16, padding: 20 }}>
-            <Text style={{ color: '#666', textAlign: 'center' }}>FamNotes v1.0.0</Text>
-            <Text style={{ color: '#999', textAlign: 'center', marginTop: 8, fontSize: 12 }}>Приложение для заметок</Text>
-          </View>
-        </View>
-      </ScrollView>
-    </View>
-  );
-};
-
-export default SettingsScreen;
+                  <Icon name="restore" size={24} color="white" style={{ margin
