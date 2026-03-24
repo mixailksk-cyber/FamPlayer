@@ -99,16 +99,13 @@ const EditNoteScreen = ({
 
   const handleEditPress = () => {
     setIsEditing(true);
-    // Устанавливаем курсор в начало текста заметки
+    // Устанавливаем курсор в начало текста заметки и открываем клавиатуру
     setTimeout(() => {
       if (contentInputRef.current) {
         contentInputRef.current.focus();
         contentInputRef.current.setNativeProps({
           selection: { start: 0, end: 0 }
         });
-      }
-      if (titleInputRef.current && !note.title) {
-        titleInputRef.current.focus();
       }
     }, 100);
   };
