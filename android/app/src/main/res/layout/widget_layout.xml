@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#FFFFFF"
+    android:background="#80000000"
     android:padding="12dp">
 
     <LinearLayout
@@ -12,14 +12,14 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="8dp">
+        android:layout_marginBottom="12dp">
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="FamNotes"
-            android:textColor="#20A0A0"
+            android:textColor="#FFFFFF"
             android:textSize="16sp"
             android:textStyle="bold" />
 
@@ -28,9 +28,9 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="0"
-            android:textColor="#666"
+            android:textColor="#CCCCCC"
             android:textSize="12sp"
-            android:background="#F5F5F5"
+            android:background="#33FFFFFF"
             android:paddingLeft="8dp"
             android:paddingRight="8dp"
             android:paddingTop="2dp"
@@ -40,23 +40,42 @@
 
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/widget_notes_list"
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Загрузка..."
-        android:textColor="#333"
-        android:textSize="13sp"
-        android:lineSpacingExtra="4dp"
-        android:minHeight="80dp" />
+        android:scrollbars="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/widget_notes_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Загрузка..."
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:lineSpacingExtra="4dp" />
+
+        </LinearLayout>
+
+    </ScrollView>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#33FFFFFF"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp" />
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Нажмите для открытия"
-        android:textColor="#999"
+        android:textColor="#80FFFFFF"
         android:textSize="10sp"
-        android:gravity="center"
-        android:layout_marginTop="8dp" />
+        android:gravity="center" />
 
 </LinearLayout>
