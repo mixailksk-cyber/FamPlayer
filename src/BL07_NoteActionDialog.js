@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, Modal, Animated } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, Modal, Animated, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { width, getBrandColor } from './BL02_Constants';
 
 const NoteActionDialog = ({ 
@@ -14,9 +15,11 @@ const NoteActionDialog = ({
   isPinned, 
   currentFolder, 
   settings,
-  isInTrash
+  isInTrash,
+  onSetReminder,
+  reminderTime
 }) => {
-  const availableFolders = useMemo(() => {
+  const availableFolders = React.useMemo(() => {
     return folders
       .filter(f => {
         const n = typeof f === 'object' ? f.name : f;
@@ -25,6 +28,8 @@ const NoteActionDialog = ({
       .map(f => typeof f === 'object' ? f.name : f);
   }, [folders, currentFolder]);
   
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(reminderTime ? new Date(reminderTime) : new Date());
   const [fadeAnim] = React.useState(new Animated.Value(0));
   const [scaleAnim] = React.useState(new Animated.Value(0.9));
   
@@ -50,6 +55,20 @@ const NoteActionDialog = ({
   }, [visible]);
   
   const brandColor = getBrandColor(settings);
+  
+  const formatReminderTime = (timestamp) => {
+    if (!timestamp) return null;
+    const date = new Date(timestamp);
+    return `${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+  };
+  
+  const handleDateChange = (event, date) => {
+    setShowDatePicker(false);
+    if (date) {
+      setSelectedDate(date);
+      onSetReminder(date.getTime());
+    }
+  };
   
   if (!visible) return null;
   
@@ -81,15 +100,45 @@ const NoteActionDialog = ({
               alignItems: 'center', 
               flexDirection: 'row',
               justifyContent: 'center',
-              backgroundColor: '#F5F5F5',
+              backgroundColor: brandColor,
               borderRadius: 8,
-              marginBottom: 16
+              marginBottom: 12
             }}>
-            <Icon name="push-pin" size={24} color={isPinned ? brandColor : '#666'} />
-            <Text style={{ fontSize: 16, color: isPinned ? brandColor : '#333', marginLeft: 8 }}>
+            <Icon name="push-pin" size={24} color="white" />
+            <Text style={{ fontSize: 16, color: 'white', marginLeft: 8 }}>
               {isPinned ? "Открепить" : "Закрепить"}
             </Text>
           </TouchableOpacity>
+          
+          {/* Кнопка напоминания */}
+          <TouchableOpacity 
+            onPress={() => setShowDatePicker(true)} 
+            style={{ 
+              padding: 12, 
+              alignItems: 'center', 
+              flexDirection: 'row',
+              justifyContent: 'center',
+              backgroundColor: brandColor,
+              borderRadius: 8,
+              marginBottom: 16
+            }}>
+            <Icon name="alarm" size={24} color="white" />
+            <Text style={{ fontSize: 16, color: 'white', marginLeft: 8 }}>
+              {reminderTime ? `Напомнить (${formatReminderTime(reminderTime)})` : "Напомнить"}
+            </Text>
+          </TouchableOpacity>
+          
+          {reminderTime && (
+            <TouchableOpacity 
+              onPress={() => onSetReminder(null)} 
+              style={{ 
+                padding: 8, 
+                alignItems: 'center',
+                marginBottom: 8
+              }}>
+              <Text style={{ fontSize: 12, color: brandColor }}>Отменить напоминание</Text>
+            </TouchableOpacity>
+          )}
           
           {/* Перемещение в папки */}
           {availableFolders.length > 0 && !isInTrash && (
@@ -140,6 +189,16 @@ const NoteActionDialog = ({
           </TouchableOpacity>
         </Animated.View>
       </Animated.View>
+      
+      {showDatePicker && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="datetime"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleDateChange}
+          minimumDate={new Date()}
+        />
+      )}
     </Modal>
   );
 };
