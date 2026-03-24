@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, Animated, Platform, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { width, getBrandColor } from './BL02_Constants';
 
 const NoteActionDialog = ({ 
@@ -27,6 +28,8 @@ const NoteActionDialog = ({
       .map(f => typeof f === 'object' ? f.name : f);
   }, [folders, currentFolder]);
   
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tempDate, setTempDate] = useState(reminderTime ? new Date(reminderTime) : new Date());
   const [fadeAnim] = React.useState(new Animated.Value(0));
   const [scaleAnim] = React.useState(new Animated.Value(0.9));
   
@@ -56,42 +59,23 @@ const NoteActionDialog = ({
   const formatReminderTime = (timestamp) => {
     if (!timestamp) return null;
     const date = new Date(timestamp);
-    return `${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${day}.${month} ${hours}:${minutes}`;
   };
   
-  const showSimpleDatePicker = () => {
-    Alert.alert(
-      'Установить напоминание',
-      'Выберите дату и время',
-      [
-        { text: 'Отмена', style: 'cancel' },
-        {
-          text: 'Через 10 минут',
-          onPress: () => onSetReminder(Date.now() + 10 * 60 * 1000)
-        },
-        {
-          text: 'Через 30 минут',
-          onPress: () => onSetReminder(Date.now() + 30 * 60 * 1000)
-        },
-        {
-          text: 'Через 1 час',
-          onPress: () => onSetReminder(Date.now() + 60 * 60 * 1000)
-        },
-        {
-          text: 'Через 2 часа',
-          onPress: () => onSetReminder(Date.now() + 2 * 60 * 60 * 1000)
-        },
-        {
-          text: 'Завтра в 9:00',
-          onPress: () => {
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            tomorrow.setHours(9, 0, 0, 0);
-            onSetReminder(tomorrow.getTime());
-          }
-        }
-      ]
-    );
+  const handleDateChange = (event, selectedDate) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setTempDate(selectedDate);
+      onSetReminder(selectedDate.getTime());
+    }
+  };
+  
+  const openDateTimePicker = () => {
+    setShowDatePicker(true);
   };
   
   if (!visible) return null;
@@ -136,7 +120,7 @@ const NoteActionDialog = ({
           
           {/* Кнопка напоминания */}
           <TouchableOpacity 
-            onPress={showSimpleDatePicker} 
+            onPress={openDateTimePicker} 
             style={{ 
               padding: 12, 
               alignItems: 'center', 
@@ -148,11 +132,13 @@ const NoteActionDialog = ({
             }}>
             <Icon name="alarm" size={24} color="white" />
             <Text style={{ fontSize: 16, color: 'white', marginLeft: 8 }}>
-              {reminderTime ? `Напомнить (${formatReminderTime(reminderTime)})` : "Напомнить"}
+              {reminderTime && reminderTime > Date.now() 
+                ? `Напомнить (${formatReminderTime(reminderTime)})` 
+                : "Напомнить"}
             </Text>
           </TouchableOpacity>
           
-          {reminderTime && (
+          {reminderTime && reminderTime > Date.now() && (
             <TouchableOpacity 
               onPress={() => onSetReminder(null)} 
               style={{ 
@@ -213,6 +199,16 @@ const NoteActionDialog = ({
           </TouchableOpacity>
         </Animated.View>
       </Animated.View>
+      
+      {showDatePicker && (
+        <DateTimePicker
+          value={tempDate}
+          mode="datetime"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleDateChange}
+          minimumDate={new Date()}
+        />
+      )}
     </Modal>
   );
 };
