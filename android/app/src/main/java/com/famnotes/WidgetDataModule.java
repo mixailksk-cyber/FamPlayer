@@ -13,7 +13,6 @@ import com.facebook.react.bridge.Promise;
 
 import org.json.JSONArray;
 import org.json.JSONException;
-import org.json.JSONObject;
 
 public class WidgetDataModule extends ReactContextBaseJavaModule {
     private static final String SHARED_PREFS_NAME = "FamNotesWidgetPrefs";
@@ -51,9 +50,8 @@ public class WidgetDataModule extends ReactContextBaseJavaModule {
                         notesText.append("Нет заметок");
                     } else {
                         for (int i = 0; i < notesArray.length(); i++) {
-                            JSONObject note = notesArray.getJSONObject(i);
-                            String title = note.optString("title", "");
-                            String content = note.optString("content", "");
+                            String title = notesArray.getJSONObject(i).optString("title", "");
+                            String content = notesArray.getJSONObject(i).optString("content", "");
                             
                             if (!title.isEmpty()) {
                                 notesText.append("• ").append(title);
@@ -64,8 +62,11 @@ public class WidgetDataModule extends ReactContextBaseJavaModule {
                                 notesText.append("• ").append(content);
                             }
                             
+                            // Разделитель между заметками
                             if (i < notesArray.length() - 1) {
-                                notesText.append("\n\n");
+                                notesText.append("\n");
+                                notesText.append("─".repeat(20));
+                                notesText.append("\n");
                             }
                         }
                     }
