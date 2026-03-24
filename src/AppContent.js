@@ -114,7 +114,8 @@ const AppContent = () => {
       updatedAt: Date.now(),
       deleted: false,
       pinned: false,
-      locked: false
+      locked: false,
+      reminder: null
     };
     setSelectedNote(newNote);
     setCurrentScreen('edit');
@@ -162,6 +163,19 @@ const AppContent = () => {
     saveNotes(updatedNotes);
   };
   
+  const handleSetReminder = (noteId, time) => {
+    const updatedNotes = notes.map(n => 
+      n.id === noteId ? { ...n, reminder: time, updatedAt: Date.now() } : n
+    );
+    saveNotes(updatedNotes);
+    
+    if (time) {
+      Alert.alert('✅ Напоминание установлено', `Напоминание установлено на ${new Date(time).toLocaleString()}`);
+    } else {
+      Alert.alert('🗑 Напоминание отменено', 'Напоминание для этой заметки отменено');
+    }
+  };
+  
   const handleEmptyTrash = () => {
     Alert.alert(
       'Очистить корзину',
@@ -178,18 +192,6 @@ const AppContent = () => {
         }
       ]
     );
-  };
-  
-  const handleQuickDelete = (note) => {
-    if (note.folder === 'Корзина') {
-      const updatedNotes = notes.filter(n => n.id !== note.id);
-      saveNotes(updatedNotes);
-    } else {
-      const updatedNote = { ...note, folder: 'Корзина', deleted: true, pinned: false, updatedAt: Date.now() };
-      const index = notes.findIndex(n => n.id === note.id);
-      const newNotes = [...notes.slice(0, index), updatedNote, ...notes.slice(index + 1)];
-      saveNotes(newNotes);
-    }
   };
   
   const handleRenameFolder = (oldName, newName) => {
@@ -274,7 +276,6 @@ const AppContent = () => {
             onLongPress={() => handleLongPressOnNote(item)}
             settings={settings} 
             showPin={!isInTrash}
-            onPinPress={() => handleTogglePin(item.id)}
           />
         )} 
         ListEmptyComponent={
@@ -348,11 +349,11 @@ const AppContent = () => {
           setSelectedNoteForAction(null);
         }} 
         onTogglePin={() => handleTogglePin(selectedNoteForAction.id)}
-        onToggleLock={() => {}}
+        onSetReminder={(time) => handleSetReminder(selectedNoteForAction.id, time)}
         isPinned={selectedNoteForAction?.pinned || false}
-        isLocked={false}
-        settings={settings} 
         isInTrash={isInTrashFolder}
+        reminderTime={selectedNoteForAction?.reminder || null}
+        settings={settings} 
       />
     );
   };
