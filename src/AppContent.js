@@ -164,6 +164,13 @@ const AppContent = () => {
     saveFolders(updatedFolders);
   };
   
+  // Функция для обработки долгого нажатия на заметку
+  const handleLongPressOnNote = (note) => {
+    console.log('Long press detected on note:', note.id, note.title);
+    setSelectedNoteForAction(note);
+    setShowNoteDialog(true);
+  };
+  
   const NotesListScreen = () => (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
       <Header 
@@ -181,7 +188,7 @@ const AppContent = () => {
       >
         {isInTrash && sortedNotes.length > 0 && (
           <TouchableOpacity onPress={handleEmptyTrash} style={{ marginRight: 20 }}>
-            <Text style={{ fontSize: 20, color: 'white' }}>🧹</Text>
+            <Icon name="delete-sweep" size={24} color="white" />
           </TouchableOpacity>
         )}
       </Header>
@@ -196,11 +203,7 @@ const AppContent = () => {
               setSelectedNote(item);
               setCurrentScreen('edit');
             }} 
-            onLongPress={() => {
-              console.log('Long press on note:', item.id);
-              setSelectedNoteForAction(item);
-              setShowNoteDialog(true);
-            }} 
+            onLongPress={() => handleLongPressOnNote(item)}
             settings={settings} 
             showPin={!isInTrash}
           />
@@ -228,15 +231,70 @@ const AppContent = () => {
             elevation: 5 
           }} 
           onPress={handleAddNote}>
-          <Text style={{ fontSize: 36, color: 'white' }}>+</Text>
+          <Icon name="add" size={36} color="white" />
         </TouchableOpacity>
       )}
     </View>
   );
   
+  // Диалог действий с заметкой
+  const ActionDialog = () => {
+    if (!selectedNoteForAction) return null;
+    
+    return (
+      <NoteActionDialog 
+        visible={showNoteDialog} 
+        onClose={() => { 
+          setShowNoteDialog(false); 
+          setSelectedNoteForAction(null); 
+        }} 
+        folders={folders} 
+        currentFolder={selectedNoteForAction?.folder || currentFolder} 
+        onMove={(targetFolder) => {
+          if (selectedNoteForAction.folder === 'Корзина') {
+            handleRestoreFromTrash(selectedNoteForAction);
+          } else {
+            handleMoveNote(selectedNoteForAction, targetFolder);
+          }
+          setShowNoteDialog(false);
+          setSelectedNoteForAction(null);
+        }} 
+        onDelete={() => {
+          if (selectedNoteForAction.folder === 'Корзина') {
+            const updatedNotes = notes.filter(n => n.id !== selectedNoteForAction.id);
+            saveNotes(updatedNotes);
+          } else {
+            const updatedNote = { ...selectedNoteForAction, folder: 'Корзина', deleted: true, pinned: false, updatedAt: Date.now() };
+            const index = notes.findIndex(n => n.id === selectedNoteForAction.id);
+            const newNotes = [...notes.slice(0, index), updatedNote, ...notes.slice(index + 1)];
+            saveNotes(newNotes);
+          }
+          setShowNoteDialog(false);
+          setSelectedNoteForAction(null);
+        }} 
+        onPermanentDelete={() => {
+          const updatedNotes = notes.filter(n => n.id !== selectedNoteForAction.id);
+          saveNotes(updatedNotes);
+          setShowNoteDialog(false);
+          setSelectedNoteForAction(null);
+        }} 
+        onTogglePin={() => handleTogglePin(selectedNoteForAction.id)}
+        onToggleLock={() => handleToggleLock(selectedNoteForAction.id)}
+        isPinned={selectedNoteForAction?.pinned || false}
+        isLocked={selectedNoteForAction?.locked || false}
+        settings={settings} 
+      />
+    );
+  };
+  
   switch (currentScreen) {
     case 'notes':
-      return <NotesListScreen />;
+      return (
+        <>
+          <NotesListScreen />
+          <ActionDialog />
+        </>
+      );
     case 'settings':
       return (
         <SettingsScreen 
@@ -294,7 +352,12 @@ const AppContent = () => {
         />
       );
     default:
-      return <NotesListScreen />;
+      return (
+        <>
+          <NotesListScreen />
+          <ActionDialog />
+        </>
+      );
   }
 };
 
