@@ -151,11 +151,9 @@ const EditNoteScreen = ({
               editable={!isInTrash && isEditing}
             />
           ) : (
-            <TouchableOpacity onPress={handleEditPress} activeOpacity={0.7}>
-              <Text style={{ fontSize: settings.fontSize + 2, fontWeight: 'bold', paddingVertical: 8, color: '#333' }}>
-                {note.title || 'Заголовок'}
-              </Text>
-            </TouchableOpacity>
+            <Text style={{ fontSize: settings.fontSize + 2, fontWeight: 'bold', paddingVertical: 8, color: '#333' }}>
+              {note.title || 'Заголовок'}
+            </Text>
           )}
           <View style={{ height: 2, backgroundColor: note.color || brandColor, width: '100%', marginTop: 4 }} />
         </View>
@@ -176,7 +174,6 @@ const EditNoteScreen = ({
         ) : (
           <Text 
             selectable={true}
-            onPress={handleEditPress}
             style={{ fontSize: settings.fontSize, paddingHorizontal: 16, paddingVertical: 12, color: '#333', lineHeight: settings.fontSize * 1.5 }}
           >
             {note.content || '...'}
