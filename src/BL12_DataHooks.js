@@ -24,7 +24,11 @@ export const useNotesData = () => {
       
       if (savedNotes) {
         const parsed = JSON.parse(savedNotes);
-        const normalized = parsed.map(n => ({ ...n, color: n.color || NOTE_COLORS[0] }));
+        const normalized = parsed.map(n => ({ 
+          ...n, 
+          color: n.color || NOTE_COLORS[0],
+          reminder: n.reminder || null
+        }));
         setNotes(normalized);
         console.log(`📝 Loaded ${normalized.length} notes`);
         updateWidgetData(normalized);
@@ -39,21 +43,19 @@ export const useNotesData = () => {
           createdAt: Date.now(),
           updatedAt: Date.now(),
           deleted: false,
-          pinned: false
+          pinned: false,
+          reminder: null
         };
         setNotes([demoNote]);
         await AsyncStorage.setItem('notes', JSON.stringify([demoNote]));
-        updateWidgetData([demoNote]);
       }
       
       if (savedFolders) {
         setFolders(JSON.parse(savedFolders));
-        console.log(`📁 Loaded folders`);
       }
       
       if (savedSettings) {
         setSettings(JSON.parse(savedSettings));
-        console.log(`⚙️ Loaded settings`);
       }
     } catch (e) {
       console.log('Error loading data:', e);
@@ -61,7 +63,11 @@ export const useNotesData = () => {
   }, []);
 
   const saveNotes = useCallback(async (newNotes) => {
-    const normalized = newNotes.map(n => ({ ...n, color: n.color || NOTE_COLORS[0] }));
+    const normalized = newNotes.map(n => ({ 
+      ...n, 
+      color: n.color || NOTE_COLORS[0],
+      reminder: n.reminder || null
+    }));
     setNotes(normalized);
     try {
       await AsyncStorage.setItem('notes', JSON.stringify(normalized));
