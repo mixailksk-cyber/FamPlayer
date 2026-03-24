@@ -25,7 +25,7 @@
       <receiver
         android:name=".FamNotesWidgetProvider"
         android:exported="true"
-        android:label="FamNotes Виджет">
+        android:label="FamNotes">
         <intent-filter>
             <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
         </intent-filter>
