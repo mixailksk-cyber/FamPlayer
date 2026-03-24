@@ -17,7 +17,8 @@ const SearchScreen = ({
   setSearchQuery, 
   searchQuery: initialSearchQuery, 
   settings,
-  onLongPressNote
+  onLongPressNote,
+  onNoteOpen
 }) => {
   const [localQuery, setLocalQuery] = useState(initialSearchQuery || '');
   const inputRef = useRef(null);
@@ -59,26 +60,29 @@ const SearchScreen = ({
   };
 
   const handleNotePress = (note) => {
-    if (note && typeof setSelectedNote === 'function') {
-      // Если заметка в корзине, не открываем редактирование, а показываем диалог
-      if (note.folder === 'Корзина' || note.deleted === true) {
-        if (onLongPressNote) {
-          onLongPressNote(note);
-        }
-      } else {
-        setSelectedNote(note);
-        if (typeof setNavigationStack === 'function') {
-          setNavigationStack(prev => [...(prev || []), 'search']);
-        }
-        if (typeof setCurrentScreen === 'function') {
-          setCurrentScreen('edit');
-        }
+    if (note && typeof onNoteOpen === 'function') {
+      onNoteOpen(note);
+      if (typeof setNavigationStack === 'function') {
+        setNavigationStack(prev => [...(prev || []), 'search']);
+      }
+      if (typeof setCurrentScreen === 'function') {
+        setCurrentScreen('edit');
+      }
+    } else if (note && typeof setSelectedNote === 'function') {
+      setSelectedNote(note);
+      if (typeof setNavigationStack === 'function') {
+        setNavigationStack(prev => [...(prev || []), 'search']);
+      }
+      if (typeof setCurrentScreen === 'function') {
+        setCurrentScreen('edit');
       }
     }
   };
 
   const handleLongPress = (note) => {
-    if (note && typeof setSelectedNoteForAction === 'function') {
+    if (note && typeof onLongPressNote === 'function') {
+      onLongPressNote(note);
+    } else if (note && typeof setSelectedNoteForAction === 'function') {
       setSelectedNoteForAction(note);
       if (typeof setShowNoteDialog === 'function') {
         setShowNoteDialog(true);
