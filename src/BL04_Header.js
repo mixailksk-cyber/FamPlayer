@@ -14,6 +14,8 @@ const Header = ({
   onSearchPress, 
   showPalette, 
   onPalettePress, 
+  showFolders,
+  onFoldersPress,
   children, 
   brandColor 
 }) => {
@@ -32,6 +34,11 @@ const Header = ({
       alignItems: 'center' 
     }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+        {showFolders && (
+          <TouchableOpacity onPress={onFoldersPress} style={{ marginRight: 16 }}>
+            <Icon name="folder" size={24} color="white" />
+          </TouchableOpacity>
+        )}
         <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 20, flex: 1 }} numberOfLines={1}>
           {title}
         </Text>
