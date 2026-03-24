@@ -14,6 +14,7 @@ export const updateWidgetData = async (notes) => {
     const mainFolderNotes = notes
       .filter(note => note.folder === 'Главная' && !note.deleted)
       .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+      .slice(0, 10) // Берем последние 10 заметок
       .map(note => ({
         id: note.id,
         title: note.title || 'Без названия',
