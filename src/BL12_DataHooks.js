@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NOTE_COLORS } from './BL02_Constants';
+import { updateWidgetData } from './WidgetBridge';
 
 export const useNotesData = () => {
   const [notes, setNotes] = useState([]);
@@ -26,12 +27,13 @@ export const useNotesData = () => {
         const normalized = parsed.map(n => ({ ...n, color: n.color || NOTE_COLORS[0] }));
         setNotes(normalized);
         console.log(`📝 Loaded ${normalized.length} notes`);
+        updateWidgetData(normalized);
       } else {
         // Создаем пример заметки для демонстрации
         const demoNote = {
           id: Date.now().toString(),
           title: 'Пример заметки',
-          content: 'Это пример заметки. Нажмите на нее, чтобы редактировать. Нажмите + чтобы создать новую.',
+          content: 'Это пример заметки. Нажмите на нее, чтобы редактировать.',
           folder: 'Главная',
           color: NOTE_COLORS[0],
           createdAt: Date.now(),
@@ -41,7 +43,7 @@ export const useNotesData = () => {
         };
         setNotes([demoNote]);
         await AsyncStorage.setItem('notes', JSON.stringify([demoNote]));
-        console.log('📝 Created demo note');
+        updateWidgetData([demoNote]);
       }
       
       if (savedFolders) {
@@ -63,9 +65,8 @@ export const useNotesData = () => {
     setNotes(normalized);
     try {
       await AsyncStorage.setItem('notes', JSON.stringify(normalized));
-      console.log(`💾 Saved ${normalized.length} notes`);
+      updateWidgetData(normalized);
     } catch (e) {
-      console.log('Error saving notes:', e);
       if (Platform.OS === 'web') Alert.alert('Внимание', 'Данные сохранены только в памяти');
     }
   }, []);
@@ -73,13 +74,11 @@ export const useNotesData = () => {
   const saveFolders = useCallback(async (newFolders) => {
     setFolders(newFolders);
     await AsyncStorage.setItem('folders', JSON.stringify(newFolders));
-    console.log(`💾 Saved folders`);
   }, []);
 
   const saveSettings = useCallback(async (newSettings) => {
     setSettings(newSettings);
     await AsyncStorage.setItem('settings', JSON.stringify(newSettings));
-    console.log(`💾 Saved settings`);
   }, []);
 
   return { 
