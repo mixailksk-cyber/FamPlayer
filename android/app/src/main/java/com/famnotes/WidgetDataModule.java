@@ -55,21 +55,17 @@ public class WidgetDataModule extends ReactContextBaseJavaModule {
                             String title = note.optString("title", "");
                             String content = note.optString("content", "");
                             
-                            // Форматируем как в приложении: заголовок жирным, затем текст
                             if (!title.isEmpty()) {
                                 notesText.append("• ").append(title);
                                 if (!content.isEmpty()) {
                                     notesText.append("\n  ").append(content);
                                 }
-                                notesText.append("\n");
                             } else if (!content.isEmpty()) {
-                                // Если нет заголовка, показываем только текст
-                                notesText.append("• ").append(content).append("\n");
+                                notesText.append("• ").append(content);
                             }
                             
-                            // Добавляем разделитель между заметками (кроме последней)
                             if (i < notesArray.length() - 1) {
-                                notesText.append("\n");
+                                notesText.append("\n\n");
                             }
                         }
                     }
