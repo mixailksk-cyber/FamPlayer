@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { formatDate, getBrandColor } from './BL02_Constants';
 
-const NoteItem = ({ item, onPress, onLongPress, settings, showPin, onPinPress }) => {
+const NoteItem = ({ item, onPress, onLongPress, settings, showPin }) => {
   const defaultColor = getBrandColor(settings);
   const { day, month } = formatDate(item.updatedAt || item.createdAt || Date.now());
   
@@ -53,23 +53,8 @@ const NoteItem = ({ item, onPress, onLongPress, settings, showPin, onPinPress })
         )}
       </View>
       
-      {showPin && (
-        <TouchableOpacity 
-          onPress={(e) => {
-            e.stopPropagation();
-            if (onPinPress) onPinPress();
-          }}
-          style={{ 
-            padding: 8,
-            borderRadius: 20,
-            backgroundColor: item.pinned ? defaultColor : 'transparent'
-          }}>
-          <Icon 
-            name="push-pin" 
-            size={20} 
-            color="white" 
-          />
-        </TouchableOpacity>
+      {showPin && item.pinned && (
+        <Icon name="push-pin" size={20} color={defaultColor} style={{ marginLeft: 8 }} />
       )}
     </TouchableOpacity>
   );
