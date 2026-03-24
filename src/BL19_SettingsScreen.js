@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, Platform, Share, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 import Header from './BL04_Header';
 import { NOTE_COLORS, getBrandColor } from './BL02_Constants';
 import RNFS from 'react-native-fs';
@@ -269,6 +270,7 @@ const SettingsScreen = ({
       />
       
       <ScrollView style={{ flex: 1, padding: 20 }}>
+        {/* Статистика */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16 }}>Статистика</Text>
           <View style={{ backgroundColor: '#F8F9FA', borderRadius: 16, padding: 20 }}>
@@ -287,6 +289,7 @@ const SettingsScreen = ({
           </View>
         </View>
 
+        {/* Размер текста */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16 }}>Размер текста</Text>
           <View style={{ backgroundColor: '#F8F9FA', borderRadius: 16, padding: 20 }}>
@@ -315,6 +318,7 @@ const SettingsScreen = ({
           </View>
         </View>
 
+        {/* Цвет бренда */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16 }}>Цвет бренда</Text>
           <View style={{ backgroundColor: '#F8F9FA', borderRadius: 16, padding: 20 }}>
@@ -338,6 +342,7 @@ const SettingsScreen = ({
           </View>
         </View>
 
+        {/* Резервное копирование */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16 }}>Резервное копирование</Text>
           <View style={{ backgroundColor: '#F8F9FA', borderRadius: 16, padding: 20, gap: 12 }}>
@@ -353,7 +358,7 @@ const SettingsScreen = ({
               onPress={handleBackup}
               disabled={isRestoring}
             >
-              <Text style={{ fontSize: 20, marginRight: 8 }}>💾</Text>
+              <Icon name="backup" size={24} color="white" style={{ marginRight: 8 }} />
               <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Создать копию</Text>
             </TouchableOpacity>
             
@@ -373,7 +378,7 @@ const SettingsScreen = ({
                 <ActivityIndicator color="white" size="small" />
               ) : (
                 <>
-                  <Text style={{ fontSize: 20, marginRight: 8 }}>↩️</Text>
+                  <Icon name="restore" size={24} color="white" style={{ marginRight: 8 }} />
                   <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Восстановить</Text>
                 </>
               )}
@@ -381,6 +386,7 @@ const SettingsScreen = ({
           </View>
         </View>
 
+        {/* Информация о приложении */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16 }}>О приложении</Text>
           <View style={{ backgroundColor: '#F8F9FA', borderRadius: 16, padding: 20 }}>
