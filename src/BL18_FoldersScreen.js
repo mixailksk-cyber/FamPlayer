@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, FlatList, Text, TouchableOpacity, Alert } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import Header from './BL04_Header';
 import { getBrandColor } from './BL02_Constants';
 
@@ -9,22 +8,13 @@ const FoldersScreen = ({
   currentFolder, 
   setCurrentFolder, 
   setCurrentScreen, 
-  goToSearch, 
   insets, 
-  showFolderDialog, 
-  setShowFolderDialog, 
   saveFolders, 
-  showFolderSettings, 
-  setShowFolderSettings, 
-  selectedFolderForSettings, 
-  setSelectedFolderForSettings, 
-  selectedFolderColor, 
-  setSelectedFolderColor, 
-  handleRenameFolder, 
-  handleColorChange, 
-  handleDeleteFolder, 
   settings, 
-  notes 
+  notes, 
+  handleRenameFolder, 
+  handleDeleteFolder, 
+  handleColorChange 
 }) => {
   const brandColor = getBrandColor(settings);
 
@@ -48,8 +38,13 @@ const FoldersScreen = ({
                 Alert.alert('Ошибка', 'Папка с таким именем уже существует');
                 return;
               }
+              if (/[<>:"/\\|?*]/.test(name.trim())) {
+                Alert.alert('Ошибка', 'Недопустимые символы в названии папки');
+                return;
+              }
               const newFolders = [...folders, name.trim()];
               saveFolders(newFolders);
+              Alert.alert('✅ Успех', `Папка "${name.trim()}" создана`);
             }
           }
         }
@@ -87,7 +82,12 @@ const FoldersScreen = ({
                         Alert.alert('Ошибка', 'Папка с таким именем уже существует');
                         return;
                       }
+                      if (/[<>:"/\\|?*]/.test(newName.trim())) {
+                        Alert.alert('Ошибка', 'Недопустимые символы в названии папки');
+                        return;
+                      }
                       handleRenameFolder(name, newName.trim());
+                      Alert.alert('✅ Успех', `Папка переименована в "${newName.trim()}"`);
                     }
                   }
                 }
@@ -106,7 +106,14 @@ const FoldersScreen = ({
               `Все заметки из папки "${name}" будут перемещены в корзину. Продолжить?`,
               [
                 { text: 'Отмена', style: 'cancel' },
-                { text: 'Удалить', style: 'destructive', onPress: () => handleDeleteFolder(name) }
+                { 
+                  text: 'Удалить', 
+                  style: 'destructive', 
+                  onPress: () => {
+                    handleDeleteFolder(name);
+                    Alert.alert('🗑 Удалено', `Папка "${name}" удалена`);
+                  }
+                }
               ]
             );
           }
@@ -149,7 +156,7 @@ const FoldersScreen = ({
           alignItems: 'center' 
         }}>
           {name === 'Корзина' ? (
-            <Icon name="delete" size={24} color="white" />
+            <Text style={{ fontSize: 24, color: 'white' }}>🗑</Text>
           ) : (
             <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>{count}</Text>
           )}
@@ -193,10 +200,16 @@ const FoldersScreen = ({
           backgroundColor: brandColor, 
           justifyContent: 'center', 
           alignItems: 'center', 
-          elevation: 5 
+          elevation: 5,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84
         }} 
-        onPress={handleAddFolderPress}>
-        <Icon name="add" size={36} color="white" />
+        onPress={handleAddFolderPress}
+        activeOpacity={0.7}
+      >
+        <Text style={{ fontSize: 36, color: 'white' }}>+</Text>
       </TouchableOpacity>
     </View>
   );
