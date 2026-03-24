@@ -6,19 +6,17 @@ const { WidgetDataModule } = NativeModules;
 export const updateWidgetData = async (notes) => {
   try {
     if (!notes || !Array.isArray(notes)) {
-      console.log('No notes to update widget');
       return;
     }
 
-    // Берем заметки из папки "Главная"
+    // Берем все заметки из папки "Главная" (не удаленные)
     const mainFolderNotes = notes
       .filter(note => note.folder === 'Главная' && !note.deleted)
       .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-      .slice(0, 10) // Берем последние 10 заметок
       .map(note => ({
         id: note.id,
-        title: note.title || 'Без названия',
-        content: note.content || '...',
+        title: note.title || '',
+        content: note.content || '',
         date: note.updatedAt || note.createdAt || Date.now()
       }));
     
@@ -26,13 +24,9 @@ export const updateWidgetData = async (notes) => {
     console.log('📱 Updating widget with', mainFolderNotes.length, 'notes');
     
     // Для Android нативного виджета
-    if (Platform.OS === 'android') {
-      if (WidgetDataModule) {
-        WidgetDataModule.updateWidgetNotes(notesJson);
-        console.log('✅ Widget updated via native module');
-      } else {
-        console.log('⚠️ WidgetDataModule not available');
-      }
+    if (Platform.OS === 'android' && WidgetDataModule) {
+      WidgetDataModule.updateWidgetNotes(notesJson);
+      console.log('✅ Widget updated via native module');
     }
     
     // Сохраняем в AsyncStorage для возможного использования
@@ -48,7 +42,6 @@ export const getWidgetNotes = async () => {
     const notesJson = await AsyncStorage.getItem('@widget_notes');
     return notesJson ? JSON.parse(notesJson) : [];
   } catch (error) {
-    console.error('Error getting widget notes:', error);
     return [];
   }
 };
