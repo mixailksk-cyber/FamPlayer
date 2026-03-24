@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, Animated, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, Animated, Platform, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { width, getBrandColor } from './BL02_Constants';
 
 const NoteActionDialog = ({ 
@@ -28,8 +27,6 @@ const NoteActionDialog = ({
       .map(f => typeof f === 'object' ? f.name : f);
   }, [folders, currentFolder]);
   
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(reminderTime ? new Date(reminderTime) : new Date());
   const [fadeAnim] = React.useState(new Animated.Value(0));
   const [scaleAnim] = React.useState(new Animated.Value(0.9));
   
@@ -62,12 +59,39 @@ const NoteActionDialog = ({
     return `${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
   };
   
-  const handleDateChange = (event, date) => {
-    setShowDatePicker(false);
-    if (date) {
-      setSelectedDate(date);
-      onSetReminder(date.getTime());
-    }
+  const showSimpleDatePicker = () => {
+    Alert.alert(
+      'Установить напоминание',
+      'Выберите дату и время',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Через 10 минут',
+          onPress: () => onSetReminder(Date.now() + 10 * 60 * 1000)
+        },
+        {
+          text: 'Через 30 минут',
+          onPress: () => onSetReminder(Date.now() + 30 * 60 * 1000)
+        },
+        {
+          text: 'Через 1 час',
+          onPress: () => onSetReminder(Date.now() + 60 * 60 * 1000)
+        },
+        {
+          text: 'Через 2 часа',
+          onPress: () => onSetReminder(Date.now() + 2 * 60 * 60 * 1000)
+        },
+        {
+          text: 'Завтра в 9:00',
+          onPress: () => {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(9, 0, 0, 0);
+            onSetReminder(tomorrow.getTime());
+          }
+        }
+      ]
+    );
   };
   
   if (!visible) return null;
@@ -112,7 +136,7 @@ const NoteActionDialog = ({
           
           {/* Кнопка напоминания */}
           <TouchableOpacity 
-            onPress={() => setShowDatePicker(true)} 
+            onPress={showSimpleDatePicker} 
             style={{ 
               padding: 12, 
               alignItems: 'center', 
@@ -189,16 +213,6 @@ const NoteActionDialog = ({
           </TouchableOpacity>
         </Animated.View>
       </Animated.View>
-      
-      {showDatePicker && (
-        <DateTimePicker
-          value={selectedDate}
-          mode="datetime"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={handleDateChange}
-          minimumDate={new Date()}
-        />
-      )}
     </Modal>
   );
 };
