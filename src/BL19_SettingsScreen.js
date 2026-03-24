@@ -47,7 +47,6 @@ const SettingsScreen = ({
     const year = date.getFullYear();
     const hours = date.getHours();
     const minutes = date.getMinutes();
-    // Без секунд
     return `${day}-${month}-${year}_${hours}-${minutes}`;
   };
 
@@ -95,31 +94,29 @@ const SettingsScreen = ({
         return;
       }
 
-      const path = RNFS.DocumentDirectoryPath + '/' + fileName;
-      await RNFS.writeFile(path, backupStr, 'utf8');
+      // Для Android используем RNFS с выбором места через DocumentPicker
+      const result = await DocumentPicker.pickDirectory({
+        allowMultiSelection: false,
+      });
       
-      const fileExists = await RNFS.exists(path);
-      if (fileExists) {
-        const fileInfo = await RNFS.stat(path);
+      if (result && result[0]) {
+        const selectedUri = result[0].uri;
+        const filePath = `${selectedUri}/${fileName}`;
+        
+        await RNFS.writeFile(filePath, backupStr, 'utf8');
         
         Alert.alert(
           '✅ Резервная копия создана',
-          `Файл: ${fileName}\nРазмер: ${(fileInfo.size / 1024).toFixed(2)} KB\n\nСохранить или поделиться?`,
+          `Файл сохранен:\n${filePath}\n\nРазмер: ${(backupStr.length / 1024).toFixed(2)} KB`,
           [
-            { text: 'Отмена', style: 'cancel' },
-            { 
-              text: 'Сохранить', 
-              onPress: () => {
-                Alert.alert('Сохранено', `Файл сохранен в:\n${path}`);
-              }
-            },
+            { text: 'OK', style: 'cancel' },
             { 
               text: 'Поделиться', 
               onPress: async () => {
                 try {
                   await Share.share({
                     title: 'Резервная копия FamNotes',
-                    url: `file://${path}`,
+                    url: `file://${filePath}`,
                     message: `Резервная копия заметок от ${new Date().toLocaleString()}`
                   });
                 } catch (e) {
@@ -130,11 +127,13 @@ const SettingsScreen = ({
           ]
         );
       } else {
-        throw new Error('Файл не был создан');
+        Alert.alert('Отмена', 'Выбор места сохранения отменен');
       }
     } catch (e) {
-      console.error('Backup error:', e);
-      Alert.alert('❌ Ошибка', 'Не удалось создать резервную копию: ' + e.message);
+      if (e.code !== 'DOCUMENT_PICKER_CANCELED') {
+        console.error('Backup error:', e);
+        Alert.alert('❌ Ошибка', 'Не удалось создать резервную копию: ' + e.message);
+      }
     }
   };
 
