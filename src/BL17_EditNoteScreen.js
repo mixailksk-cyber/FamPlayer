@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Share, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Header from './BL04_Header';
@@ -13,7 +13,8 @@ const EditNoteScreen = ({
   onSave, 
   setCurrentScreen, 
   insets,
-  onQuickDelete
+  onQuickDelete,
+  isNewNote
 }) => {
   const brandColor = getBrandColor(settings);
   const [note, setNote] = useState(selectedNote ? { ...selectedNote } : { 
@@ -29,12 +30,23 @@ const EditNoteScreen = ({
     reminder: null
   });
   const [showColor, setShowColor] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(isNewNote || false);
   const contentInputRef = useRef(null);
   const titleInputRef = useRef(null);
   
   const isInTrash = note.folder === 'Корзина' || note.deleted === true;
-  const isNewNote = !selectedNote || selectedNote?.isNew === true;
+
+  // Для новой заметки: фокус в поле текста
+  useEffect(() => {
+    if (isNewNote && contentInputRef.current) {
+      setTimeout(() => {
+        contentInputRef.current.focus();
+        contentInputRef.current.setNativeProps({
+          selection: { start: 0, end: 0 }
+        });
+      }, 100);
+    }
+  }, [isNewNote]);
 
   const handleShare = async () => {
     try {
@@ -91,6 +103,7 @@ const EditNoteScreen = ({
     setIsEditing(false);
   };
 
+  // Включение редактирования по карандашу или смене цвета - курсор в заголовок
   const handleEditPress = () => {
     if (isInTrash) {
       Alert.alert('Заметка в корзине', 'Заметки в корзине можно только просматривать и восстанавливать');
@@ -98,25 +111,11 @@ const EditNoteScreen = ({
     }
     setIsEditing(true);
     setTimeout(() => {
-      // Для новой заметки - курсор в текст, для существующей - курсор в заголовок
-      if (isNewNote) {
-        // Новая заметка: курсор в текст
-        if (contentInputRef.current) {
-          contentInputRef.current.focus();
-          contentInputRef.current.setNativeProps({
-            selection: { start: 0, end: 0 }
-          });
-        }
-      } else {
-        // Существующая заметка: курсор в заголовок
-        if (titleInputRef.current) {
-          titleInputRef.current.focus();
-          if (note.title) {
-            titleInputRef.current.setNativeProps({
-              selection: { start: note.title.length, end: note.title.length }
-            });
-          }
-        }
+      if (titleInputRef.current) {
+        titleInputRef.current.focus();
+        titleInputRef.current.setNativeProps({
+          selection: { start: note.title.length, end: note.title.length }
+        });
       }
     }, 100);
   };
@@ -130,23 +129,11 @@ const EditNoteScreen = ({
     if (!isEditing && !isInTrash) {
       setIsEditing(true);
       setTimeout(() => {
-        // Для новой заметки - курсор в текст, для существующей - курсор в заголовок
-        if (isNewNote) {
-          if (contentInputRef.current) {
-            contentInputRef.current.focus();
-            contentInputRef.current.setNativeProps({
-              selection: { start: 0, end: 0 }
-            });
-          }
-        } else {
-          if (titleInputRef.current) {
-            titleInputRef.current.focus();
-            if (note.title) {
-              titleInputRef.current.setNativeProps({
-                selection: { start: note.title.length, end: note.title.length }
-              });
-            }
-          }
+        if (titleInputRef.current) {
+          titleInputRef.current.focus();
+          titleInputRef.current.setNativeProps({
+            selection: { start: note.title.length, end: note.title.length }
+          });
         }
       }, 100);
     }
