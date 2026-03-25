@@ -24,7 +24,7 @@ public class FamNotesWidgetProvider extends AppWidgetProvider {
         for (int appWidgetId : appWidgetIds) {
             RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_layout);
             
-            // Добавляем открытие приложения при нажатии на виджет
+            // Открытие приложения при нажатии на виджет
             Intent intent = new Intent(context, MainActivity.class);
             intent.setAction(Intent.ACTION_MAIN);
             intent.addCategory(Intent.CATEGORY_LAUNCHER);
@@ -44,14 +44,12 @@ public class FamNotesWidgetProvider extends AppWidgetProvider {
                 StringBuilder notesText = new StringBuilder();
                 
                 if (notesArray.length() == 0) {
-                    notesText.append("Нет заметок\n\nНажмите + чтобы создать");
+                    notesText.append("Нет заметок в папке Главная\n\nНажмите + чтобы создать");
                 } else {
-                    for (int i = 0; i < Math.min(notesArray.length(), 5); i++) {
+                    // Показываем все заметки из папки Главная
+                    for (int i = 0; i < notesArray.length(); i++) {
                         String title = notesArray.getJSONObject(i).optString("title", "Без названия");
                         notesText.append("• ").append(title).append("\n");
-                    }
-                    if (notesArray.length() > 5) {
-                        notesText.append("+ еще ").append(notesArray.length() - 5);
                     }
                 }
                 
@@ -59,7 +57,7 @@ public class FamNotesWidgetProvider extends AppWidgetProvider {
                 views.setTextViewText(R.id.widget_notes_count, String.valueOf(notesArray.length()));
                 
             } catch (JSONException e) {
-                views.setTextViewText(R.id.widget_notes_list, "Ошибка");
+                views.setTextViewText(R.id.widget_notes_list, "Ошибка загрузки");
                 views.setTextViewText(R.id.widget_notes_count, "0");
             }
             
