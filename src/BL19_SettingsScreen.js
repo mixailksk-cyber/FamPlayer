@@ -281,7 +281,7 @@ const SettingsScreen = ({
           </View>
         </View>
 
-        {/* Цвет бренда */}
+        {/* Цвет бренда - сетка 2 ряда по 6 */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16 }}>Цвет бренда</Text>
           <View style={{ backgroundColor: '#F8F9FA', borderRadius: 16, padding: 20 }}>
@@ -291,11 +291,11 @@ const SettingsScreen = ({
                   key={index} 
                   onPress={() => handleBrandColorChange(color)} 
                   style={{ 
-                    width: 50, 
-                    height: 50, 
-                    borderRadius: 25, 
+                    width: 44, 
+                    height: 44, 
+                    borderRadius: 22, 
                     backgroundColor: color, 
-                    margin: 6, 
+                    margin: 4, 
                     borderWidth: brandColor === color ? 3 : 0, 
                     borderColor: '#333' 
                   }} 
