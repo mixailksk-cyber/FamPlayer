@@ -57,7 +57,7 @@ public class WidgetDataModule extends ReactContextBaseJavaModule {
                             String title = note.optString("title", "");
                             String content = note.optString("content", "");
                             
-                            // Формируем HTML строку с жирным заголовком (размер 18sp) и текстом (размер 16sp)
+                            // Заголовок 18sp bold, текст 16sp
                             if (!TextUtils.isEmpty(title) && !TextUtils.isEmpty(content)) {
                                 String shortContent = content.length() > 40 ? content.substring(0, 40) + "..." : content;
                                 notesText.append("<b><font size='18'>").append(title).append("</font></b><br/>");
@@ -71,7 +71,7 @@ public class WidgetDataModule extends ReactContextBaseJavaModule {
                                 notesText.append("<font size='16'>Без названия</font>");
                             }
                             
-                            // Добавляем разделитель (кроме последней заметки)
+                            // Добавляем разделитель (кроме последней заметки) - уменьшенный отступ
                             if (i < notesArray.length() - 1) {
                                 notesText.append("<br/><br/><hr color='#33FFFFFF'/><br/>");
                             }
