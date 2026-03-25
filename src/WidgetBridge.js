@@ -10,14 +10,14 @@ export const updateWidgetData = async (notes) => {
       return;
     }
 
-    // Берем ВСЕ заметки из папки "Главная" (без ограничения по количеству)
+    // Берем ВСЕ заметки из папки "Главная"
     const mainFolderNotes = notes
       .filter(note => note.folder === 'Главная' && !note.deleted)
       .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
       .map(note => ({
         id: note.id,
-        title: note.title || 'Без названия',
-        content: note.content || '...',
+        title: note.title || '',
+        content: note.content || '',
         date: note.updatedAt || note.createdAt || Date.now()
       }));
     
