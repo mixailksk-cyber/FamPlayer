@@ -6,10 +6,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.text.TextUtils;
 import android.widget.RemoteViews;
 
 import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
 
 public class FamNotesWidgetProvider extends AppWidgetProvider {
 
@@ -44,21 +46,37 @@ public class FamNotesWidgetProvider extends AppWidgetProvider {
                 StringBuilder notesText = new StringBuilder();
                 
                 if (notesArray.length() == 0) {
-                    notesText.append("Нет заметок в папке Главная\n\nНажмите + чтобы создать");
+                    notesText.append("Нет заметок в папке Главная");
                 } else {
-                    // Показываем все заметки из папки Главная
                     for (int i = 0; i < notesArray.length(); i++) {
-                        String title = notesArray.getJSONObject(i).optString("title", "Без названия");
-                        notesText.append("• ").append(title).append("\n");
+                        JSONObject note = notesArray.getJSONObject(i);
+                        String title = note.optString("title", "");
+                        String content = note.optString("content", "");
+                        
+                        // Формируем строку заметки
+                        if (!TextUtils.isEmpty(title) && !TextUtils.isEmpty(content)) {
+                            String shortContent = content.length() > 40 ? content.substring(0, 40) + "..." : content;
+                            notesText.append("• ").append(title).append("\n  ").append(shortContent);
+                        } else if (!TextUtils.isEmpty(title)) {
+                            notesText.append("• ").append(title);
+                        } else if (!TextUtils.isEmpty(content)) {
+                            String shortContent = content.length() > 45 ? content.substring(0, 45) + "..." : content;
+                            notesText.append("• ").append(shortContent);
+                        } else {
+                            notesText.append("• Без названия");
+                        }
+                        
+                        // Добавляем разделитель (кроме последней заметки)
+                        if (i < notesArray.length() - 1) {
+                            notesText.append("\n\n");
+                        }
                     }
                 }
                 
                 views.setTextViewText(R.id.widget_notes_list, notesText.toString());
-                views.setTextViewText(R.id.widget_notes_count, String.valueOf(notesArray.length()));
                 
             } catch (JSONException e) {
                 views.setTextViewText(R.id.widget_notes_list, "Ошибка загрузки");
-                views.setTextViewText(R.id.widget_notes_count, "0");
             }
             
             appWidgetManager.updateAppWidget(appWidgetId, views);
