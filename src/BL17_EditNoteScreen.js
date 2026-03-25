@@ -34,6 +34,7 @@ const EditNoteScreen = ({
   const titleInputRef = useRef(null);
   
   const isInTrash = note.folder === 'Корзина' || note.deleted === true;
+  const isNewNote = !selectedNote || selectedNote?.isNew === true;
 
   const handleShare = async () => {
     try {
@@ -97,12 +98,25 @@ const EditNoteScreen = ({
     }
     setIsEditing(true);
     setTimeout(() => {
-      // Ставим курсор перед текстом заметки (в начало контента)
-      if (contentInputRef.current) {
-        contentInputRef.current.focus();
-        contentInputRef.current.setNativeProps({
-          selection: { start: 0, end: 0 }
-        });
+      // Для новой заметки - курсор в текст, для существующей - курсор в заголовок
+      if (isNewNote) {
+        // Новая заметка: курсор в текст
+        if (contentInputRef.current) {
+          contentInputRef.current.focus();
+          contentInputRef.current.setNativeProps({
+            selection: { start: 0, end: 0 }
+          });
+        }
+      } else {
+        // Существующая заметка: курсор в заголовок
+        if (titleInputRef.current) {
+          titleInputRef.current.focus();
+          if (note.title) {
+            titleInputRef.current.setNativeProps({
+              selection: { start: note.title.length, end: note.title.length }
+            });
+          }
+        }
       }
     }, 100);
   };
@@ -116,12 +130,23 @@ const EditNoteScreen = ({
     if (!isEditing && !isInTrash) {
       setIsEditing(true);
       setTimeout(() => {
-        // Ставим курсор перед текстом заметки после выбора цвета
-        if (contentInputRef.current) {
-          contentInputRef.current.focus();
-          contentInputRef.current.setNativeProps({
-            selection: { start: 0, end: 0 }
-          });
+        // Для новой заметки - курсор в текст, для существующей - курсор в заголовок
+        if (isNewNote) {
+          if (contentInputRef.current) {
+            contentInputRef.current.focus();
+            contentInputRef.current.setNativeProps({
+              selection: { start: 0, end: 0 }
+            });
+          }
+        } else {
+          if (titleInputRef.current) {
+            titleInputRef.current.focus();
+            if (note.title) {
+              titleInputRef.current.setNativeProps({
+                selection: { start: note.title.length, end: note.title.length }
+              });
+            }
+          }
         }
       }, 100);
     }
