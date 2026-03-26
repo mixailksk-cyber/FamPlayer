@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, FlatList, Text, TouchableOpacity, Alert, BackHandler, Platform } from 'react-native';
+import { View, FlatList, Text, TouchableOpacity, Alert, BackHandler, Platform, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { getBrandColor } from './BL02_Constants';
@@ -23,6 +23,41 @@ const AppContent = () => {
   const [searchQuery, setSearchQuery] = React.useState('');
   
   const { notes, folders, settings, saveNotes, saveFolders, saveSettings, loadData } = useNotesData();
+
+  // Обработка открытия заметки из виджета
+  useEffect(() => {
+    const handleDeepLink = (event) => {
+      const url = event.url;
+      if (url && url.includes('famnotes://note/')) {
+        const noteId = url.split('famnotes://note/')[1];
+        const note = notes.find(n => n.id === noteId);
+        if (note) {
+          setSelectedNote(note);
+          setCurrentScreen('edit');
+        }
+      }
+    };
+    
+    const getInitialUrl = async () => {
+      const initialUrl = await Linking.getInitialURL();
+      if (initialUrl && initialUrl.includes('famnotes://note/')) {
+        const noteId = initialUrl.split('famnotes://note/')[1];
+        const note = notes.find(n => n.id === noteId);
+        if (note) {
+          setSelectedNote(note);
+          setCurrentScreen('edit');
+        }
+      }
+    };
+    
+    getInitialUrl();
+    
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+    
+    return () => {
+      subscription.remove();
+    };
+  }, [notes]);
 
   // Обработка кнопки "Назад" на Android
   useEffect(() => {
