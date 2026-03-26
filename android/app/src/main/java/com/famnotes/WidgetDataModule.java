@@ -35,29 +35,42 @@ public class WidgetDataModule extends ReactContextBaseJavaModule {
             SharedPreferences prefs = reactContext.getSharedPreferences(SHARED_PREFS_NAME, Context.MODE_PRIVATE);
             prefs.edit().putString(KEY_WIDGET_NOTES, notesJson).apply();
 
+            // Обновляем данные в сервисе
+            FamNotesWidgetService.updateWidgetData(reactContext, notesJson);
+
             // Обновляем виджет
             AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(reactContext);
             ComponentName componentName = new ComponentName(reactContext, FamNotesWidgetProvider.class);
             int[] appWidgetIds = appWidgetManager.getAppWidgetIds(componentName);
             
             if (appWidgetIds.length > 0) {
-                // Уведомляем RemoteViewsService об обновлении данных
-                FamNotesWidgetService.updateWidgetData(reactContext, notesJson);
-                
-                // Обновляем все виджеты
                 for (int appWidgetId : appWidgetIds) {
                     RemoteViews views = new RemoteViews(reactContext.getPackageName(), R.layout.widget_layout);
                     
-                    // Устанавливаем адаптер для ListView
+                    // Настройка адаптера для ListView
                     android.content.Intent intent = new android.content.Intent(reactContext, FamNotesWidgetService.class);
                     intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
                     intent.setData(android.net.Uri.parse(intent.toUri(android.content.Intent.URI_INTENT_SCHEME)));
                     
-                    RemoteViews rv = new RemoteViews(reactContext.getPackageName(), R.layout.widget_layout);
-                    rv.setRemoteAdapter(R.id.widget_list, intent);
-                    rv.setEmptyView(R.id.widget_list, android.R.id.empty);
+                    views.setRemoteAdapter(R.id.widget_list, intent);
+                    views.setEmptyView(R.id.widget_list, android.R.id.empty);
                     
-                    appWidgetManager.updateAppWidget(appWidgetId, rv);
+                    // Настройка открытия приложения при нажатии на виджет
+                    android.content.Intent openAppIntent = new android.content.Intent(reactContext, MainActivity.class);
+                    openAppIntent.setAction(android.content.Intent.ACTION_MAIN);
+                    openAppIntent.addCategory(android.content.Intent.CATEGORY_LAUNCHER);
+                    openAppIntent.setFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                    openAppIntent.setData(android.net.Uri.parse("famnotes://widget"));
+                    
+                    android.app.PendingIntent pendingIntent = android.app.PendingIntent.getActivity(
+                        reactContext, 
+                        appWidgetId, 
+                        openAppIntent, 
+                        android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE
+                    );
+                    views.setOnClickPendingIntent(R.id.widget_container, pendingIntent);
+                    
+                    appWidgetManager.updateAppWidget(appWidgetId, views);
                 }
             }
         } catch (JSONException e) {
