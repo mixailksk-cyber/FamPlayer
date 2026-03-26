@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Share, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Share, ScrollView, StatusBar } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Header from './BL04_Header';
 import ColorPickerModal from './BL08_ColorPickerModal';
@@ -36,7 +36,6 @@ const EditNoteScreen = ({
   
   const isInTrash = note.folder === 'Корзина' || note.deleted === true;
 
-  // Для новой заметки: фокус в поле текста
   useEffect(() => {
     if (isNewNote && contentInputRef.current) {
       setTimeout(() => {
@@ -103,7 +102,6 @@ const EditNoteScreen = ({
     setIsEditing(false);
   };
 
-  // Включение редактирования по карандашу или смене цвета - курсор в заголовок
   const handleEditPress = () => {
     if (isInTrash) {
       Alert.alert('Заметка в корзине', 'Заметки в корзине можно только просматривать и восстанавливать');
@@ -139,114 +137,119 @@ const EditNoteScreen = ({
     }
   };
 
-  return (
-    <KeyboardAvoidingView 
-      style={{ flex: 1, backgroundColor: 'white' }} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
-      <Header 
-        title={isInTrash ? "Просмотр (Корзина)" : (isEditing ? "Редактирование" : "Просмотр")}
-        showSearch={false} 
-        brandColor={note.color || brandColor}
-      >
-        {/* Кнопка выбора цвета (только не в корзине) */}
-        {!isInTrash && (
-          <TouchableOpacity onPress={() => setShowColor(true)}>
-            <Icon name="palette" size={24} color="white" />
-          </TouchableOpacity>
-        )}
-        
-        {/* Кнопка поделиться */}
-        <TouchableOpacity onPress={handleShare}>
-          <Icon name="share" size={24} color="white" />
-        </TouchableOpacity>
-        
-        {/* Кнопка корзины - удаляет без подтверждения */}
-        <TouchableOpacity onPress={handleDelete}>
-          <Icon name="delete" size={24} color="white" />
-        </TouchableOpacity>
-      </Header>
+  const headerColor = note.color || brandColor;
 
-      <ScrollView 
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        showsVerticalScrollIndicator={true}
-        keyboardShouldPersistTaps="handled"
+  return (
+    <>
+      <StatusBar backgroundColor={headerColor} barStyle="light-content" />
+      <KeyboardAvoidingView 
+        style={{ flex: 1, backgroundColor: 'white' }} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+        <Header 
+          title={isInTrash ? "Просмотр (Корзина)" : (isEditing ? "Редактирование" : "Просмотр")}
+          showSearch={false} 
+          brandColor={headerColor}
+        >
+          {/* Кнопка выбора цвета (только не в корзине) */}
+          {!isInTrash && (
+            <TouchableOpacity onPress={() => setShowColor(true)}>
+              <Icon name="palette" size={24} color="white" />
+            </TouchableOpacity>
+          )}
+          
+          {/* Кнопка поделиться */}
+          <TouchableOpacity onPress={handleShare}>
+            <Icon name="share" size={24} color="white" />
+          </TouchableOpacity>
+          
+          {/* Кнопка корзины - удаляет без подтверждения */}
+          <TouchableOpacity onPress={handleDelete}>
+            <Icon name="delete" size={24} color="white" />
+          </TouchableOpacity>
+        </Header>
+
+        <ScrollView 
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 100 }}
+          showsVerticalScrollIndicator={true}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+            {isEditing && !isInTrash ? (
+              <TextInput 
+                ref={titleInputRef}
+                style={{ fontSize: settings.fontSize + 2, fontWeight: 'bold', paddingVertical: 8, color: '#333' }} 
+                placeholder="Заголовок" 
+                placeholderTextColor="#999" 
+                maxLength={TITLE_MAX_LENGTH} 
+                value={note.title} 
+                onChangeText={t => setNote({ ...note, title: t })}
+                editable={!isInTrash && isEditing}
+              />
+            ) : (
+              <Text style={{ fontSize: settings.fontSize + 2, fontWeight: 'bold', paddingVertical: 8, color: '#333' }}>
+                {note.title || 'Заголовок'}
+              </Text>
+            )}
+            <View style={{ height: 2, backgroundColor: note.color || brandColor, width: '100%', marginTop: 4 }} />
+          </View>
+
           {isEditing && !isInTrash ? (
             <TextInput 
-              ref={titleInputRef}
-              style={{ fontSize: settings.fontSize + 2, fontWeight: 'bold', paddingVertical: 8, color: '#333' }} 
-              placeholder="Заголовок" 
+              ref={contentInputRef}
+              style={{ fontSize: settings.fontSize, paddingHorizontal: 16, paddingVertical: 12, textAlignVertical: 'top', color: '#333', minHeight: 200, lineHeight: settings.fontSize * 1.5 }} 
+              placeholder="Текст заметки..." 
               placeholderTextColor="#999" 
-              maxLength={TITLE_MAX_LENGTH} 
-              value={note.title} 
-              onChangeText={t => setNote({ ...note, title: t })}
+              multiline 
+              maxLength={NOTE_MAX_LENGTH} 
+              value={note.content} 
+              onChangeText={t => setNote({ ...note, content: t })}
               editable={!isInTrash && isEditing}
+              scrollEnabled={true}
             />
           ) : (
-            <Text style={{ fontSize: settings.fontSize + 2, fontWeight: 'bold', paddingVertical: 8, color: '#333' }}>
-              {note.title || 'Заголовок'}
+            <Text 
+              selectable={true}
+              style={{ fontSize: settings.fontSize, paddingHorizontal: 16, paddingVertical: 12, color: '#333', lineHeight: settings.fontSize * 1.5 }}
+            >
+              {note.content || '...'}
             </Text>
           )}
-          <View style={{ height: 2, backgroundColor: note.color || brandColor, width: '100%', marginTop: 4 }} />
-        </View>
+        </ScrollView>
 
-        {isEditing && !isInTrash ? (
-          <TextInput 
-            ref={contentInputRef}
-            style={{ fontSize: settings.fontSize, paddingHorizontal: 16, paddingVertical: 12, textAlignVertical: 'top', color: '#333', minHeight: 200, lineHeight: settings.fontSize * 1.5 }} 
-            placeholder="Текст заметки..." 
-            placeholderTextColor="#999" 
-            multiline 
-            maxLength={NOTE_MAX_LENGTH} 
-            value={note.content} 
-            onChangeText={t => setNote({ ...note, content: t })}
-            editable={!isInTrash && isEditing}
-            scrollEnabled={true}
-          />
-        ) : (
-          <Text 
-            selectable={true}
-            style={{ fontSize: settings.fontSize, paddingHorizontal: 16, paddingVertical: 12, color: '#333', lineHeight: settings.fontSize * 1.5 }}
+        {/* Кнопка редактирования/сохранения - не показываем для заметок в корзине */}
+        {!isInTrash && (
+          <TouchableOpacity 
+            style={{ 
+              position: 'absolute', 
+              bottom: insets.bottom + 24, 
+              right: 24, 
+              width: 70, 
+              height: 70, 
+              borderRadius: 35, 
+              backgroundColor: note.color || brandColor, 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              elevation: 5, 
+              zIndex: 1000
+            }} 
+            onPress={isEditing ? handleSave : handleEditPress}
           >
-            {note.content || '...'}
-          </Text>
+            <Icon name={isEditing ? "check" : "edit"} size={36} color="white" />
+          </TouchableOpacity>
         )}
-      </ScrollView>
 
-      {/* Кнопка редактирования/сохранения - не показываем для заметок в корзине */}
-      {!isInTrash && (
-        <TouchableOpacity 
-          style={{ 
-            position: 'absolute', 
-            bottom: insets.bottom + 24, 
-            right: 24, 
-            width: 70, 
-            height: 70, 
-            borderRadius: 35, 
-            backgroundColor: note.color || brandColor, 
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            elevation: 5, 
-            zIndex: 1000
-          }} 
-          onPress={isEditing ? handleSave : handleEditPress}
-        >
-          <Icon name={isEditing ? "check" : "edit"} size={36} color="white" />
-        </TouchableOpacity>
-      )}
-
-      <ColorPickerModal 
-        visible={showColor} 
-        onClose={() => setShowColor(false)} 
-        selectedColor={note.color} 
-        onSelect={handleColorSelect}
-        settings={settings}
-      />
-    </KeyboardAvoidingView>
+        <ColorPickerModal 
+          visible={showColor} 
+          onClose={() => setShowColor(false)} 
+          selectedColor={note.color} 
+          onSelect={handleColorSelect}
+          settings={settings}
+        />
+      </KeyboardAvoidingView>
+    </>
   );
 };
 
