@@ -7,21 +7,13 @@
     android:background="#80000000"
     android:padding="8dp">
 
-    <LinearLayout
-        android:id="@+id/widget_notes_container"
+    <ListView
+        android:id="@+id/widget_list"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <TextView
-            android:id="@+id/widget_notes_list"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Загрузка..."
-            android:textColor="#FFFFFF"
-            android:textSize="14sp"
-            android:lineSpacingExtra="2dp" />
-
-    </LinearLayout>
+        android:layout_height="match_parent"
+        android:divider="#33FFFFFF"
+        android:dividerHeight="1dp"
+        android:padding="0dp"
+        android:scrollbars="vertical" />
 
 </LinearLayout>
