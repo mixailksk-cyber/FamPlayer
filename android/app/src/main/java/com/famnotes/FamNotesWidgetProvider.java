@@ -11,9 +11,6 @@ import android.widget.RemoteViews;
 
 public class FamNotesWidgetProvider extends AppWidgetProvider {
 
-    public static final String ACTION_OPEN_NOTE = "OPEN_NOTE";
-    public static final String EXTRA_NOTE_ID = "note_id";
-
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
         for (int appWidgetId : appWidgetIds) {
@@ -27,31 +24,25 @@ public class FamNotesWidgetProvider extends AppWidgetProvider {
             views.setRemoteAdapter(R.id.widget_list, intent);
             views.setEmptyView(R.id.widget_list, android.R.id.empty);
             
-            // Создаем шаблонный PendingIntent для виджета
-            Intent templateIntent = new Intent(context, FamNotesWidgetProvider.class);
-            templateIntent.setAction(ACTION_OPEN_NOTE);
-            PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                context, 
-                appWidgetId, 
-                templateIntent, 
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-            );
-            views.setPendingIntentTemplate(R.id.widget_list, pendingIntent);
+            // Отключаем кликабельность ListView
+            views.setInt(R.id.widget_list, "setEnabled", 0);
             
-            // Настройка открытия приложения при нажатии на пустую область виджета
+            // Настройка открытия приложения при нажатии на весь виджет
             Intent openAppIntent = new Intent(context, MainActivity.class);
             openAppIntent.setAction(Intent.ACTION_MAIN);
             openAppIntent.addCategory(Intent.CATEGORY_LAUNCHER);
             openAppIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             openAppIntent.setData(Uri.parse("famnotes://widget"));
             
-            PendingIntent appPendingIntent = PendingIntent.getActivity(
+            PendingIntent pendingIntent = PendingIntent.getActivity(
                 context, 
                 appWidgetId, 
                 openAppIntent, 
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
             );
-            views.setOnClickPendingIntent(R.id.widget_container, appPendingIntent);
+            
+            // Устанавливаем PendingIntent на весь FrameLayout
+            views.setOnClickPendingIntent(R.id.widget_container, pendingIntent);
             
             appWidgetManager.updateAppWidget(appWidgetId, views);
         }
@@ -62,20 +53,6 @@ public class FamNotesWidgetProvider extends AppWidgetProvider {
     public void onReceive(Context context, Intent intent) {
         super.onReceive(context, intent);
         
-        // Обработка нажатия на заметку в виджете
-        if (ACTION_OPEN_NOTE.equals(intent.getAction())) {
-            String noteId = intent.getStringExtra(EXTRA_NOTE_ID);
-            if (noteId != null) {
-                Intent openAppIntent = new Intent(context, MainActivity.class);
-                openAppIntent.setAction(Intent.ACTION_VIEW);
-                openAppIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                openAppIntent.setData(Uri.parse("famnotes://note/" + noteId));
-                openAppIntent.putExtra("open_note_id", noteId);
-                context.startActivity(openAppIntent);
-            }
-        }
-        
-        // Обновление при загрузке системы
         if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
             AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
             ComponentName componentName = new ComponentName(context, FamNotesWidgetProvider.class);
@@ -84,15 +61,5 @@ public class FamNotesWidgetProvider extends AppWidgetProvider {
                 onUpdate(context, appWidgetManager, appWidgetIds);
             }
         }
-    }
-    
-    @Override
-    public void onEnabled(Context context) {
-        super.onEnabled(context);
-    }
-    
-    @Override
-    public void onDisabled(Context context) {
-        super.onDisabled(context);
     }
 }
