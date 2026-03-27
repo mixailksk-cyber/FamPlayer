@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">FamNotes</string>
-    <string name="add_widget">FamNotes Widget</string>
+    <string name="default_notification_channel_id">famnotes_channel</string>
 </resources>
