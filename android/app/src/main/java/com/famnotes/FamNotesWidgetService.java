@@ -70,7 +70,6 @@ public class FamNotesWidgetService extends RemoteViewsService {
                     tempNotes.add(item);
                 }
                 
-                // Сортировка: сначала закрепленные, потом по дате обновления
                 Collections.sort(tempNotes, new Comparator<WidgetNoteItem>() {
                     @Override
                     public int compare(WidgetNoteItem a, WidgetNoteItem b) {
@@ -123,29 +122,20 @@ public class FamNotesWidgetService extends RemoteViewsService {
                 views.setViewVisibility(R.id.widget_item_content, android.view.View.GONE);
             }
             
-            // Если нет ни заголовка, ни содержимого
             if ((note.title == null || note.title.isEmpty()) && (note.content == null || note.content.isEmpty())) {
                 views.setTextViewText(R.id.widget_item_title, "Без названия");
                 views.setViewVisibility(R.id.widget_item_title, android.view.View.VISIBLE);
                 views.setViewVisibility(R.id.widget_item_content, android.view.View.GONE);
             }
             
-            // Создаем Intent для открытия заметки через виджет
-            Intent openNoteIntent = new Intent(mContext, FamNotesWidgetProvider.class);
-            openNoteIntent.setAction("OPEN_NOTE");
-            openNoteIntent.putExtra("note_id", note.id);
-            openNoteIntent.setData(Uri.parse("famnotes://note/" + note.id));
+            // Создаем шаблонный Intent для открытия заметки
+            Intent fillInIntent = new Intent();
+            fillInIntent.setAction(FamNotesWidgetProvider.ACTION_OPEN_NOTE);
+            fillInIntent.putExtra(FamNotesWidgetProvider.EXTRA_NOTE_ID, note.id);
+            fillInIntent.setData(Uri.parse("famnotes://note/" + note.id));
             
-            PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                mContext, 
-                position, 
-                openNoteIntent, 
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-            );
-            
-            // Устанавливаем PendingIntent на весь элемент
-            views.setOnClickPendingIntent(R.id.widget_item_title, pendingIntent);
-            views.setOnClickPendingIntent(R.id.widget_item_content, pendingIntent);
+            views.setOnClickFillInIntent(R.id.widget_item_title, fillInIntent);
+            views.setOnClickFillInIntent(R.id.widget_item_content, fillInIntent);
             
             return views;
         }
