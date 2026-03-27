@@ -43,6 +43,9 @@
             <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
         </intent-filter>
         <intent-filter>
+            <action android:name="OPEN_NOTE" />
+        </intent-filter>
+        <intent-filter>
             <action android:name="android.intent.action.BOOT_COMPLETED" />
         </intent-filter>
         <meta-data
