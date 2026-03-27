@@ -36,12 +36,12 @@ const EditNoteScreen = ({
   
   const isInTrash = note.folder === 'Корзина' || note.deleted === true;
 
-  // Для новой заметки: фокус в поле текста и открытие клавиатуры
+  // Для новой заметки: фокус в поле заголовка
   useEffect(() => {
-    if (isNewNote && contentInputRef.current) {
+    if (isNewNote && titleInputRef.current) {
       setTimeout(() => {
-        contentInputRef.current.focus();
-        contentInputRef.current.setNativeProps({
+        titleInputRef.current.focus();
+        titleInputRef.current.setNativeProps({
           selection: { start: 0, end: 0 }
         });
       }, 100);
