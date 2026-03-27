@@ -88,43 +88,98 @@ const SettingsScreen = ({
         return;
       }
 
-      const downloadsPath = RNFS.DownloadDirectoryPath;
-      const path = downloadsPath + '/' + fileName;
-      
-      await RNFS.writeFile(path, backupStr, 'utf8');
-      
-      const fileExists = await RNFS.exists(path);
-      if (fileExists) {
-        const fileInfo = await RNFS.stat(path);
-        
-        Alert.alert(
-          '✅ Резервная копия создана',
-          `Файл: ${fileName}\nРазмер: ${(fileInfo.size / 1024).toFixed(2)} KB\n\nСохранено в папку "Загрузки"`,
-          [
-            { 
-              text: 'OK', 
-              onPress: () => setIsBackingUp(false)
-            },
-            { 
-              text: 'Поделиться', 
-              onPress: async () => {
-                try {
-                  await Share.share({
-                    title: 'Резервная копия FamNotes',
-                    url: `file://${path}`,
-                    message: `Резервная копия заметок от ${new Date().toLocaleString()}`
-                  });
-                } catch (e) {
-                  console.log('Share error:', e);
+      // Предлагаем пользователю выбрать место сохранения
+      Alert.alert(
+        'Сохранение резервной копии',
+        'Выберите действие:',
+        [
+          { 
+            text: 'Сохранить в папку "Загрузки"', 
+            onPress: async () => {
+              try {
+                const downloadsPath = RNFS.DownloadDirectoryPath;
+                const path = downloadsPath + '/' + fileName;
+                await RNFS.writeFile(path, backupStr, 'utf8');
+                
+                const fileExists = await RNFS.exists(path);
+                if (fileExists) {
+                  const fileInfo = await RNFS.stat(path);
+                  Alert.alert(
+                    '✅ Резервная копия создана',
+                    `Файл: ${fileName}\nРазмер: ${(fileInfo.size / 1024).toFixed(2)} KB\n\nСохранено в папку "Загрузки"`,
+                    [{ text: 'OK', onPress: () => setIsBackingUp(false) }]
+                  );
+                } else {
+                  throw new Error('Файл не был создан');
+                }
+              } catch (e) {
+                Alert.alert('❌ Ошибка', 'Не удалось сохранить: ' + e.message);
+                setIsBackingUp(false);
+              }
+            }
+          },
+          { 
+            text: 'Выбрать папку', 
+            onPress: async () => {
+              try {
+                // Используем DocumentPicker для выбора папки
+                const result = await DocumentPicker.pick({
+                  type: [DocumentPicker.types.allFiles],
+                  allowMultiSelection: false,
+                });
+                
+                if (result && result[0]) {
+                  // Получаем выбранную директорию
+                  let selectedUri = result[0].uri;
+                  // Извлекаем путь к папке (убираем имя файла)
+                  const lastSlash = selectedUri.lastIndexOf('/');
+                  const folderPath = selectedUri.substring(0, lastSlash);
+                  const path = folderPath + '/' + fileName;
+                  
+                  await RNFS.writeFile(path, backupStr, 'utf8');
+                  
+                  Alert.alert(
+                    '✅ Резервная копия создана',
+                    `Файл: ${fileName}\nСохранено в выбранную папку`,
+                    [{ text: 'OK', onPress: () => setIsBackingUp(false) }]
+                  );
+                } else {
+                  setIsBackingUp(false);
+                }
+              } catch (e) {
+                if (e.code !== 'DOCUMENT_PICKER_CANCELED') {
+                  Alert.alert('❌ Ошибка', 'Не удалось сохранить: ' + e.message);
                 }
                 setIsBackingUp(false);
               }
             }
-          ]
-        );
-      } else {
-        throw new Error('Файл не был создан');
-      }
+          },
+          { 
+            text: 'Поделиться', 
+            onPress: async () => {
+              try {
+                // Создаем временный файл для шаринга
+                const tempPath = RNFS.CachesDirectoryPath + '/' + fileName;
+                await RNFS.writeFile(tempPath, backupStr, 'utf8');
+                
+                await Share.share({
+                  title: 'Резервная копия FamNotes',
+                  url: `file://${tempPath}`,
+                  message: `Резервная копия заметок от ${new Date().toLocaleString()}`
+                });
+                
+                // Удаляем временный файл
+                await RNFS.unlink(tempPath);
+                setIsBackingUp(false);
+              } catch (e) {
+                Alert.alert('❌ Ошибка', 'Не удалось поделиться: ' + e.message);
+                setIsBackingUp(false);
+              }
+            }
+          },
+          { text: 'Отмена', style: 'cancel', onPress: () => setIsBackingUp(false) }
+        ]
+      );
     } catch (e) {
       console.error('Backup error:', e);
       Alert.alert('❌ Ошибка', 'Не удалось создать резервную копию: ' + e.message);
