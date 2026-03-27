@@ -30,12 +30,13 @@
             android:orientation="horizontal"
             android:gravity="center"
             android:paddingTop="12dp"
-            android:layout_marginTop="8dp">
+            android:layout_marginTop="8dp"
+            android:baselineAligned="false">
 
             <TextView
                 android:id="@+id/widget_open_app_button"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="48dp"
                 android:layout_weight="1"
                 android:text="Перейти в приложение"
                 android:textColor="#FFFFFF"
@@ -44,19 +45,25 @@
                 android:background="@drawable/widget_button_background"
                 android:paddingVertical="8dp"
                 android:paddingHorizontal="12dp"
-                android:layout_marginEnd="4dp" />
+                android:layout_marginEnd="6dp"
+                android:maxLines="1"
+                android:ellipsize="end" />
 
-            <ImageButton
+            <TextView
                 android:id="@+id/widget_add_button"
-                android:layout_width="48dp"
+                android:layout_width="0dp"
                 android:layout_height="48dp"
-                android:background="@drawable/widget_add_button_background"
-                android:src="@android:drawable/ic_menu_add"
-                android:padding="12dp"
-                android:scaleType="centerInside"
-                android:clickable="true"
-                android:focusable="true"
-                android:layout_marginStart="4dp" />
+                android:layout_weight="1"
+                android:text="Новая заметка"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:gravity="center"
+                android:background="@drawable/widget_button_background"
+                android:paddingVertical="8dp"
+                android:paddingHorizontal="12dp"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end" />
 
         </LinearLayout>
 
