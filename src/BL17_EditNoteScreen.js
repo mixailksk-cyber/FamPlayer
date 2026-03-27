@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Share, ScrollView, TouchableWithoutFeedback, StatusBar, Keyboard } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Share, ScrollView, TouchableWithoutFeedback, StatusBar } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Header from './BL04_Header';
 import ColorPickerModal from './BL08_ColorPickerModal';
@@ -31,53 +31,23 @@ const EditNoteScreen = ({
   });
   const [showColor, setShowColor] = useState(false);
   const [isEditing, setIsEditing] = useState(isNewNote || false);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const contentInputRef = useRef(null);
   const titleInputRef = useRef(null);
   const scrollViewRef = useRef(null);
   
   const isInTrash = note.folder === 'Корзина' || note.deleted === true;
 
-  // Для новой заметки: фокус в поле текста
+  // Для новой заметки: фокус в поле заголовка
   useEffect(() => {
-    if (isNewNote && contentInputRef.current) {
+    if (isNewNote && titleInputRef.current) {
       setTimeout(() => {
-        contentInputRef.current.focus();
+        titleInputRef.current.focus();
+        titleInputRef.current.setNativeProps({
+          selection: { start: 0, end: 0 }
+        });
       }, 100);
     }
   }, [isNewNote]);
-
-  // Отслеживание появления клавиатуры
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
-      setKeyboardVisible(true);
-      setKeyboardHeight(e.endCoordinates.height);
-    });
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardVisible(false);
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
-    };
-  }, []);
-
-  // Фокус в поле текста при нажатии на любую область
-  const handleContentPress = () => {
-    if (isEditing && !isInTrash && contentInputRef.current) {
-      contentInputRef.current.focus();
-    }
-  };
-
-  // Фокус в поле заголовка при нажатии на заголовок
-  const handleTitlePress = () => {
-    if (isEditing && !isInTrash && titleInputRef.current) {
-      titleInputRef.current.focus();
-    }
-  };
 
   const handleShare = async () => {
     try {
@@ -141,8 +111,11 @@ const EditNoteScreen = ({
     }
     setIsEditing(true);
     setTimeout(() => {
-      if (contentInputRef.current) {
-        contentInputRef.current.focus();
+      if (titleInputRef.current) {
+        titleInputRef.current.focus();
+        titleInputRef.current.setNativeProps({
+          selection: { start: note.title.length, end: note.title.length }
+        });
       }
     }, 100);
   };
@@ -156,17 +129,24 @@ const EditNoteScreen = ({
     if (!isEditing && !isInTrash) {
       setIsEditing(true);
       setTimeout(() => {
-        if (contentInputRef.current) {
-          contentInputRef.current.focus();
+        if (titleInputRef.current) {
+          titleInputRef.current.focus();
+          titleInputRef.current.setNativeProps({
+            selection: { start: note.title.length, end: note.title.length }
+          });
         }
       }, 100);
     }
   };
 
+  // Функция для фокуса на поле содержимого при нажатии на любую область текста
+  const handleContentAreaPress = () => {
+    if (isEditing && !isInTrash && contentInputRef.current) {
+      contentInputRef.current.focus();
+    }
+  };
+
   const headerColor = note.color || brandColor;
-  
-  // Вычисляем нижний отступ для кнопки с учетом клавиатуры
-  const buttonBottom = keyboardVisible ? keyboardHeight + 16 : insets.bottom + 24;
 
   return (
     <>
@@ -199,67 +179,67 @@ const EditNoteScreen = ({
           </TouchableOpacity>
         </Header>
 
-        <TouchableWithoutFeedback onPress={handleContentPress}>
-          <ScrollView 
-            ref={scrollViewRef}
-            style={{ flex: 1 }}
-            contentContainerStyle={{ paddingBottom: 100 }}
-            showsVerticalScrollIndicator={true}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
-              {isEditing && !isInTrash ? (
-                <TouchableWithoutFeedback onPress={handleTitlePress}>
-                  <TextInput 
-                    ref={titleInputRef}
-                    style={{ fontSize: settings.fontSize + 2, fontWeight: 'bold', paddingVertical: 8, color: '#333' }} 
-                    placeholder="Заголовок" 
-                    placeholderTextColor="#999" 
-                    maxLength={TITLE_MAX_LENGTH} 
-                    value={note.title} 
-                    onChangeText={t => setNote({ ...note, title: t })}
-                    editable={!isInTrash && isEditing}
-                  />
-                </TouchableWithoutFeedback>
-              ) : (
-                <Text style={{ fontSize: settings.fontSize + 2, fontWeight: 'bold', paddingVertical: 8, color: '#333' }}>
-                  {note.title || 'Заголовок'}
-                </Text>
-              )}
-              <View style={{ height: 2, backgroundColor: note.color || brandColor, width: '100%', marginTop: 4 }} />
-            </View>
-
+        <ScrollView 
+          ref={scrollViewRef}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 100 }}
+          showsVerticalScrollIndicator={true}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
             {isEditing && !isInTrash ? (
               <TextInput 
-                ref={contentInputRef}
-                style={{ fontSize: settings.fontSize, paddingHorizontal: 16, paddingVertical: 12, textAlignVertical: 'top', color: '#333', minHeight: 200, lineHeight: settings.fontSize * 1.5 }} 
-                placeholder="Текст заметки" 
+                ref={titleInputRef}
+                style={{ fontSize: settings.fontSize + 2, fontWeight: 'bold', paddingVertical: 8, color: '#333' }} 
+                placeholder="Заголовок" 
                 placeholderTextColor="#999" 
-                multiline 
-                maxLength={NOTE_MAX_LENGTH} 
-                value={note.content} 
-                onChangeText={t => setNote({ ...note, content: t })}
+                maxLength={TITLE_MAX_LENGTH} 
+                value={note.title} 
+                onChangeText={t => setNote({ ...note, title: t })}
                 editable={!isInTrash && isEditing}
-                scrollEnabled={true}
               />
             ) : (
-              <Text 
-                selectable={true}
-                style={{ fontSize: settings.fontSize, paddingHorizontal: 16, paddingVertical: 12, color: '#333', lineHeight: settings.fontSize * 1.5 }}
-                onPress={handleEditPress}
-              >
-                {note.content || '...'}
+              <Text style={{ fontSize: settings.fontSize + 2, fontWeight: 'bold', paddingVertical: 8, color: '#333' }}>
+                {note.title || 'Заголовок'}
               </Text>
             )}
-          </ScrollView>
-        </TouchableWithoutFeedback>
+            <View style={{ height: 2, backgroundColor: note.color || brandColor, width: '100%', marginTop: 4 }} />
+          </View>
+
+          {isEditing && !isInTrash ? (
+            <TouchableWithoutFeedback onPress={handleContentAreaPress}>
+              <View style={{ flex: 1, minHeight: 400 }}>
+                <TextInput 
+                  ref={contentInputRef}
+                  style={{ fontSize: settings.fontSize, paddingHorizontal: 16, paddingVertical: 12, textAlignVertical: 'top', color: '#333', minHeight: 400, lineHeight: settings.fontSize * 1.5 }} 
+                  placeholder="Текст заметки" 
+                  placeholderTextColor="#999" 
+                  multiline 
+                  maxLength={NOTE_MAX_LENGTH} 
+                  value={note.content} 
+                  onChangeText={t => setNote({ ...note, content: t })}
+                  editable={!isInTrash && isEditing}
+                  scrollEnabled={true}
+                />
+              </View>
+            </TouchableWithoutFeedback>
+          ) : (
+            <Text 
+              selectable={true}
+              style={{ fontSize: settings.fontSize, paddingHorizontal: 16, paddingVertical: 12, color: '#333', lineHeight: settings.fontSize * 1.5, minHeight: 400 }}
+              onPress={handleEditPress}
+            >
+              {note.content || '...'}
+            </Text>
+          )}
+        </ScrollView>
 
         {/* Кнопка редактирования/сохранения - не показываем для заметок в корзине */}
         {!isInTrash && (
           <TouchableOpacity 
             style={{ 
               position: 'absolute', 
-              bottom: buttonBottom, 
+              bottom: insets.bottom + 24, 
               right: 24, 
               width: 70, 
               height: 70, 
