@@ -130,14 +130,13 @@ public class FamNotesWidgetService extends RemoteViewsService {
                 views.setViewVisibility(R.id.widget_item_content, android.view.View.GONE);
             }
             
-            // Настройка открытия заметки при нажатии на элемент списка
-            Intent openNoteIntent = new Intent(mContext, MainActivity.class);
-            openNoteIntent.setAction(Intent.ACTION_VIEW);
-            openNoteIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            // Создаем Intent для открытия заметки через виджет
+            Intent openNoteIntent = new Intent(mContext, FamNotesWidgetProvider.class);
+            openNoteIntent.setAction("OPEN_NOTE");
+            openNoteIntent.putExtra("note_id", note.id);
             openNoteIntent.setData(Uri.parse("famnotes://note/" + note.id));
-            openNoteIntent.putExtra("open_note_id", note.id);
             
-            PendingIntent pendingIntent = PendingIntent.getActivity(
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(
                 mContext, 
                 position, 
                 openNoteIntent, 
