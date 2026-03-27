@@ -1,8 +1,11 @@
 package com.famnotes;
 
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
+import android.text.TextUtils;
 import android.widget.RemoteViews;
 import android.widget.RemoteViewsService;
 
@@ -55,6 +58,7 @@ public class FamNotesWidgetService extends RemoteViewsService {
                 String notesJson = prefs.getString(KEY_WIDGET_NOTES, "[]");
                 
                 JSONArray notesArray = new JSONArray(notesJson);
+                List<WidgetNoteItem> tempNotes = new ArrayList<>();
                 
                 for (int i = 0; i < notesArray.length(); i++) {
                     JSONObject note = notesArray.getJSONObject(i);
@@ -64,10 +68,11 @@ public class FamNotesWidgetService extends RemoteViewsService {
                     item.content = note.optString("content", "");
                     item.pinned = note.optBoolean("pinned", false);
                     item.updatedAt = note.optLong("updatedAt", 0);
-                    mNotes.add(item);
+                    tempNotes.add(item);
                 }
                 
-                Collections.sort(mNotes, new Comparator<WidgetNoteItem>() {
+                // Сортировка: сначала закрепленные, потом по дате обновления
+                Collections.sort(tempNotes, new Comparator<WidgetNoteItem>() {
                     @Override
                     public int compare(WidgetNoteItem a, WidgetNoteItem b) {
                         if (a.pinned && !b.pinned) return -1;
@@ -75,6 +80,8 @@ public class FamNotesWidgetService extends RemoteViewsService {
                         return Long.compare(b.updatedAt, a.updatedAt);
                     }
                 });
+                
+                mNotes.addAll(tempNotes);
                 
             } catch (JSONException e) {
                 e.printStackTrace();
@@ -100,6 +107,7 @@ public class FamNotesWidgetService extends RemoteViewsService {
             WidgetNoteItem note = mNotes.get(position);
             RemoteViews views = new RemoteViews(mContext.getPackageName(), R.layout.widget_list_item);
             
+            // Заголовок - только одна строка
             if (note.title != null && !note.title.isEmpty()) {
                 views.setTextViewText(R.id.widget_item_title, note.title);
                 views.setViewVisibility(R.id.widget_item_title, android.view.View.VISIBLE);
@@ -107,19 +115,38 @@ public class FamNotesWidgetService extends RemoteViewsService {
                 views.setViewVisibility(R.id.widget_item_title, android.view.View.GONE);
             }
             
+            // Содержимое - только одна строка
             if (note.content != null && !note.content.isEmpty()) {
-                String shortContent = note.content.length() > 60 ? note.content.substring(0, 60) + "..." : note.content;
+                String shortContent = note.content.length() > 50 ? note.content.substring(0, 50) + "..." : note.content;
                 views.setTextViewText(R.id.widget_item_content, shortContent);
                 views.setViewVisibility(R.id.widget_item_content, android.view.View.VISIBLE);
             } else {
                 views.setViewVisibility(R.id.widget_item_content, android.view.View.GONE);
             }
             
+            // Если нет ни заголовка, ни содержимого
             if ((note.title == null || note.title.isEmpty()) && (note.content == null || note.content.isEmpty())) {
                 views.setTextViewText(R.id.widget_item_title, "Без названия");
                 views.setViewVisibility(R.id.widget_item_title, android.view.View.VISIBLE);
                 views.setViewVisibility(R.id.widget_item_content, android.view.View.GONE);
             }
+            
+            // Настройка открытия заметки при нажатии на элемент списка
+            Intent openNoteIntent = new Intent(mContext, MainActivity.class);
+            openNoteIntent.setAction(Intent.ACTION_VIEW);
+            openNoteIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            openNoteIntent.setData(Uri.parse("famnotes://note/" + note.id));
+            openNoteIntent.putExtra("open_note_id", note.id);
+            
+            PendingIntent pendingIntent = PendingIntent.getActivity(
+                mContext, 
+                position, 
+                openNoteIntent, 
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
+            
+            views.setOnClickPendingIntent(R.id.widget_item_title, pendingIntent);
+            views.setOnClickPendingIntent(R.id.widget_item_content, pendingIntent);
             
             return views;
         }
