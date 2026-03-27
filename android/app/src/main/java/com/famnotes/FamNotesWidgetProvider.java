@@ -26,7 +26,7 @@ public class FamNotesWidgetProvider extends AppWidgetProvider {
             views.setRemoteAdapter(R.id.widget_list, intent);
             views.setEmptyView(R.id.widget_list, android.R.id.empty);
             
-            // Настройка кнопки "Создать заметку" (плюсик)
+            // Настройка кнопки "Новая заметка"
             Intent createNoteIntent = new Intent(context, FamNotesWidgetProvider.class);
             createNoteIntent.setAction(ACTION_CREATE_NOTE);
             PendingIntent createPendingIntent = PendingIntent.getBroadcast(
