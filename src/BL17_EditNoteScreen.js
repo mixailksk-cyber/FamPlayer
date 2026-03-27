@@ -31,8 +31,6 @@ const EditNoteScreen = ({
   });
   const [showColor, setShowColor] = useState(false);
   const [isEditing, setIsEditing] = useState(isNewNote || false);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const contentInputRef = useRef(null);
   const titleInputRef = useRef(null);
   const scrollViewRef = useRef(null);
@@ -47,23 +45,6 @@ const EditNoteScreen = ({
       }, 100);
     }
   }, [isNewNote]);
-
-  // Отслеживание появления клавиатуры
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
-      setKeyboardVisible(true);
-      setKeyboardHeight(e.endCoordinates.height);
-    });
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardVisible(false);
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
-    };
-  }, []);
 
   // Фокус в поле текста при нажатии на любую область
   const handleContentPress = () => {
@@ -165,9 +146,9 @@ const EditNoteScreen = ({
 
   const headerColor = note.color || brandColor;
   
-  // Вычисляем нижний отступ для кнопки с учетом клавиатуры
-  // Кнопка будет на 8px выше клавиатуры
-  const buttonBottom = keyboardVisible ? keyboardHeight + 8 : insets.bottom + 24;
+  // Кнопка всегда на фиксированном расстоянии от низа, без учета клавиатуры
+  // KeyboardAvoidingView сам поднимет контент, кнопка будет следовать за ним
+  const buttonBottom = insets.bottom + 24;
 
   return (
     <>
@@ -257,7 +238,7 @@ const EditNoteScreen = ({
 
         {/* Кнопка редактирования/сохранения - не показываем для заметок в корзине */}
         {!isInTrash && (
-          <TouchableOpacity 
+          <View
             style={{ 
               position: 'absolute', 
               bottom: buttonBottom, 
@@ -270,11 +251,15 @@ const EditNoteScreen = ({
               alignItems: 'center', 
               elevation: 5, 
               zIndex: 1000
-            }} 
-            onPress={isEditing ? handleSave : handleEditPress}
+            }}
           >
-            <Icon name={isEditing ? "check" : "edit"} size={36} color="white" />
-          </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={isEditing ? handleSave : handleEditPress}
+              style={{ width: '100%', height: '100%', borderRadius: 35, justifyContent: 'center', alignItems: 'center' }}
+            >
+              <Icon name={isEditing ? "check" : "edit"} size={36} color="white" />
+            </TouchableOpacity>
+          </View>
         )}
 
         <ColorPickerModal 
