@@ -11,6 +11,7 @@ import EditNoteScreen from './BL17_EditNoteScreen';
 import SearchScreen from './BL20_SearchScreen';
 import NoteActionDialog from './BL07_NoteActionDialog';
 import { useNotesData } from './BL12_DataHooks';
+import { scheduleReminder, cancelReminder } from './BL21_NotificationService';
 
 const AppContent = () => {
   const insets = useSafeAreaInsets();
@@ -227,9 +228,17 @@ const AppContent = () => {
     saveNotes(updatedNotes);
     
     if (time) {
+      const note = notes.find(n => n.id === noteId);
       const date = new Date(time);
-      Alert.alert('✅ Напоминание установлено', `Напоминание установлено на ${date.toLocaleString()}`);
+      
+      if (time > Date.now()) {
+        scheduleReminder(noteId, note?.title, note?.content, time);
+        Alert.alert('✅ Напоминание установлено', `Напоминание установлено на ${date.toLocaleString()}`);
+      } else {
+        Alert.alert('❌ Ошибка', 'Дата и время должны быть в будущем');
+      }
     } else {
+      cancelReminder(noteId);
       Alert.alert('🗑 Напоминание отменено', 'Напоминание для этой заметки отменено');
     }
   };
