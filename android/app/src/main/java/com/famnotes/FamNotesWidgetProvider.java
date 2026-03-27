@@ -11,6 +11,8 @@ import android.widget.RemoteViews;
 
 public class FamNotesWidgetProvider extends AppWidgetProvider {
 
+    public static final String ACTION_CREATE_NOTE = "CREATE_NOTE";
+
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
         for (int appWidgetId : appWidgetIds) {
@@ -23,6 +25,17 @@ public class FamNotesWidgetProvider extends AppWidgetProvider {
             
             views.setRemoteAdapter(R.id.widget_list, intent);
             views.setEmptyView(R.id.widget_list, android.R.id.empty);
+            
+            // Настройка кнопки "Создать заметку"
+            Intent createNoteIntent = new Intent(context, FamNotesWidgetProvider.class);
+            createNoteIntent.setAction(ACTION_CREATE_NOTE);
+            PendingIntent createPendingIntent = PendingIntent.getBroadcast(
+                context,
+                appWidgetId,
+                createNoteIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
+            views.setOnClickPendingIntent(R.id.widget_add_button, createPendingIntent);
             
             // Настройка открытия приложения при нажатии на весь виджет
             Intent openAppIntent = new Intent(context, MainActivity.class);
@@ -48,6 +61,16 @@ public class FamNotesWidgetProvider extends AppWidgetProvider {
     @Override
     public void onReceive(Context context, Intent intent) {
         super.onReceive(context, intent);
+        
+        // Обработка нажатия на кнопку создания заметки
+        if (ACTION_CREATE_NOTE.equals(intent.getAction())) {
+            Intent openAppIntent = new Intent(context, MainActivity.class);
+            openAppIntent.setAction(Intent.ACTION_VIEW);
+            openAppIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            openAppIntent.setData(Uri.parse("famnotes://create"));
+            openAppIntent.putExtra("create_new_note", true);
+            context.startActivity(openAppIntent);
+        }
         
         if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
             AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
