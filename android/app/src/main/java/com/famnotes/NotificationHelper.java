@@ -20,9 +20,12 @@ public class NotificationHelper {
             channel.setDescription(CHANNEL_DESCRIPTION);
             channel.enableLights(true);
             channel.enableVibration(true);
-            channel.setLockscreenVisibility(NotificationManager.VISIBILITY_PUBLIC);
+            // VISIBILITY_PUBLIC доступен начиная с API 21, но для совместимости используем проверку
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                channel.setLockscreenVisibility(NotificationManager.VISIBILITY_PUBLIC);
+            }
             
-            NotificationManager manager = context.getSystemService(NotificationManager.class);
+            NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
             manager.createNotificationChannel(channel);
         }
     }
