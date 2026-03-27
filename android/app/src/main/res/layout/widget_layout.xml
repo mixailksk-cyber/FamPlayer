@@ -4,16 +4,16 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="8dp"
-    android:clipChildren="true"
-    android:clipToPadding="true">
+    android:background="@drawable/widget_background"
+    android:padding="12dp"
+    android:clickable="true"
+    android:focusable="true">
 
     <LinearLayout
         android:id="@+id/widget_inner"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:background="@drawable/widget_background"
         android:padding="8dp">
 
         <ListView
@@ -23,7 +23,9 @@
             android:divider="#33FFFFFF"
             android:dividerHeight="1dp"
             android:padding="0dp"
-            android:scrollbars="vertical" />
+            android:scrollbars="vertical"
+            android:clickable="false"
+            android:focusable="false" />
 
     </LinearLayout>
 
