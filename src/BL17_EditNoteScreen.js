@@ -166,7 +166,7 @@ const EditNoteScreen = ({
   const headerColor = note.color || brandColor;
   
   // Кнопка поднимается над клавиатурой на 40px выше
-  const buttonBottom = keyboardVisible ? keyboardHeight + 40 : insets.bottom + 24;
+  const buttonBottom = keyboardVisible ? keyboardHeight + 1 : insets.bottom + 24;
 
   return (
     <>
