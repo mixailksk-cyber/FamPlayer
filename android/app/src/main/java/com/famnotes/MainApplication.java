@@ -23,8 +23,6 @@ public class MainApplication extends Application implements ReactApplication {
         protected List<ReactPackage> getPackages() {
           List<ReactPackage> packages = new PackageList(this).getPackages();
           packages.add(new WidgetPackage());
-          // НЕ добавляем ReactNativePushNotificationPackage здесь,
-          // так как он автоматически подключается через автолинкинг
           return packages;
         }
 
