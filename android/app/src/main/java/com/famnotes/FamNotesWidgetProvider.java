@@ -37,7 +37,7 @@ public class FamNotesWidgetProvider extends AppWidgetProvider {
             );
             views.setOnClickPendingIntent(R.id.widget_add_button, createPendingIntent);
             
-            // Настройка кнопки "Перейти в приложение"
+            // Настройка кнопки "Все заметки"
             Intent openAppIntent = new Intent(context, MainActivity.class);
             openAppIntent.setAction(Intent.ACTION_MAIN);
             openAppIntent.addCategory(Intent.CATEGORY_LAUNCHER);
