@@ -166,8 +166,8 @@ const EditNoteScreen = ({
   const headerColor = note.color || brandColor;
   
   // Вычисляем нижний отступ для кнопки с учетом клавиатуры
-  // Прибавляем дополнительный отступ 16px, чтобы кнопка была выше клавиатуры
-  const buttonBottom = keyboardVisible ? keyboardHeight + 16 : insets.bottom + 24;
+  // Кнопка будет на 8px выше клавиатуры
+  const buttonBottom = keyboardVisible ? keyboardHeight + 8 : insets.bottom + 24;
 
   return (
     <>
