@@ -40,29 +40,16 @@ const FolderSettingsDialog = ({ visible, onClose, folderName, currentColor, onRe
       return;
     }
     
-    let nameChanged = false;
-    let colorChanged = false;
-    
-    // Проверяем, изменилось ли название
+    // Переименовываем если имя изменилось
     if (newName.trim() !== folderName) {
-      nameChanged = true;
-    }
-    
-    // Проверяем, изменился ли цвет
-    if (selectedColor !== currentColor) {
-      colorChanged = true;
-    }
-    
-    // Применяем изменения в правильном порядке
-    if (nameChanged) {
       onRename(newName.trim());
     }
     
-    if (colorChanged) {
+    // Меняем цвет если цвет изменился
+    if (selectedColor !== currentColor) {
       onColorChange(selectedColor);
     }
     
-    // Закрываем диалог
     onClose();
   };
   
