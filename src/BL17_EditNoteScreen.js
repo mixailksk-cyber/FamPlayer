@@ -165,7 +165,7 @@ const EditNoteScreen = ({
 
   const headerColor = note.color || brandColor;
   
-  // Кнопка поднимается над клавиатурой с отступом -70 (поднимается на 70px выше)
+  // Кнопка поднимается над клавиатурой с отступом -190 (поднимается на 190px выше)
   const buttonBottom = keyboardVisible 
     ? Math.max(0, keyboardHeight - 190)
     : insets.bottom + 24;
