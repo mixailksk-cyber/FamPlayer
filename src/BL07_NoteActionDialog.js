@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, Animated, Platform, Alert, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { width, getBrandColor } from './BL02_Constants';
 
 const NoteActionDialog = ({ 
@@ -28,8 +27,6 @@ const NoteActionDialog = ({
       .map(f => typeof f === 'object' ? f.name : f);
   }, [folders, currentFolder]);
   
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [tempDate, setTempDate] = useState(reminderTime ? new Date(reminderTime) : new Date());
   const [fadeAnim] = React.useState(new Animated.Value(0));
   const [scaleAnim] = React.useState(new Animated.Value(0.9));
   
@@ -66,16 +63,91 @@ const NoteActionDialog = ({
     return `${day}.${month} ${hours}:${minutes}`;
   };
   
-  const handleDateChange = (event, selectedDate) => {
-    setShowDatePicker(false);
-    if (selectedDate) {
-      setTempDate(selectedDate);
-      onSetReminder(selectedDate.getTime());
-    }
-  };
-  
-  const openDateTimePicker = () => {
-    setShowDatePicker(true);
+  const showDateTimePicker = () => {
+    Alert.alert(
+      'Установить напоминание',
+      'Выберите дату и время',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Через 10 минут',
+          onPress: () => onSetReminder(Date.now() + 10 * 60 * 1000)
+        },
+        {
+          text: 'Через 30 минут',
+          onPress: () => onSetReminder(Date.now() + 30 * 60 * 1000)
+        },
+        {
+          text: 'Через 1 час',
+          onPress: () => onSetReminder(Date.now() + 60 * 60 * 1000)
+        },
+        {
+          text: 'Через 2 часа',
+          onPress: () => onSetReminder(Date.now() + 2 * 60 * 60 * 1000)
+        },
+        {
+          text: 'Завтра в 9:00',
+          onPress: () => {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(9, 0, 0, 0);
+            onSetReminder(tomorrow.getTime());
+          }
+        },
+        {
+          text: 'Завтра в 18:00',
+          onPress: () => {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(18, 0, 0, 0);
+            onSetReminder(tomorrow.getTime());
+          }
+        },
+        {
+          text: 'Выбрать дату и время',
+          onPress: () => {
+            Alert.prompt(
+              'Введите дату и время',
+              'Формат: ДД.ММ.ГГГГ ЧЧ:ММ\nПример: 25.03.2026 14:30',
+              [
+                { text: 'Отмена', style: 'cancel' },
+                {
+                  text: 'Установить',
+                  onPress: (input) => {
+                    if (input) {
+                      const parts = input.split(' ');
+                      if (parts.length === 2) {
+                        const dateParts = parts[0].split('.');
+                        const timeParts = parts[1].split(':');
+                        if (dateParts.length === 3 && timeParts.length === 2) {
+                          const date = new Date(
+                            parseInt(dateParts[2]),
+                            parseInt(dateParts[1]) - 1,
+                            parseInt(dateParts[0]),
+                            parseInt(timeParts[0]),
+                            parseInt(timeParts[1])
+                          );
+                          if (!isNaN(date.getTime()) && date > new Date()) {
+                            onSetReminder(date.getTime());
+                          } else {
+                            Alert.alert('Ошибка', 'Неверная дата или дата в прошлом');
+                          }
+                        } else {
+                          Alert.alert('Ошибка', 'Неверный формат');
+                        }
+                      } else {
+                        Alert.alert('Ошибка', 'Используйте формат: ДД.ММ.ГГГГ ЧЧ:ММ');
+                      }
+                    }
+                  }
+                }
+              ],
+              'plain-text'
+            );
+          }
+        }
+      ]
+    );
   };
   
   if (!visible) return null;
@@ -122,7 +194,7 @@ const NoteActionDialog = ({
               </TouchableOpacity>
               
               <TouchableOpacity 
-                onPress={openDateTimePicker} 
+                onPress={showDateTimePicker} 
                 style={{ 
                   flex: 1,
                   padding: 12, 
@@ -220,16 +292,6 @@ const NoteActionDialog = ({
           </TouchableOpacity>
         </Animated.View>
       </Animated.View>
-      
-      {showDatePicker && (
-        <DateTimePicker
-          value={tempDate}
-          mode="datetime"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={handleDateChange}
-          minimumDate={new Date()}
-        />
-      )}
     </Modal>
   );
 };
