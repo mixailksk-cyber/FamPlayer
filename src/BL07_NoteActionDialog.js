@@ -64,118 +64,53 @@ const NoteActionDialog = ({
   };
   
   const showDateTimePicker = () => {
-    if (Platform.OS === 'android') {
-      // Для Android используем системный DatePicker и TimePicker через Alert
-      Alert.alert(
-        'Установить напоминание',
-        'Выберите дату и время',
-        [
-          { text: 'Отмена', style: 'cancel' },
-          {
-            text: 'Выбрать дату и время',
-            onPress: () => {
-              // Сначала запрашиваем дату через текстовый ввод (простой вариант)
-              // В реальном приложении лучше использовать react-native-datetimepicker
-              Alert.prompt(
-                'Введите дату и время',
-                'Формат: ДД.ММ.ГГГГ ЧЧ:ММ\nПример: 25.03.2026 14:30\n\nТакже доступны быстрые варианты:',
-                [
-                  { text: 'Отмена', style: 'cancel' },
-                  {
-                    text: 'Через 1 час',
-                    onPress: () => onSetReminder(Date.now() + 60 * 60 * 1000)
-                  },
-                  {
-                    text: 'Через 3 часа',
-                    onPress: () => onSetReminder(Date.now() + 3 * 60 * 60 * 1000)
-                  },
-                  {
-                    text: 'Завтра 09:00',
-                    onPress: () => {
-                      const tomorrow = new Date();
-                      tomorrow.setDate(tomorrow.getDate() + 1);
-                      tomorrow.setHours(9, 0, 0, 0);
-                      onSetReminder(tomorrow.getTime());
-                    }
-                  },
-                  {
-                    text: 'Выбрать вручную',
-                    onPress: (input) => {
-                      if (input) {
-                        const parts = input.split(' ');
-                        if (parts.length === 2) {
-                          const dateParts = parts[0].split('.');
-                          const timeParts = parts[1].split(':');
-                          if (dateParts.length === 3 && timeParts.length === 2) {
-                            const date = new Date(
-                              parseInt(dateParts[2]),
-                              parseInt(dateParts[1]) - 1,
-                              parseInt(dateParts[0]),
-                              parseInt(timeParts[0]),
-                              parseInt(timeParts[1])
-                            );
-                            if (!isNaN(date.getTime()) && date > new Date()) {
-                              onSetReminder(date.getTime());
-                            } else {
-                              Alert.alert('Ошибка', 'Неверная дата или дата в прошлом');
-                            }
-                          } else {
-                            Alert.alert('Ошибка', 'Неверный формат');
-                          }
-                        } else {
-                          Alert.alert('Ошибка', 'Используйте формат: ДД.ММ.ГГГГ ЧЧ:ММ');
-                        }
-                      }
-                    }
+    Alert.prompt(
+      'Установить напоминание',
+      'Введите дату и время в формате: ДД.ММ.ГГГГ ЧЧ:ММ\n\nПример: 25.03.2026 14:30',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Установить',
+          onPress: (input) => {
+            if (input && input.trim()) {
+              const parts = input.trim().split(' ');
+              if (parts.length === 2) {
+                const dateParts = parts[0].split('.');
+                const timeParts = parts[1].split(':');
+                if (dateParts.length === 3 && timeParts.length === 2) {
+                  const year = parseInt(dateParts[2]);
+                  const month = parseInt(dateParts[1]) - 1;
+                  const day = parseInt(dateParts[0]);
+                  const hour = parseInt(timeParts[0]);
+                  const minute = parseInt(timeParts[1]);
+                  
+                  // Проверка корректности чисел
+                  if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hour) || isNaN(minute)) {
+                    Alert.alert('Ошибка', 'Введите корректные числа');
+                    return;
                   }
-                ],
-                'plain-text'
-              );
-            }
-          }
-        ]
-      );
-    } else {
-      // Для iOS используем стандартный DatePicker через Alert с текстовым вводом
-      Alert.prompt(
-        'Введите дату и время',
-        'Формат: ДД.ММ.ГГГГ ЧЧ:ММ\nПример: 25.03.2026 14:30',
-        [
-          { text: 'Отмена', style: 'cancel' },
-          {
-            text: 'Установить',
-            onPress: (input) => {
-              if (input) {
-                const parts = input.split(' ');
-                if (parts.length === 2) {
-                  const dateParts = parts[0].split('.');
-                  const timeParts = parts[1].split(':');
-                  if (dateParts.length === 3 && timeParts.length === 2) {
-                    const date = new Date(
-                      parseInt(dateParts[2]),
-                      parseInt(dateParts[1]) - 1,
-                      parseInt(dateParts[0]),
-                      parseInt(timeParts[0]),
-                      parseInt(timeParts[1])
-                    );
-                    if (!isNaN(date.getTime()) && date > new Date()) {
-                      onSetReminder(date.getTime());
-                    } else {
-                      Alert.alert('Ошибка', 'Неверная дата или дата в прошлом');
-                    }
+                  
+                  const date = new Date(year, month, day, hour, minute);
+                  
+                  if (isNaN(date.getTime())) {
+                    Alert.alert('Ошибка', 'Неверный формат даты');
+                  } else if (date <= new Date()) {
+                    Alert.alert('Ошибка', 'Дата и время должны быть в будущем');
                   } else {
-                    Alert.alert('Ошибка', 'Неверный формат');
+                    onSetReminder(date.getTime());
                   }
                 } else {
                   Alert.alert('Ошибка', 'Используйте формат: ДД.ММ.ГГГГ ЧЧ:ММ');
                 }
+              } else {
+                Alert.alert('Ошибка', 'Используйте формат: ДД.ММ.ГГГГ ЧЧ:ММ');
               }
             }
           }
-        ],
-        'plain-text'
-      );
-    }
+        }
+      ],
+      'plain-text'
+    );
   };
   
   if (!visible) return null;
