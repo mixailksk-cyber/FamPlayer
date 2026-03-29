@@ -42,6 +42,9 @@ jobs:
       - name: Install dependencies
         run: npm install
       
+      - name: Install datetimepicker
+        run: npm install @react-native-community/datetimepicker --save
+      
       - name: Cache Gradle dependencies
         uses: actions/cache@v3
         with:
