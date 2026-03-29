@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, Animated, Platform, Alert, ScrollView, DatePickerAndroid, TimePickerAndroid } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, Animated, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { width, getBrandColor } from './BL02_Constants';
 
 const NoteActionDialog = ({ 
@@ -29,6 +30,11 @@ const NoteActionDialog = ({
   
   const [fadeAnim] = React.useState(new Animated.Value(0));
   const [scaleAnim] = React.useState(new Animated.Value(0.9));
+  
+  // Состояния для DateTimePicker
+  const [showDatePicker, setShowDatePicker] = React.useState(false);
+  const [showTimePicker, setShowTimePicker] = React.useState(false);
+  const [tempDate, setTempDate] = React.useState(new Date());
   
   React.useEffect(() => {
     if (visible) {
@@ -63,35 +69,35 @@ const NoteActionDialog = ({
     return `${day}.${month} ${hours}:${minutes}`;
   };
   
-  const showDateTimePicker = async () => {
-    try {
-      // Сначала выбираем дату
-      const { action: dateAction, year, month, day } = await DatePickerAndroid.open({
-        date: new Date(),
-        minDate: new Date(),
-        mode: 'calendar',
-      });
+  const showDateTimePicker = () => {
+    setTempDate(new Date());
+    setShowDatePicker(true);
+  };
+  
+  const onDateChange = (event, selectedDate) => {
+    if (event.type === 'set') {
+      const currentDate = selectedDate || tempDate;
+      setTempDate(currentDate);
+      setShowDatePicker(false);
+      setShowTimePicker(true);
+    } else {
+      // Пользователь нажал "Отмена"
+      setShowDatePicker(false);
+    }
+  };
+  
+  const onTimeChange = (event, selectedTime) => {
+    setShowTimePicker(false);
+    
+    if (event.type === 'set' && selectedTime) {
+      const finalDate = selectedTime;
       
-      if (dateAction === DatePickerAndroid.dateSetAction) {
-        // Затем выбираем время
-        const { action: timeAction, hour, minute } = await TimePickerAndroid.open({
-          hour: 12,
-          minute: 0,
-          is24Hour: true,
-        });
-        
-        if (timeAction === TimePickerAndroid.timeSetAction) {
-          const selectedDate = new Date(year, month, day, hour, minute);
-          
-          if (selectedDate > new Date()) {
-            onSetReminder(selectedDate.getTime());
-          } else {
-            Alert.alert('Ошибка', 'Дата и время должны быть в будущем');
-          }
-        }
+      if (finalDate > new Date()) {
+        onSetReminder(finalDate.getTime());
+        onClose();
+      } else {
+        Alert.alert('Ошибка', 'Дата и время должны быть в будущем');
       }
-    } catch (error) {
-      console.log('DatePicker error:', error);
     }
   };
   
@@ -237,6 +243,28 @@ const NoteActionDialog = ({
           </TouchableOpacity>
         </Animated.View>
       </Animated.View>
+      
+      {/* DatePicker */}
+      {showDatePicker && (
+        <DateTimePicker
+          value={tempDate}
+          mode="date"
+          display="default"
+          onChange={onDateChange}
+          minimumDate={new Date()}
+        />
+      )}
+      
+      {/* TimePicker */}
+      {showTimePicker && (
+        <DateTimePicker
+          value={tempDate}
+          mode="time"
+          display="default"
+          onChange={onTimeChange}
+          is24Hour={true}
+        />
+      )}
     </Modal>
   );
 };
