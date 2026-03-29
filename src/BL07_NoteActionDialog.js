@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, Animated, Platform, Alert, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, Animated, Platform, Alert, ScrollView, DatePickerAndroid, TimePickerAndroid } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { width, getBrandColor } from './BL02_Constants';
 
@@ -63,54 +63,36 @@ const NoteActionDialog = ({
     return `${day}.${month} ${hours}:${minutes}`;
   };
   
-  const showDateTimePicker = () => {
-    Alert.prompt(
-      'Установить напоминание',
-      'Введите дату и время в формате: ДД.ММ.ГГГГ ЧЧ:ММ\n\nПример: 25.03.2026 14:30',
-      [
-        { text: 'Отмена', style: 'cancel' },
-        {
-          text: 'Установить',
-          onPress: (input) => {
-            if (input && input.trim()) {
-              const parts = input.trim().split(' ');
-              if (parts.length === 2) {
-                const dateParts = parts[0].split('.');
-                const timeParts = parts[1].split(':');
-                if (dateParts.length === 3 && timeParts.length === 2) {
-                  const year = parseInt(dateParts[2]);
-                  const month = parseInt(dateParts[1]) - 1;
-                  const day = parseInt(dateParts[0]);
-                  const hour = parseInt(timeParts[0]);
-                  const minute = parseInt(timeParts[1]);
-                  
-                  // Проверка корректности чисел
-                  if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hour) || isNaN(minute)) {
-                    Alert.alert('Ошибка', 'Введите корректные числа');
-                    return;
-                  }
-                  
-                  const date = new Date(year, month, day, hour, minute);
-                  
-                  if (isNaN(date.getTime())) {
-                    Alert.alert('Ошибка', 'Неверный формат даты');
-                  } else if (date <= new Date()) {
-                    Alert.alert('Ошибка', 'Дата и время должны быть в будущем');
-                  } else {
-                    onSetReminder(date.getTime());
-                  }
-                } else {
-                  Alert.alert('Ошибка', 'Используйте формат: ДД.ММ.ГГГГ ЧЧ:ММ');
-                }
-              } else {
-                Alert.alert('Ошибка', 'Используйте формат: ДД.ММ.ГГГГ ЧЧ:ММ');
-              }
-            }
+  const showDateTimePicker = async () => {
+    try {
+      // Сначала выбираем дату
+      const { action: dateAction, year, month, day } = await DatePickerAndroid.open({
+        date: new Date(),
+        minDate: new Date(),
+        mode: 'calendar',
+      });
+      
+      if (dateAction === DatePickerAndroid.dateSetAction) {
+        // Затем выбираем время
+        const { action: timeAction, hour, minute } = await TimePickerAndroid.open({
+          hour: 12,
+          minute: 0,
+          is24Hour: true,
+        });
+        
+        if (timeAction === TimePickerAndroid.timeSetAction) {
+          const selectedDate = new Date(year, month, day, hour, minute);
+          
+          if (selectedDate > new Date()) {
+            onSetReminder(selectedDate.getTime());
+          } else {
+            Alert.alert('Ошибка', 'Дата и время должны быть в будущем');
           }
         }
-      ],
-      'plain-text'
-    );
+      }
+    } catch (error) {
+      console.log('DatePicker error:', error);
+    }
   };
   
   if (!visible) return null;
