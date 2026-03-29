@@ -108,13 +108,8 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
-    
-    // Explicit implementations (remove these - let autolinking handle them)
-    // implementation project(':react-native-vector-icons')
-    // implementation project(':react-native-push-notification')
-    // implementation project(':@react-native-community_datetimepicker')
-    // implementation project(':react-native-safe-area-context')
-    // implementation project(':@react-native-async-storage_async-storage')
+    implementation project(':react-native-vector-icons')
+    implementation project(':react-native-push-notification')
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
