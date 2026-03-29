@@ -110,7 +110,13 @@ dependencies {
     implementation("com.facebook.react:react-android")
     implementation project(':react-native-vector-icons')
     implementation project(':react-native-push-notification')
+    
+    // React Native Community DateTimePicker
     implementation project(':@react-native-community_datetimepicker')
+    
+    // Ensure autolinking works
+    implementation project(':react-native-safe-area-context')
+    implementation project(':@react-native-async-storage_async-storage')
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
