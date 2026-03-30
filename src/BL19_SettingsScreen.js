@@ -156,8 +156,7 @@ const SettingsScreen = ({
       
       if (result && result[0]) {
         const fileUri = result[0].uri;
-        const fileName = result[0].name;
-        console.log('📂 Selected file:', { fileName, uri: fileUri });
+        console.log('📂 Selected file:', fileUri);
         
         let content;
         
