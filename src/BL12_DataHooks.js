@@ -3,7 +3,7 @@ import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NOTE_COLORS } from './BL02_Constants';
 import { updateWidgetData } from './WidgetBridge';
-import { configureNotifications } from './BL21_NotificationService';
+import { configureNotifications, cancelReminder } from './BL21_NotificationService';
 
 export const useNotesData = () => {
   const [notes, setNotes] = useState([]);
@@ -65,6 +65,21 @@ export const useNotesData = () => {
   }, []);
 
   const saveNotes = useCallback(async (newNotes) => {
+    // Находим заметки, у которых было удалено напоминание
+    const oldNotes = notes;
+    const removedReminders = oldNotes.filter(oldNote => {
+      const newNote = newNotes.find(n => n.id === oldNote.id);
+      return oldNote.reminder && (!newNote || !newNote.reminder);
+    });
+    
+    // Отменяем напоминания для удаленных
+    removedReminders.forEach(note => {
+      if (note.reminder && note.reminder > Date.now()) {
+        console.log('Cancelling reminder for note:', note.id);
+        cancelReminder(note.id);
+      }
+    });
+    
     const normalized = newNotes.map(n => ({ 
       ...n, 
       color: n.color || NOTE_COLORS[0],
@@ -77,7 +92,7 @@ export const useNotesData = () => {
     } catch (e) {
       if (Platform.OS === 'web') Alert.alert('Внимание', 'Данные сохранены только в памяти');
     }
-  }, []);
+  }, [notes]);
 
   const saveFolders = useCallback(async (newFolders) => {
     setFolders(newFolders);
