@@ -110,6 +110,9 @@ dependencies {
     implementation("com.facebook.react:react-android")
     implementation project(':react-native-vector-icons')
     implementation project(':react-native-push-notification')
+    
+    // Добавляем для работы уведомлений в фоне
+    implementation 'com.google.android.gms:play-services-gcm:17.0.0'
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
