@@ -2,12 +2,10 @@ import { NativeModules, Platform, PermissionsAndroid, Alert } from 'react-native
 
 const { CalendarModule } = NativeModules;
 
-// Проверка доступности календаря
 export const isCalendarAvailable = () => {
   return Platform.OS === 'android' && CalendarModule !== null;
 };
 
-// Проверка разрешения на календарь
 export const checkCalendarPermission = async () => {
   if (Platform.OS !== 'android') return false;
   if (!CalendarModule) return false;
@@ -21,7 +19,6 @@ export const checkCalendarPermission = async () => {
   }
 };
 
-// Запрос разрешения на календарь
 export const requestCalendarPermission = async () => {
   if (Platform.OS !== 'android') return false;
   
@@ -60,7 +57,6 @@ export const requestCalendarPermission = async () => {
   }
 };
 
-// Добавление события в календарь
 export const addEventToCalendar = async (title, description, date) => {
   if (Platform.OS !== 'android' || !CalendarModule) {
     console.log('Calendar module not available');
@@ -69,7 +65,7 @@ export const addEventToCalendar = async (title, description, date) => {
   
   try {
     const startTime = new Date(date).getTime();
-    const endTime = startTime + 60 * 60 * 1000; // +1 час
+    const endTime = startTime + 60 * 60 * 1000;
     
     const result = await CalendarModule.addEvent(title, description, startTime, endTime);
     return result.eventId;
@@ -86,7 +82,6 @@ export const addEventToCalendar = async (title, description, date) => {
   }
 };
 
-// Удаление события из календаря
 export const removeEventFromCalendar = async (eventId) => {
   if (Platform.OS !== 'android' || !CalendarModule || !eventId) {
     return false;
