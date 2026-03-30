@@ -1,293 +1,398 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Share, ScrollView, TouchableWithoutFeedback, StatusBar, Keyboard } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, Modal, Animated, Platform, Alert, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import Header from './BL04_Header';
-import ColorPickerModal from './BL08_ColorPickerModal';
-import { TITLE_MAX_LENGTH, NOTE_MAX_LENGTH, getBrandColor } from './BL02_Constants';
+import { width, getBrandColor } from './BL02_Constants';
 
-const EditNoteScreen = ({ 
-  selectedNote, 
+const NoteActionDialog = ({ 
+  visible, 
+  onClose, 
+  folders, 
+  onMove, 
+  onDelete, 
+  onPermanentDelete, 
+  onTogglePin, 
+  isPinned, 
   currentFolder, 
-  notes, 
-  settings, 
-  onSave, 
-  setCurrentScreen, 
-  insets,
-  onQuickDelete,
-  isNewNote
+  settings,
+  isInTrash,
+  onSetReminder,
+  reminderTime
 }) => {
+  const availableFolders = React.useMemo(() => {
+    return folders
+      .filter(f => {
+        const n = typeof f === 'object' ? f.name : f;
+        return n !== 'Корзина' && n !== currentFolder;
+      })
+      .map(f => typeof f === 'object' ? f.name : f);
+  }, [folders, currentFolder]);
+  
+  const [fadeAnim] = React.useState(new Animated.Value(0));
+  const [scaleAnim] = React.useState(new Animated.Value(0.9));
+  
+  const [showDateTimePicker, setShowDateTimePicker] = useState(false);
+  const [selectedDay, setSelectedDay] = useState(new Date().getDate());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedHour, setSelectedHour] = useState(0);
+  const [selectedMinute, setSelectedMinute] = useState(0);
+  
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 5,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      
+      const now = new Date();
+      setSelectedDay(now.getDate());
+      setSelectedMonth(now.getMonth());
+      setSelectedHour(0);
+      setSelectedMinute(0);
+    } else {
+      fadeAnim.setValue(0);
+      scaleAnim.setValue(0.9);
+      setShowDateTimePicker(false);
+    }
+  }, [visible]);
+  
   const brandColor = getBrandColor(settings);
-  const [note, setNote] = useState(selectedNote ? { ...selectedNote } : { 
-    id: Date.now() + '', 
-    title: '', 
-    content: '', 
-    color: brandColor, 
-    folder: currentFolder, 
-    createdAt: Date.now(), 
-    updatedAt: Date.now(), 
-    deleted: false,
-    locked: false,
-    reminder: null
-  });
-  const [showColor, setShowColor] = useState(false);
-  const [isEditing, setIsEditing] = useState(isNewNote || false);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const contentInputRef = useRef(null);
-  const titleInputRef = useRef(null);
-  const scrollViewRef = useRef(null);
   
-  const isInTrash = note.folder === 'Корзина' || note.deleted === true;
-
-  // Для новой заметки: фокус в поле заголовка
-  useEffect(() => {
-    if (isNewNote && titleInputRef.current) {
-      setTimeout(() => {
-        titleInputRef.current.focus();
-      }, 100);
-    }
-  }, [isNewNote]);
-
-  // Отслеживание появления клавиатуры
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
-      setKeyboardVisible(true);
-      setKeyboardHeight(e.endCoordinates.height);
-    });
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardVisible(false);
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
-    };
-  }, []);
-
-  // Фокус в поле текста при нажатии на любую область
-  const handleContentPress = () => {
-    if (isEditing && !isInTrash && contentInputRef.current) {
-      contentInputRef.current.focus();
-    }
+  const formatReminderTime = (timestamp) => {
+    if (!timestamp) return null;
+    const date = new Date(timestamp);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${day}.${month} ${hours}:${minutes}`;
   };
-
-  // Фокус в поле заголовка при нажатии на заголовок
-  const handleTitlePress = () => {
-    if (isEditing && !isInTrash && titleInputRef.current) {
-      titleInputRef.current.focus();
+  
+  const hasActiveReminder = reminderTime && reminderTime > Date.now();
+  
+  const getDaysList = () => {
+    const days = [];
+    for (let i = 1; i <= 31; i++) {
+      days.push(i);
     }
+    return days;
   };
-
-  const handleShare = async () => {
-    try {
-      const message = note.title ? `${note.title}\n\n${note.content}` : note.content;
-      await Share.share({ message, title: note.title || 'Заметка' });
-    } catch (error) {
-      console.log(error);
+  
+  const getMonthsList = () => {
+    return ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+  };
+  
+  const getHoursList = () => {
+    const hours = [];
+    for (let i = 0; i <= 23; i++) {
+      hours.push(i.toString().padStart(2, '0'));
     }
+    return hours;
   };
-
-  const handleDelete = () => {
-    if (onQuickDelete) {
-      onQuickDelete(note);
-      setCurrentScreen('notes');
-    } else {
-      if (isInTrash) {
-        const updatedNotes = notes.filter(n => n.id !== note.id);
-        onSave(updatedNotes);
-      } else {
-        const updatedNote = { ...note, folder: 'Корзина', deleted: true, updatedAt: Date.now() };
-        onSave(updatedNote);
-      }
-      setCurrentScreen('notes');
+  
+  const getMinutesList = () => {
+    const minutes = [];
+    for (let i = 0; i <= 59; i++) {
+      minutes.push(i.toString().padStart(2, '0'));
     }
+    return minutes;
   };
-
-  const handleBack = () => {
-    const hasChanges = () => {
-      if (!selectedNote) return note.title !== '' || note.content !== '';
-      return selectedNote.title !== note.title || selectedNote.content !== note.content || selectedNote.color !== note.color;
-    };
+  
+  const isValidDate = (day, month, year) => {
+    const date = new Date(year, month, day);
+    return date.getMonth() === month && date.getDate() === day;
+  };
+  
+  const handleSetReminder = () => {
+    const now = new Date();
+    let year = now.getFullYear();
+    let month = selectedMonth;
+    let day = selectedDay;
     
-    if (hasChanges() && !isInTrash) {
-      Alert.alert(
-        'Несохраненные изменения',
-        'У вас есть несохраненные изменения. Выйти без сохранения?',
-        [
-          { text: 'Отмена', style: 'cancel' },
-          { 
-            text: 'Выйти', 
-            onPress: () => {
-              setCurrentScreen('notes');
-            }
-          }
-        ]
-      );
-    } else {
-      setCurrentScreen('notes');
-    }
-  };
-
-  const handleSave = () => {
-    onSave({ ...note, updatedAt: Date.now() });
-    setIsEditing(false);
-  };
-
-  const handleEditPress = () => {
-    if (isInTrash) {
-      Alert.alert('Заметка в корзине', 'Заметки в корзине можно только просматривать и восстанавливать');
-      return;
-    }
-    setIsEditing(true);
-    setTimeout(() => {
-      if (contentInputRef.current) {
-        contentInputRef.current.focus();
+    if (month < now.getMonth()) {
+      year = now.getFullYear() + 1;
+    } else if (month === now.getMonth() && day < now.getDate()) {
+      year = now.getFullYear() + 1;
+    } else if (month === now.getMonth() && day === now.getDate()) {
+      const selectedTime = new Date(year, month, day, selectedHour, selectedMinute);
+      if (selectedTime <= now) {
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        year = tomorrow.getFullYear();
+        month = tomorrow.getMonth();
+        day = tomorrow.getDate();
       }
-    }, 100);
-  };
-
-  const handleColorSelect = (color) => {
-    if (isInTrash) {
-      Alert.alert('Заметка в корзине', 'Заметки в корзине нельзя редактировать');
-      return;
     }
-    setNote({ ...note, color, updatedAt: Date.now() });
-    if (!isEditing && !isInTrash) {
-      setIsEditing(true);
-      setTimeout(() => {
-        if (contentInputRef.current) {
-          contentInputRef.current.focus();
-        }
-      }, 100);
+    
+    if (!isValidDate(day, month, year)) {
+      const lastDay = new Date(year, month + 1, 0).getDate();
+      day = Math.min(day, lastDay);
+    }
+    
+    const reminderDate = new Date(year, month, day, selectedHour, selectedMinute);
+    
+    if (reminderDate > now) {
+      onSetReminder(reminderDate.getTime());
+      setShowDateTimePicker(false);
+      onClose();
+    } else {
+      Alert.alert('Ошибка', 'Выбранная дата и время уже прошли');
     }
   };
-
-  const headerColor = note.color || brandColor;
   
-  // Кнопка поднимается над клавиатурой с отступом -190 (поднимается на 190px выше)
-  const buttonBottom = keyboardVisible 
-    ? Math.max(0, keyboardHeight - 190)
-    : insets.bottom + 24;
-
+  const handleDisableReminder = () => {
+    onSetReminder(null);
+    onClose();
+  };
+  
+  const openDateTimePicker = () => {
+    setShowDateTimePicker(true);
+  };
+  
+  if (!visible) return null;
+  
   return (
     <>
-      <StatusBar backgroundColor={headerColor} barStyle="light-content" />
-      <KeyboardAvoidingView 
-        style={{ flex: 1, backgroundColor: 'white' }} 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
-        <Header 
-          title={isInTrash ? "Просмотр (Корзина)" : (isEditing ? "Редактирование" : "Просмотр")}
-          showSearch={false} 
-          brandColor={headerColor}
-        >
-          {/* Кнопка выбора цвета (только не в корзине) */}
-          {!isInTrash && (
-            <TouchableOpacity onPress={() => setShowColor(true)}>
-              <Icon name="palette" size={24} color="white" />
-            </TouchableOpacity>
-          )}
-          
-          {/* Кнопка поделиться */}
-          <TouchableOpacity onPress={handleShare}>
-            <Icon name="share" size={24} color="white" />
-          </TouchableOpacity>
-          
-          {/* Кнопка корзины - удаляет без подтверждения */}
-          <TouchableOpacity onPress={handleDelete}>
-            <Icon name="delete" size={24} color="white" />
-          </TouchableOpacity>
-        </Header>
-
-        <TouchableWithoutFeedback onPress={handleContentPress}>
-          <ScrollView 
-            ref={scrollViewRef}
-            style={{ flex: 1 }}
-            contentContainerStyle={{ paddingBottom: 100 }}
-            showsVerticalScrollIndicator={true}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
-              {isEditing && !isInTrash ? (
-                <TouchableWithoutFeedback onPress={handleTitlePress}>
-                  <TextInput 
-                    ref={titleInputRef}
-                    style={{ fontSize: settings.fontSize + 2, fontWeight: 'bold', paddingVertical: 8, color: '#333' }} 
-                    placeholder="Заголовок" 
-                    placeholderTextColor="#999" 
-                    maxLength={TITLE_MAX_LENGTH} 
-                    value={note.title} 
-                    onChangeText={t => setNote({ ...note, title: t })}
-                    editable={!isInTrash && isEditing}
-                  />
-                </TouchableWithoutFeedback>
-              ) : (
-                <Text style={{ fontSize: settings.fontSize + 2, fontWeight: 'bold', paddingVertical: 8, color: '#333' }}>
-                  {note.title || 'Заголовок'}
-                </Text>
-              )}
-              <View style={{ height: 2, backgroundColor: note.color || brandColor, width: '100%', marginTop: 4 }} />
-            </View>
-
-            {isEditing && !isInTrash ? (
-              <TextInput 
-                ref={contentInputRef}
-                style={{ fontSize: settings.fontSize, paddingHorizontal: 16, paddingVertical: 12, textAlignVertical: 'top', color: '#333', minHeight: 200, lineHeight: settings.fontSize * 1.5 }} 
-                placeholder="Текст заметки" 
-                placeholderTextColor="#999" 
-                multiline 
-                maxLength={NOTE_MAX_LENGTH} 
-                value={note.content} 
-                onChangeText={t => setNote({ ...note, content: t })}
-                editable={!isInTrash && isEditing}
-                scrollEnabled={true}
-              />
-            ) : (
-              <Text 
-                selectable={true}
-                style={{ fontSize: settings.fontSize, paddingHorizontal: 16, paddingVertical: 12, color: '#333', lineHeight: settings.fontSize * 1.5 }}
-                onPress={handleEditPress}
-              >
-                {note.content || '...'}
-              </Text>
+      <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+        <Animated.View style={{ 
+          flex: 1, 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          opacity: fadeAnim
+        }}>
+          <Animated.View style={{ 
+            backgroundColor: 'white', 
+            padding: 20, 
+            borderRadius: 10, 
+            width: width - 40,
+            maxHeight: '85%',
+            transform: [{ scale: scaleAnim }]
+          }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center', color: brandColor }}>
+              Действия с заметкой
+            </Text>
+            
+            {!isInTrash && (
+              <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+                <TouchableOpacity 
+                  onPress={() => { onTogglePin(); onClose(); }} 
+                  style={{ 
+                    flex: 1,
+                    padding: 12, 
+                    alignItems: 'center', 
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    backgroundColor: brandColor,
+                    borderRadius: 8,
+                  }}>
+                  <Icon name="push-pin" size={20} color="white" />
+                  <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
+                    {isPinned ? "Открепить" : "Закрепить"}
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  onPress={hasActiveReminder ? handleDisableReminder : openDateTimePicker} 
+                  style={{ 
+                    flex: 1,
+                    padding: 12, 
+                    alignItems: 'center', 
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    backgroundColor: brandColor,
+                    borderRadius: 8,
+                  }}>
+                  <Icon name="alarm" size={20} color="white" />
+                  <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
+                    {hasActiveReminder ? "Отключить" : "Напомнить"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             )}
-          </ScrollView>
-        </TouchableWithoutFeedback>
-
-        {/* Кнопка редактирования/сохранения - не показываем для заметок в корзине */}
-        {!isInTrash && (
-          <TouchableOpacity 
-            style={{ 
-              position: 'absolute', 
-              bottom: buttonBottom, 
-              right: 24, 
-              width: 70, 
-              height: 70, 
-              borderRadius: 35, 
-              backgroundColor: note.color || brandColor, 
-              justifyContent: 'center', 
-              alignItems: 'center', 
-              elevation: 5, 
-              zIndex: 1000
-            }} 
-            onPress={isEditing ? handleSave : handleEditPress}
-          >
-            <Icon name={isEditing ? "check" : "edit"} size={36} color="white" />
-          </TouchableOpacity>
-        )}
-
-        <ColorPickerModal 
-          visible={showColor} 
-          onClose={() => setShowColor(false)} 
-          selectedColor={note.color} 
-          onSelect={handleColorSelect}
-          settings={settings}
-        />
-      </KeyboardAvoidingView>
+            
+            {hasActiveReminder && !isInTrash && (
+              <View style={{ 
+                padding: 8, 
+                alignItems: 'center',
+                marginBottom: 8,
+                backgroundColor: '#F5F5F5',
+                borderRadius: 8
+              }}>
+                <Text style={{ fontSize: 12, color: brandColor }}>
+                  Напоминание установлено на {formatReminderTime(reminderTime)}
+                </Text>
+                <Text style={{ fontSize: 10, color: '#666', marginTop: 4 }}>
+                  Уведомления будут повторяться каждые 10 минут
+                </Text>
+              </View>
+            )}
+            
+            {availableFolders.length > 0 && (
+              <>
+                <Text style={{ marginBottom: 8, color: '#666', marginTop: 8 }}>Переместить в папку:</Text>
+                <ScrollView style={{ maxHeight: 200 }}>
+                  {availableFolders.map((n, i) => (
+                    <TouchableOpacity 
+                      key={i} 
+                      onPress={() => { onMove(n); onClose(); }} 
+                      style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#E0E0E0', flexDirection: 'row', alignItems: 'center' }}>
+                      <Icon name="folder" size={20} color="#666" style={{ marginRight: 12 }} />
+                      <Text style={{ fontSize: 16, color: '#333' }}>{n}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </>
+            )}
+            
+            {!isInTrash && (
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+                <TouchableOpacity 
+                  onPress={() => { onPermanentDelete(); onClose(); }} 
+                  style={{ 
+                    flex: 1,
+                    padding: 12, 
+                    backgroundColor: '#FF4444', 
+                    borderRadius: 8, 
+                    alignItems: 'center', 
+                    flexDirection: 'row', 
+                    justifyContent: 'center' }}>
+                  <Icon name="delete-forever" size={20} color="white" style={{ marginRight: 6 }} />
+                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>Безвозвратно</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  onPress={() => { onDelete(); onClose(); }} 
+                  style={{ 
+                    flex: 1,
+                    padding: 12, 
+                    backgroundColor: '#F57C00', 
+                    borderRadius: 8, 
+                    alignItems: 'center', 
+                    flexDirection: 'row', 
+                    justifyContent: 'center' }}>
+                  <Icon name="delete" size={20} color="white" style={{ marginRight: 6 }} />
+                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>В корзину</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            
+            {isInTrash && (
+              <TouchableOpacity 
+                onPress={() => { onPermanentDelete(); onClose(); }} 
+                style={{ marginTop: 16, padding: 12, backgroundColor: '#FF4444', borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
+                <Icon name="delete-forever" size={24} color="white" style={{ marginRight: 8 }} />
+                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Удалить безвозвратно</Text>
+              </TouchableOpacity>
+            )}
+            
+            <TouchableOpacity onPress={onClose} style={{ marginTop: 16, padding: 12, alignItems: 'center' }}>
+              <Text style={{ color: brandColor, fontSize: 16 }}>Отмена</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.View>
+      </Modal>
+      
+      <Modal visible={showDateTimePicker} transparent animationType="fade" onRequestClose={() => setShowDateTimePicker(false)}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ 
+            backgroundColor: 'white', 
+            padding: 20, 
+            borderRadius: 8, 
+            width: width - 40,
+            borderWidth: 1,
+            borderColor: '#E0E0E0',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.25,
+            shadowRadius: 4,
+            elevation: 5
+          }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center', color: brandColor }}>
+              Выберите дату и время
+            </Text>
+            
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ marginBottom: 8, color: '#666' }}>День и месяц:</Text>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <ScrollView style={{ height: 120, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, backgroundColor: 'white' }}>
+                    {getDaysList().map(day => (
+                      <TouchableOpacity 
+                        key={day}
+                        onPress={() => setSelectedDay(day)}
+                        style={{ padding: 8, alignItems: 'center', backgroundColor: selectedDay === day ? brandColor : 'white' }}>
+                        <Text style={{ color: selectedDay === day ? 'white' : '#333', fontWeight: selectedDay === day ? 'bold' : 'normal' }}>{day}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ScrollView style={{ height: 120, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, backgroundColor: 'white' }}>
+                    {getMonthsList().map((month, index) => (
+                      <TouchableOpacity 
+                        key={index}
+                        onPress={() => setSelectedMonth(index)}
+                        style={{ padding: 8, alignItems: 'center', backgroundColor: selectedMonth === index ? brandColor : 'white' }}>
+                        <Text style={{ color: selectedMonth === index ? 'white' : '#333', fontWeight: selectedMonth === index ? 'bold' : 'normal' }}>{month}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+            </View>
+            
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ marginBottom: 8, color: '#666' }}>Время:</Text>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <ScrollView style={{ height: 120, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, backgroundColor: 'white' }}>
+                    {getHoursList().map(hour => (
+                      <TouchableOpacity 
+                        key={hour}
+                        onPress={() => setSelectedHour(parseInt(hour))}
+                        style={{ padding: 8, alignItems: 'center', backgroundColor: selectedHour === parseInt(hour) ? brandColor : 'white' }}>
+                        <Text style={{ color: selectedHour === parseInt(hour) ? 'white' : '#333', fontWeight: selectedHour === parseInt(hour) ? 'bold' : 'normal' }}>{hour}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ScrollView style={{ height: 120, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, backgroundColor: 'white' }}>
+                    {getMinutesList().map(minute => (
+                      <TouchableOpacity 
+                        key={minute}
+                        onPress={() => setSelectedMinute(parseInt(minute))}
+                        style={{ padding: 8, alignItems: 'center', backgroundColor: selectedMinute === parseInt(minute) ? brandColor : 'white' }}>
+                        <Text style={{ color: selectedMinute === parseInt(minute) ? 'white' : '#333', fontWeight: selectedMinute === parseInt(minute) ? 'bold' : 'normal' }}>{minute}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+            </View>
+            
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 16 }}>
+              <TouchableOpacity onPress={() => setShowDateTimePicker(false)} style={{ padding: 12 }}>
+                <Text style={{ color: '#999', fontSize: 16 }}>Отмена</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleSetReminder} style={{ padding: 12 }}>
+                <Text style={{ color: brandColor, fontWeight: 'bold', fontSize: 16 }}>Установить</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 };
 
-export default EditNoteScreen;
+export default NoteActionDialog;
