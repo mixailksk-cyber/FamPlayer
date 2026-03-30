@@ -221,27 +221,28 @@ const AppContent = () => {
     saveNotes(updatedNotes);
   };
   
-  const handleSetReminder = (noteId, time) => {
-    const updatedNotes = notes.map(n => 
-      n.id === noteId ? { ...n, reminder: time, updatedAt: Date.now() } : n
-    );
-    saveNotes(updatedNotes);
+ const handleSetReminder = (noteId, time) => {
+  const updatedNotes = notes.map(n => 
+    n.id === noteId ? { ...n, reminder: time, updatedAt: Date.now() } : n
+  );
+  saveNotes(updatedNotes);
+  
+  if (time) {
+    const note = notes.find(n => n.id === noteId);
+    const date = new Date(time);
     
-    if (time) {
-      const note = notes.find(n => n.id === noteId);
-      const date = new Date(time);
-      
-      if (time > Date.now()) {
-        scheduleReminder(noteId, note?.title, note?.content, time);
-        Alert.alert('✅ Напоминание установлено', `Напоминание установлено на ${date.toLocaleString()}`);
-      } else {
-        Alert.alert('❌ Ошибка', 'Дата и время должны быть в будущем');
-      }
+    if (time > Date.now()) {
+      // Передаем useCalendar из настроек
+      scheduleReminder(noteId, note?.title, note?.content, time, settings.useCalendar);
+      Alert.alert('✅ Напоминание установлено', `Напоминание установлено на ${date.toLocaleString()}`);
     } else {
-      cancelReminder(noteId);
-      Alert.alert('🗑 Напоминание отменено', 'Напоминание для этой заметки отменено');
+      Alert.alert('❌ Ошибка', 'Дата и время должны быть в будущем');
     }
-  };
+  } else {
+    cancelReminder(noteId);
+    Alert.alert('🗑 Напоминание отменено', 'Напоминание для этой заметки отменено');
+  }
+};
   
   const handleQuickDelete = (note) => {
     if (note.folder === 'Корзина') {
