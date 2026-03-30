@@ -1,6 +1,9 @@
 import PushNotification from 'react-native-push-notification';
 import { Platform, PermissionsAndroid, Alert } from 'react-native';
 
+// Хранилище активных интервалов для повторяющихся напоминаний
+const activeIntervals = {};
+
 export const configureNotifications = async () => {
   // Запрос разрешения на Android 13+
   if (Platform.OS === 'android') {
@@ -38,11 +41,9 @@ export const configureNotifications = async () => {
     onNotification: function (notification) {
       console.log('NOTIFICATION:', notification);
       // Не удаляем уведомление при нажатии
-      // Просто обрабатываем нажатие для открытия приложения
       if (notification.userInteraction) {
-        // Пользователь нажал на уведомление
-        // Уведомление остается в шторке
         console.log('User tapped notification, noteId:', notification.userInfo?.noteId);
+        // Уведомление остается в шторке, ничего не делаем
       }
     },
     onRegister: function (token) {
@@ -74,19 +75,8 @@ export const configureNotifications = async () => {
   }
 };
 
-export const scheduleReminder = (noteId, title, content, date) => {
-  const notificationDate = new Date(date);
-  const now = new Date();
-  
-  // Проверяем, что дата в будущем
-  if (notificationDate <= now) {
-    console.log('Cannot schedule reminder in the past');
-    return false;
-  }
-  
-  console.log('Scheduling reminder for:', notificationDate);
-  
-  // Формируем заголовок и текст уведомления
+// Формирование текста уведомления
+const getNotificationTexts = (title, content) => {
   let notificationTitle = 'Напоминание';
   let notificationMessage = '';
   
@@ -110,11 +100,17 @@ export const scheduleReminder = (noteId, title, content, date) => {
     notificationMessage = 'У вас есть заметка, требующая внимания';
   }
   
-  PushNotification.localNotificationSchedule({
+  return { notificationTitle, notificationMessage };
+};
+
+// Отправка уведомления
+const sendNotification = (noteId, title, content) => {
+  const { notificationTitle, notificationMessage } = getNotificationTexts(title, content);
+  
+  PushNotification.localNotification({
     channelId: 'famnotes_channel',
     title: notificationTitle,
     message: notificationMessage,
-    date: notificationDate,
     allowWhileIdle: true,
     userInfo: { noteId: noteId },
     vibrate: true,
@@ -124,19 +120,71 @@ export const scheduleReminder = (noteId, title, content, date) => {
     importance: 'high',
     priority: 'high',
     visibility: 'public',
-    exact: true,
     // Уведомление не удаляется при нажатии
     autoCancel: false,
   });
+};
+
+export const scheduleReminder = (noteId, title, content, date) => {
+  const notificationDate = new Date(date);
+  const now = new Date();
+  
+  // Проверяем, что дата в будущем
+  if (notificationDate <= now) {
+    console.log('Cannot schedule reminder in the past');
+    return false;
+  }
+  
+  console.log('Scheduling reminder for:', notificationDate);
+  
+  // Сначала отменяем существующее напоминание для этой заметки
+  cancelReminder(noteId);
+  
+  // Вычисляем задержку до первого уведомления
+  const delay = notificationDate.getTime() - now.getTime();
+  
+  // Запускаем интервал для повторяющихся уведомлений
+  activeIntervals[noteId] = setTimeout(() => {
+    // Первое уведомление
+    sendNotification(noteId, title, content);
+    
+    // Запускаем интервал для повторения каждые 10 минут
+    activeIntervals[noteId] = setInterval(() => {
+      sendNotification(noteId, title, content);
+    }, 10 * 60 * 1000); // 10 минут
+  }, delay);
   
   return true;
 };
 
 export const cancelReminder = (noteId) => {
-  // Отменяем только конкретное напоминание по noteId
+  // Останавливаем интервал для этой заметки
+  if (activeIntervals[noteId]) {
+    if (typeof activeIntervals[noteId] === 'number') {
+      clearTimeout(activeIntervals[noteId]);
+    } else {
+      clearInterval(activeIntervals[noteId]);
+    }
+    delete activeIntervals[noteId];
+  }
+  
+  // Отменяем все запланированные уведомления для этой заметки
   PushNotification.cancelLocalNotifications({ noteId: noteId });
 };
 
 export const cancelAllReminders = () => {
+  // Останавливаем все интервалы
+  Object.keys(activeIntervals).forEach(noteId => {
+    if (activeIntervals[noteId]) {
+      if (typeof activeIntervals[noteId] === 'number') {
+        clearTimeout(activeIntervals[noteId]);
+      } else {
+        clearInterval(activeIntervals[noteId]);
+      }
+    }
+  });
+  Object.keys(activeIntervals).forEach(key => delete activeIntervals[key]);
+  
+  // Отменяем все уведомления
   PushNotification.cancelAllLocalNotifications();
 };
