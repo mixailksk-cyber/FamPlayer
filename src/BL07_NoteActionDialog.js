@@ -1,508 +1,137 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, Animated, Platform, Alert, ScrollView } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { width, getBrandColor } from './BL02_Constants';
+import PushNotification from 'react-native-push-notification';
+import { Platform, PermissionsAndroid, Alert } from 'react-native';
 
-const NoteActionDialog = ({ 
-  visible, 
-  onClose, 
-  folders, 
-  onMove, 
-  onDelete, 
-  onPermanentDelete, 
-  onTogglePin, 
-  isPinned, 
-  currentFolder, 
-  settings,
-  isInTrash,
-  onSetReminder,
-  reminderTime
-}) => {
-  const availableFolders = React.useMemo(() => {
-    return folders
-      .filter(f => {
-        const n = typeof f === 'object' ? f.name : f;
-        return n !== 'Корзина' && n !== currentFolder;
-      })
-      .map(f => typeof f === 'object' ? f.name : f);
-  }, [folders, currentFolder]);
-  
-  const [fadeAnim] = React.useState(new Animated.Value(0));
-  const [scaleAnim] = React.useState(new Animated.Value(0.9));
-  
-  // Состояния для выбора даты и времени
-  const [showDateTimePicker, setShowDateTimePicker] = useState(false);
-  const [selectedDay, setSelectedDay] = useState(new Date().getDate());
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [selectedHour, setSelectedHour] = useState(0);
-  const [selectedMinute, setSelectedMinute] = useState(0);
-  
-  React.useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          friction: 5,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-      ]).start();
-      
-      // Сбрасываем значения при открытии
-      const now = new Date();
-      setSelectedDay(now.getDate());
-      setSelectedMonth(now.getMonth());
-      setSelectedHour(0);
-      setSelectedMinute(0);
-    } else {
-      fadeAnim.setValue(0);
-      scaleAnim.setValue(0.9);
-      setShowDateTimePicker(false);
-    }
-  }, [visible]);
-  
-  const brandColor = getBrandColor(settings);
-  
-  const formatReminderTime = (timestamp) => {
-    if (!timestamp) return null;
-    const date = new Date(timestamp);
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${day}.${month} ${hours}:${minutes}`;
-  };
-  
-  const hasActiveReminder = reminderTime && reminderTime > Date.now();
-  
-  // Генерация списка дней (1-31)
-  const getDaysList = () => {
-    const days = [];
-    for (let i = 1; i <= 31; i++) {
-      days.push(i);
-    }
-    return days;
-  };
-  
-  // Генерация списка месяцев
-  const getMonthsList = () => {
-    const months = [
-      'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
-    ];
-    return months;
-  };
-  
-  // Генерация списка часов (0-23)
-  const getHoursList = () => {
-    const hours = [];
-    for (let i = 0; i <= 23; i++) {
-      hours.push(i.toString().padStart(2, '0'));
-    }
-    return hours;
-  };
-  
-  // Генерация списка минут (0-59)
-  const getMinutesList = () => {
-    const minutes = [];
-    for (let i = 0; i <= 59; i++) {
-      minutes.push(i.toString().padStart(2, '0'));
-    }
-    return minutes;
-  };
-  
-  // Проверка валидности даты (учитываем количество дней в месяце)
-  const isValidDate = (day, month, year) => {
-    const date = new Date(year, month, day);
-    return date.getMonth() === month && date.getDate() === day;
-  };
-  
-  // Установка напоминания
-  const handleSetReminder = () => {
-    const now = new Date();
-    let year = now.getFullYear();
-    let month = selectedMonth;
-    let day = selectedDay;
-    
-    // Если выбранный месяц меньше текущего, используем следующий год
-    if (month < now.getMonth()) {
-      year = now.getFullYear() + 1;
-    } 
-    // Если месяц тот же, но день меньше, используем следующий год
-    else if (month === now.getMonth() && day < now.getDate()) {
-      year = now.getFullYear() + 1;
-    }
-    // Если день сегодня, но время уже прошло, добавляем день
-    else if (month === now.getMonth() && day === now.getDate()) {
-      const selectedTime = new Date(year, month, day, selectedHour, selectedMinute);
-      if (selectedTime <= now) {
-        // Если время уже прошло сегодня, устанавливаем на завтра
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        year = tomorrow.getFullYear();
-        month = tomorrow.getMonth();
-        day = tomorrow.getDate();
+export const configureNotifications = async () => {
+  // Запрос разрешения на Android 13+
+  if (Platform.OS === 'android') {
+    if (Platform.Version >= 33) { // Android 13 (API 33) и выше
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+          {
+            title: 'Разрешение на уведомления',
+            message: 'FamNotes нужно отправлять уведомления о напоминаниях',
+            buttonNeutral: 'Спросить позже',
+            buttonNegative: 'Запретить',
+            buttonPositive: 'Разрешить',
+          }
+        );
+        console.log('Notification permission:', granted);
+        
+        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+          console.log('✅ Notification permission granted');
+        } else {
+          console.log('❌ Notification permission denied');
+          Alert.alert(
+            'Уведомления отключены',
+            'Для получения напоминаний включите уведомления в настройках приложения',
+            [{ text: 'OK' }]
+          );
+        }
+      } catch (err) {
+        console.warn('Permission request error:', err);
       }
     }
-    
-    // Проверяем валидность даты (например, 31 апреля не существует)
-    if (!isValidDate(day, month, year)) {
-      // Корректируем день до последнего дня месяца
-      const lastDay = new Date(year, month + 1, 0).getDate();
-      day = Math.min(day, lastDay);
-    }
-    
-    const reminderDate = new Date(year, month, day, selectedHour, selectedMinute);
-    
-    if (reminderDate > now) {
-      onSetReminder(reminderDate.getTime());
-      setShowDateTimePicker(false);
-      // Закрываем основной диалог после установки напоминания
-      onClose();
-    } else {
-      Alert.alert('Ошибка', 'Выбранная дата и время уже прошли');
-    }
-  };
+  }
   
-  // Отключение напоминания
-  const handleDisableReminder = () => {
-    onSetReminder(null);
-    onClose();
-  };
+  PushNotification.configure({
+    onNotification: function (notification) {
+      console.log('NOTIFICATION:', notification);
+      // Не удаляем уведомление при нажатии
+      // Просто обрабатываем нажатие для открытия приложения
+      if (notification.userInteraction) {
+        // Пользователь нажал на уведомление
+        // Уведомление остается в шторке
+        console.log('User tapped notification, noteId:', notification.userInfo?.noteId);
+      }
+    },
+    onRegister: function (token) {
+      console.log('TOKEN:', token);
+    },
+    permissions: {
+      alert: true,
+      badge: true,
+      sound: true,
+    },
+    popInitialNotification: true,
+    requestPermissions: Platform.OS === 'ios',
+  });
   
-  const openDateTimePicker = () => {
-    setShowDateTimePicker(true);
-  };
-  
-  if (!visible) return null;
-  
-  return (
-    <>
-      <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-        <Animated.View style={{ 
-          flex: 1, 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          opacity: fadeAnim
-        }}>
-          <Animated.View style={{ 
-            backgroundColor: 'white', 
-            padding: 20, 
-            borderRadius: 10, 
-            width: width - 40,
-            maxHeight: '85%',
-            transform: [{ scale: scaleAnim }]
-          }}>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center', color: brandColor }}>
-              Действия с заметкой
-            </Text>
-            
-            {/* Кнопки закрепления и напоминания (только не в корзине) */}
-            {!isInTrash && (
-              <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
-                <TouchableOpacity 
-                  onPress={() => { onTogglePin(); onClose(); }} 
-                  style={{ 
-                    flex: 1,
-                    padding: 12, 
-                    alignItems: 'center', 
-                    flexDirection: 'row',
-                    justifyContent: 'center',
-                    backgroundColor: brandColor,
-                    borderRadius: 8,
-                  }}>
-                  <Icon name="push-pin" size={20} color="white" />
-                  <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
-                    {isPinned ? "Открепить" : "Закрепить"}
-                  </Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  onPress={hasActiveReminder ? handleDisableReminder : openDateTimePicker} 
-                  style={{ 
-                    flex: 1,
-                    padding: 12, 
-                    alignItems: 'center', 
-                    flexDirection: 'row',
-                    justifyContent: 'center',
-                    backgroundColor: brandColor,
-                    borderRadius: 8,
-                  }}>
-                  <Icon name="alarm" size={20} color="white" />
-                  <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
-                    {hasActiveReminder ? "Отключить" : "Напомнить"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            
-            {/* Показываем время напоминания если оно активно */}
-            {hasActiveReminder && !isInTrash && (
-              <View style={{ 
-                padding: 8, 
-                alignItems: 'center',
-                marginBottom: 8,
-                backgroundColor: '#F5F5F5',
-                borderRadius: 8
-              }}>
-                <Text style={{ fontSize: 12, color: brandColor }}>
-                  Напоминание установлено на {formatReminderTime(reminderTime)}
-                </Text>
-              </View>
-            )}
-            
-            {/* Перемещение в папки (для всех заметок, включая корзину) */}
-            {availableFolders.length > 0 && (
-              <>
-                <Text style={{ marginBottom: 8, color: '#666', marginTop: 8 }}>Переместить в папку:</Text>
-                <ScrollView style={{ maxHeight: 200 }}>
-                  {availableFolders.map((n, i) => (
-                    <TouchableOpacity 
-                      key={i} 
-                      onPress={() => { onMove(n); onClose(); }} 
-                      style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#E0E0E0', flexDirection: 'row', alignItems: 'center' }}>
-                      <Icon name="folder" size={20} color="#666" style={{ marginRight: 12 }} />
-                      <Text style={{ fontSize: 16, color: '#333' }}>{n}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </>
-            )}
-            
-            {/* Кнопки для обычных заметок (не в корзине) */}
-            {!isInTrash && (
-              <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
-                <TouchableOpacity 
-                  onPress={() => { onPermanentDelete(); onClose(); }} 
-                  style={{ 
-                    flex: 1,
-                    padding: 12, 
-                    backgroundColor: '#FF4444', 
-                    borderRadius: 8, 
-                    alignItems: 'center', 
-                    flexDirection: 'row', 
-                    justifyContent: 'center' }}>
-                  <Icon name="delete-forever" size={20} color="white" style={{ marginRight: 6 }} />
-                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>Безвозвратно</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  onPress={() => { onDelete(); onClose(); }} 
-                  style={{ 
-                    flex: 1,
-                    padding: 12, 
-                    backgroundColor: '#F57C00', 
-                    borderRadius: 8, 
-                    alignItems: 'center', 
-                    flexDirection: 'row', 
-                    justifyContent: 'center' }}>
-                  <Icon name="delete" size={20} color="white" style={{ marginRight: 6 }} />
-                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>В корзину</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            
-            {/* Кнопка "Удалить безвозвратно" для корзины */}
-            {isInTrash && (
-              <TouchableOpacity 
-                onPress={() => { onPermanentDelete(); onClose(); }} 
-                style={{ marginTop: 16, padding: 12, backgroundColor: '#FF4444', borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
-                <Icon name="delete-forever" size={24} color="white" style={{ marginRight: 8 }} />
-                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Удалить безвозвратно</Text>
-              </TouchableOpacity>
-            )}
-            
-            <TouchableOpacity onPress={onClose} style={{ marginTop: 16, padding: 12, alignItems: 'center' }}>
-              <Text style={{ color: brandColor, fontSize: 16 }}>Отмена</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </Animated.View>
-      </Modal>
-      
-      {/* Модальное окно выбора даты и времени */}
-      <Modal visible={showDateTimePicker} transparent animationType="fade" onRequestClose={() => setShowDateTimePicker(false)}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <View style={{ 
-            backgroundColor: 'white', 
-            padding: 20, 
-            borderRadius: 8, 
-            width: width - 40,
-            borderWidth: 1,
-            borderColor: '#E0E0E0',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.25,
-            shadowRadius: 4,
-            elevation: 5
-          }}>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center', color: brandColor }}>
-              Выберите дату и время
-            </Text>
-            
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ marginBottom: 8, color: '#666' }}>День и месяц:</Text>
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <View style={{ flex: 1 }}>
-                  <ScrollView 
-                    style={{ 
-                      height: 120, 
-                      borderWidth: 1, 
-                      borderColor: '#E0E0E0', 
-                      borderRadius: 8,
-                      backgroundColor: 'white'
-                    }}
-                    showsVerticalScrollIndicator={true}
-                  >
-                    {getDaysList().map(day => (
-                      <TouchableOpacity 
-                        key={day}
-                        onPress={() => setSelectedDay(day)}
-                        style={{ 
-                          padding: 8, 
-                          alignItems: 'center',
-                          backgroundColor: selectedDay === day ? brandColor : 'white'
-                        }}
-                      >
-                        <Text style={{ 
-                          color: selectedDay === day ? 'white' : '#333',
-                          fontWeight: selectedDay === day ? 'bold' : 'normal'
-                        }}>
-                          {day}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-                
-                <View style={{ flex: 1 }}>
-                  <ScrollView 
-                    style={{ 
-                      height: 120, 
-                      borderWidth: 1, 
-                      borderColor: '#E0E0E0', 
-                      borderRadius: 8,
-                      backgroundColor: 'white'
-                    }}
-                    showsVerticalScrollIndicator={true}
-                  >
-                    {getMonthsList().map((month, index) => (
-                      <TouchableOpacity 
-                        key={index}
-                        onPress={() => setSelectedMonth(index)}
-                        style={{ 
-                          padding: 8, 
-                          alignItems: 'center',
-                          backgroundColor: selectedMonth === index ? brandColor : 'white'
-                        }}
-                      >
-                        <Text style={{ 
-                          color: selectedMonth === index ? 'white' : '#333',
-                          fontWeight: selectedMonth === index ? 'bold' : 'normal'
-                        }}>
-                          {month}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              </View>
-            </View>
-            
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ marginBottom: 8, color: '#666' }}>Время:</Text>
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <View style={{ flex: 1 }}>
-                  <ScrollView 
-                    style={{ 
-                      height: 120, 
-                      borderWidth: 1, 
-                      borderColor: '#E0E0E0', 
-                      borderRadius: 8,
-                      backgroundColor: 'white'
-                    }}
-                    showsVerticalScrollIndicator={true}
-                  >
-                    {getHoursList().map(hour => (
-                      <TouchableOpacity 
-                        key={hour}
-                        onPress={() => setSelectedHour(parseInt(hour))}
-                        style={{ 
-                          padding: 8, 
-                          alignItems: 'center',
-                          backgroundColor: selectedHour === parseInt(hour) ? brandColor : 'white'
-                        }}
-                      >
-                        <Text style={{ 
-                          color: selectedHour === parseInt(hour) ? 'white' : '#333',
-                          fontWeight: selectedHour === parseInt(hour) ? 'bold' : 'normal'
-                        }}>
-                          {hour}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-                
-                <View style={{ flex: 1 }}>
-                  <ScrollView 
-                    style={{ 
-                      height: 120, 
-                      borderWidth: 1, 
-                      borderColor: '#E0E0E0', 
-                      borderRadius: 8,
-                      backgroundColor: 'white'
-                    }}
-                    showsVerticalScrollIndicator={true}
-                  >
-                    {getMinutesList().map(minute => (
-                      <TouchableOpacity 
-                        key={minute}
-                        onPress={() => setSelectedMinute(parseInt(minute))}
-                        style={{ 
-                          padding: 8, 
-                          alignItems: 'center',
-                          backgroundColor: selectedMinute === parseInt(minute) ? brandColor : 'white'
-                        }}
-                      >
-                        <Text style={{ 
-                          color: selectedMinute === parseInt(minute) ? 'white' : '#333',
-                          fontWeight: selectedMinute === parseInt(minute) ? 'bold' : 'normal'
-                        }}>
-                          {minute}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              </View>
-            </View>
-            
-            <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 16 }}>
-              <TouchableOpacity 
-                onPress={() => setShowDateTimePicker(false)} 
-                style={{ padding: 12 }}
-              >
-                <Text style={{ color: '#999', fontSize: 16 }}>Отмена</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                onPress={handleSetReminder} 
-                style={{ padding: 12 }}
-              >
-                <Text style={{ color: brandColor, fontWeight: 'bold', fontSize: 16 }}>Установить</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </>
-  );
+  // Создаем канал уведомлений (для Android 8+)
+  if (Platform.OS === 'android') {
+    PushNotification.createChannel(
+      {
+        channelId: 'famnotes_channel',
+        channelName: 'FamNotes Reminders',
+        channelDescription: 'Notifications for note reminders',
+        importance: 5, // HIGH
+        vibrate: true,
+        playSound: true,
+        soundName: 'default',
+      },
+      (created) => console.log(`Channel created: ${created}`)
+    );
+  }
 };
 
-export default NoteActionDialog;
+export const scheduleReminder = (noteId, title, content, date) => {
+  const notificationDate = new Date(date);
+  const now = new Date();
+  
+  // Проверяем, что дата в будущем
+  if (notificationDate <= now) {
+    console.log('Cannot schedule reminder in the past');
+    return false;
+  }
+  
+  console.log('Scheduling reminder for:', notificationDate);
+  
+  // Формируем заголовок и текст уведомления
+  let notificationTitle = 'Напоминание';
+  let notificationMessage = '';
+  
+  if (title && title.trim()) {
+    notificationTitle = title.trim();
+    if (content && content.trim()) {
+      notificationMessage = content.trim();
+    } else {
+      notificationMessage = '';
+    }
+  } else if (content && content.trim()) {
+    notificationTitle = 'Напоминание';
+    notificationMessage = content.trim();
+  } else {
+    notificationTitle = 'Напоминание';
+    notificationMessage = 'У вас есть заметка, требующая внимания';
+  }
+  
+  PushNotification.localNotificationSchedule({
+    channelId: 'famnotes_channel',
+    title: notificationTitle,
+    message: notificationMessage,
+    date: notificationDate,
+    allowWhileIdle: true,
+    userInfo: { noteId: noteId },
+    vibrate: true,
+    vibration: 300,
+    playSound: true,
+    soundName: 'default',
+    importance: 'high',
+    priority: 'high',
+    visibility: 'public',
+    exact: true,
+    // Уведомление не удаляется при нажатии
+    autoCancel: false,
+  });
+  
+  return true;
+};
+
+export const cancelReminder = (noteId) => {
+  // Отменяем только конкретное напоминание по noteId
+  PushNotification.cancelLocalNotifications({ noteId: noteId });
+};
+
+export const cancelAllReminders = () => {
+  PushNotification.cancelAllLocalNotifications();
+};
