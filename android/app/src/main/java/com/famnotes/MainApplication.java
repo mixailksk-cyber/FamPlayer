@@ -1,7 +1,6 @@
 package com.famnotes;
 
 import android.app.Application;
-import android.content.Context;
 import com.facebook.react.PackageList;
 import com.facebook.react.ReactApplication;
 import com.facebook.react.ReactNativeHost;
@@ -23,6 +22,7 @@ public class MainApplication extends Application implements ReactApplication {
         @Override
         protected List<ReactPackage> getPackages() {
           List<ReactPackage> packages = new PackageList(this).getPackages();
+          // Добавляем пакет виджета
           packages.add(new WidgetPackage());
           return packages;
         }
@@ -55,6 +55,7 @@ public class MainApplication extends Application implements ReactApplication {
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       DefaultNewArchitectureEntryPoint.load();
     }
+    // Создаем канал уведомлений
     NotificationHelper.createNotificationChannel(this);
   }
 }
