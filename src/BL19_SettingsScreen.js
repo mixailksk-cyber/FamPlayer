@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, Platform, Share, ActivityIndicator, Switch } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Alert, Platform, Share, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Header from './BL04_Header';
 import { NOTE_COLORS, getBrandColor } from './BL02_Constants';
 import RNFS from 'react-native-fs';
 import DocumentPicker from 'react-native-document-picker';
-import { requestCalendarPermission, checkCalendarPermission } from './CalendarBridge';
 
 const SettingsScreen = ({ 
   setCurrentScreen, 
@@ -20,20 +19,8 @@ const SettingsScreen = ({
 }) => {
   const fontSizeOptions = [14, 16, 18, 20, 22, 24];
   const brandColor = getBrandColor(settings);
-  const [isRestoring, setIsRestoring] = useState(false);
-  const [isBackingUp, setIsBackingUp] = useState(false);
-  const [useCalendar, setUseCalendar] = useState(settings.useCalendar || false);
-  const [calendarEnabled, setCalendarEnabled] = useState(false);
-
-  useEffect(() => {
-    const checkCalendar = async () => {
-      if (Platform.OS === 'android') {
-        const hasPermission = await checkCalendarPermission();
-        setCalendarEnabled(hasPermission);
-      }
-    };
-    checkCalendar();
-  }, []);
+  const [isRestoring, setIsRestoring] = React.useState(false);
+  const [isBackingUp, setIsBackingUp] = React.useState(false);
 
   const handleFontSizeChange = (size) => {
     saveSettings({ ...settings, fontSize: size });
@@ -79,8 +66,7 @@ const SettingsScreen = ({
         }),
         settings: {
           fontSize: settings.fontSize || 16,
-          brandColor: settings.brandColor || brandColor,
-          useCalendar: settings.useCalendar || false
+          brandColor: settings.brandColor || brandColor
         }
       };
       
@@ -156,7 +142,8 @@ const SettingsScreen = ({
       
       if (result && result[0]) {
         const fileUri = result[0].uri;
-        console.log('📂 Selected file:', fileUri);
+        const fileName = result[0].name;
+        console.log('📂 Selected file:', { fileName, uri: fileUri });
         
         let content;
         
@@ -211,8 +198,7 @@ const SettingsScreen = ({
                   
                   const restoredSettings = backup.settings || {
                     fontSize: 16,
-                    brandColor: brandColor,
-                    useCalendar: false
+                    brandColor: brandColor
                   };
                   
                   await AsyncStorage.setItem('notes', JSON.stringify(restoredNotes));
@@ -316,50 +302,6 @@ const SettingsScreen = ({
                 />
               ))}
             </View>
-          </View>
-        </View>
-
-        {/* Напоминания в календарь */}
-        <View style={{ marginBottom: 32 }}>
-          <Text style={{ fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16 }}>
-            Напоминания в календарь
-          </Text>
-          <View style={{ backgroundColor: '#F8F9FA', borderRadius: 16, padding: 20 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 16, color: '#333' }}>Добавлять в системный календарь</Text>
-                <Text style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-                  Напоминания будут дублироваться в календарь Android
-                </Text>
-                <Text style={{ fontSize: 10, color: '#999', marginTop: 4 }}>
-                  * Не сохраняется в резервную копию
-                </Text>
-              </View>
-              <Switch
-                value={useCalendar}
-                onValueChange={async (value) => {
-                  if (value && Platform.OS === 'android') {
-                    const granted = await requestCalendarPermission();
-                    if (!granted) {
-                      Alert.alert('Нет доступа', 'Не удалось получить доступ к календарю');
-                      setUseCalendar(false);
-                      saveSettings({ ...settings, useCalendar: false });
-                      return;
-                    }
-                    setCalendarEnabled(true);
-                  }
-                  setUseCalendar(value);
-                  saveSettings({ ...settings, useCalendar: value });
-                }}
-                trackColor={{ false: '#767577', true: brandColor }}
-                thumbColor={useCalendar ? '#f4f3f4' : '#f4f3f4'}
-              />
-            </View>
-            {calendarEnabled && useCalendar && (
-              <Text style={{ fontSize: 11, color: brandColor, marginTop: 12 }}>
-                ✓ Календарь доступен
-              </Text>
-            )}
           </View>
         </View>
 
