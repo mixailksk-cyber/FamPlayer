@@ -37,6 +37,28 @@ const NoteActionDialog = ({
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedHour, setSelectedHour] = useState(0);
   const [selectedMinute, setSelectedMinute] = useState(0);
+  const [calendarDateTime, setCalendarDateTime] = useState(null);
+  
+  // Получение часового пояса устройства
+  const getTimezone = () => {
+    const offset = -new Date().getTimezoneOffset() / 60;
+    
+    const timezoneMap = {
+      2: 'Europe/Kaliningrad',
+      3: 'Europe/Moscow',
+      4: 'Europe/Samara',
+      5: 'Asia/Yekaterinburg',
+      6: 'Asia/Omsk',
+      7: 'Asia/Krasnoyarsk',
+      8: 'Asia/Irkutsk',
+      9: 'Asia/Yakutsk',
+      10: 'Asia/Vladivostok',
+      11: 'Asia/Magadan',
+      12: 'Asia/Kamchatka'
+    };
+    
+    return timezoneMap[offset] || 'Europe/Moscow';
+  };
   
   useEffect(() => {
     if (visible) {
@@ -81,44 +103,110 @@ const NoteActionDialog = ({
   const hasActiveReminder = reminderTime && reminderTime > Date.now();
   
   const formatForCalendar = (date) => {
-    return date.toISOString().replace(/[-:]/g, '').split('.')[0];
+    // Формат для Google Календаря: YYYYMMDDTHHMMSSZ
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
   };
   
-  // Добавление в Google Календарь
+  // Добавление в Google Календарь с выбранной датой и временем
+  const openCalendarDateTimePicker = () => {
+    setCalendarDateTime('calendar');
+    setShowDateTimePicker(true);
+  };
+  
   const addToGoogleCalendar = async () => {
     if (!currentNote) return;
+    if (!calendarDateTime) {
+      openCalendarDateTimePicker();
+      return;
+    }
     
     const title = currentNote.title || 'Напоминание';
     const content = currentNote.content || '';
+    
     const now = new Date();
-    const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0);
+    let startDate;
+    
+    if (calendarDateTime === 'calendar') {
+      let year = now.getFullYear();
+      let month = selectedMonth;
+      let day = selectedDay;
+      
+      if (month < now.getMonth()) {
+        year = now.getFullYear() + 1;
+      } else if (month === now.getMonth() && day < now.getDate()) {
+        year = now.getFullYear() + 1;
+      }
+      
+      startDate = new Date(year, month, day, selectedHour, selectedMinute);
+    } else {
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0);
+    }
+    
     const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
     
     const encodedTitle = encodeURIComponent(title);
     const encodedDesc = encodeURIComponent(content);
     const startStr = formatForCalendar(startDate);
     const endStr = formatForCalendar(endDate);
+    const timezone = getTimezone();
     
-    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodedTitle}&details=${encodedDesc}&dates=${startStr}/${endStr}`;
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodedTitle}&details=${encodedDesc}&dates=${startStr}/${endStr}&ctz=${timezone}`;
     
     try {
       await Linking.openURL(url);
+      setCalendarDateTime(null);
       onClose();
     } catch (error) {
       Alert.alert('Ошибка', 'Не удалось открыть Google Календарь');
     }
   };
   
-  // Создание .ics файла
+  // Создание .ics файла с выбранной датой
+  const openIcsDateTimePicker = () => {
+    setCalendarDateTime('ics');
+    setShowDateTimePicker(true);
+  };
+  
   const createIcsFile = async () => {
     if (!currentNote) return;
+    if (!calendarDateTime) {
+      openIcsDateTimePicker();
+      return;
+    }
     
     const title = currentNote.title || 'Напоминание';
     const content = currentNote.content || '';
     
     const now = new Date();
-    const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0);
+    let startDate;
+    
+    if (calendarDateTime === 'ics') {
+      let year = now.getFullYear();
+      let month = selectedMonth;
+      let day = selectedDay;
+      
+      if (month < now.getMonth()) {
+        year = now.getFullYear() + 1;
+      } else if (month === now.getMonth() && day < now.getDate()) {
+        year = now.getFullYear() + 1;
+      }
+      
+      startDate = new Date(year, month, day, selectedHour, selectedMinute);
+    } else {
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0);
+    }
+    
     const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+    
+    const formatForIcs = (date) => {
+      return date.toISOString().replace(/[-:]/g, '').split('.')[0];
+    };
     
     const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
@@ -126,9 +214,9 @@ PRODID:-//FamNotes//RU
 CALSCALE:GREGORIAN
 BEGIN:VEVENT
 UID:${Date.now()}@famnotes
-DTSTAMP:${formatForCalendar(new Date())}
-DTSTART:${formatForCalendar(startDate)}
-DTEND:${formatForCalendar(endDate)}
+DTSTAMP:${formatForIcs(new Date())}
+DTSTART:${formatForIcs(startDate)}
+DTEND:${formatForIcs(endDate)}
 SUMMARY:${title.replace(/[\\,;]/g, '').substring(0, 100)}
 DESCRIPTION:${content.replace(/[\\,;]/g, '').substring(0, 500)}
 END:VEVENT
@@ -182,6 +270,7 @@ END:VCALENDAR`;
           }
         ]
       );
+      setCalendarDateTime(null);
     } catch (error) {
       console.error('Error creating ICS file:', error);
       Alert.alert('❌ Ошибка', 'Не удалось создать файл. Проверьте разрешения на запись.');
@@ -363,7 +452,7 @@ END:VCALENDAR`;
                   }}>
                   <Icon name="calendar-today" size={20} color="white" />
                   <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
-                    📅 Google Календарь
+                    📅 Google Календарь (с будильником)
                   </Text>
                 </TouchableOpacity>
                 
@@ -381,7 +470,7 @@ END:VCALENDAR`;
                   }}>
                   <Icon name="insert-drive-file" size={20} color="white" />
                   <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
-                    📁 Создать .ics файл
+                    📁 .ics файл (для любого календаря)
                   </Text>
                 </TouchableOpacity>
                 
@@ -399,7 +488,7 @@ END:VCALENDAR`;
                   }}>
                   <Icon name="content-copy" size={20} color="white" />
                   <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
-                    📋 Скопировать для календаря
+                    📋 Скопировать текст
                   </Text>
                 </TouchableOpacity>
               </>
@@ -415,6 +504,9 @@ END:VCALENDAR`;
               }}>
                 <Text style={{ fontSize: 12, color: brandColor }}>
                   Напоминание установлено на {formatReminderTime(reminderTime)}
+                </Text>
+                <Text style={{ fontSize: 10, color: '#666', marginTop: 4 }}>
+                  Уведомления будут повторяться каждые 10 минут
                 </Text>
               </View>
             )}
@@ -485,7 +577,10 @@ END:VCALENDAR`;
       </Modal>
       
       {/* Модальное окно выбора даты и времени */}
-      <Modal visible={showDateTimePicker} transparent animationType="fade" onRequestClose={() => setShowDateTimePicker(false)}>
+      <Modal visible={showDateTimePicker} transparent animationType="fade" onRequestClose={() => {
+        setShowDateTimePicker(false);
+        setCalendarDateTime(null);
+      }}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <View style={{ 
             backgroundColor: 'white', 
@@ -565,11 +660,23 @@ END:VCALENDAR`;
             </View>
             
             <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 16 }}>
-              <TouchableOpacity onPress={() => setShowDateTimePicker(false)} style={{ padding: 12 }}>
+              <TouchableOpacity onPress={() => {
+                setShowDateTimePicker(false);
+                setCalendarDateTime(null);
+              }} style={{ padding: 12 }}>
                 <Text style={{ color: '#999', fontSize: 16 }}>Отмена</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleSetReminder} style={{ padding: 12 }}>
-                <Text style={{ color: brandColor, fontWeight: 'bold', fontSize: 16 }}>Установить</Text>
+              <TouchableOpacity onPress={() => {
+                setShowDateTimePicker(false);
+                if (calendarDateTime === 'calendar') {
+                  addToGoogleCalendar();
+                } else if (calendarDateTime === 'ics') {
+                  createIcsFile();
+                } else {
+                  handleSetReminder();
+                }
+              }} style={{ padding: 12 }}>
+                <Text style={{ color: brandColor, fontWeight: 'bold', fontSize: 16 }}>Выбрать</Text>
               </TouchableOpacity>
             </View>
           </View>
