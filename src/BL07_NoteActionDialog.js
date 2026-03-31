@@ -102,18 +102,7 @@ const NoteActionDialog = ({
   
   const hasActiveReminder = reminderTime && reminderTime > Date.now();
   
-  const formatForGoogleCalendar = (date) => {
-    // Формат для Google Календаря без Z (локальное время)
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const seconds = date.getSeconds().toString().padStart(2, '0');
-    return `${year}${month}${day}T${hours}${minutes}${seconds}`;
-  };
-  
-  // Добавление в Google Календарь с выбранной датой и временем
+  // Добавление в Google Календарь как задача
   const openCalendarDateTimePicker = () => {
     setCalendarDateTime('calendar');
     setShowDateTimePicker(true);
@@ -148,16 +137,22 @@ const NoteActionDialog = ({
       startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0);
     }
     
-    // Конец события - через 24 часа (сутки)
-    const endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
-    
     const encodedTitle = encodeURIComponent(title);
     const encodedDesc = encodeURIComponent(content);
-    const startStr = formatForGoogleCalendar(startDate);
-    const endStr = formatForGoogleCalendar(endDate);
-    const timezone = getTimezone();
     
-    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodedTitle}&details=${encodedDesc}&dates=${startStr}/${endStr}&ctz=${timezone}`;
+    // Формат даты для задачи: YYYY-MM-DD
+    const year = startDate.getFullYear();
+    const month = (startDate.getMonth() + 1).toString().padStart(2, '0');
+    const day = startDate.getDate().toString().padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    
+    // Формат времени для задачи: HH:MM
+    const hours = startDate.getHours().toString().padStart(2, '0');
+    const minutes = startDate.getMinutes().toString().padStart(2, '0');
+    const timeStr = `${hours}:${minutes}`;
+    
+    // URL для создания задачи в Google Календаре
+    const url = `https://calendar.google.com/calendar/u/0/r/tasks/new?text=${encodedTitle}&details=${encodedDesc}&date=${dateStr}&time=${timeStr}`;
     
     try {
       await Linking.openURL(url);
@@ -447,7 +442,7 @@ END:VCALENDAR`;
                   </TouchableOpacity>
                 </View>
                 
-                {/* Кнопка Google Календарь */}
+                {/* Кнопка Google Задачи */}
                 <TouchableOpacity 
                   onPress={addToGoogleCalendar} 
                   style={{ 
@@ -459,9 +454,9 @@ END:VCALENDAR`;
                     borderRadius: 8,
                     marginBottom: 8,
                   }}>
-                  <Icon name="calendar-today" size={20} color="white" />
+                  <Icon name="assignment" size={20} color="white" />
                   <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
-                    📅 Google Календарь (с будильником)
+                    ✅ Google Задачи (с напоминанием)
                   </Text>
                 </TouchableOpacity>
                 
