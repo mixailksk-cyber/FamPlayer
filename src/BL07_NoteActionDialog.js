@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, Animated, Platform, Alert, ScrollView, Share, Clipboard } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, Animated, Platform, Alert, ScrollView, Share, Clipboard, Linking } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { width, getBrandColor } from './BL02_Constants';
 import RNFS from 'react-native-fs';
@@ -80,12 +80,36 @@ const NoteActionDialog = ({
   
   const hasActiveReminder = reminderTime && reminderTime > Date.now();
   
-  // Форматирование даты для календаря
   const formatForCalendar = (date) => {
     return date.toISOString().replace(/[-:]/g, '').split('.')[0];
   };
   
-  // Создание .ics файла для календаря
+  // Добавление в Google Календарь
+  const addToGoogleCalendar = async () => {
+    if (!currentNote) return;
+    
+    const title = currentNote.title || 'Напоминание';
+    const content = currentNote.content || '';
+    const now = new Date();
+    const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0);
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+    
+    const encodedTitle = encodeURIComponent(title);
+    const encodedDesc = encodeURIComponent(content);
+    const startStr = formatForCalendar(startDate);
+    const endStr = formatForCalendar(endDate);
+    
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodedTitle}&details=${encodedDesc}&dates=${startStr}/${endStr}`;
+    
+    try {
+      await Linking.openURL(url);
+      onClose();
+    } catch (error) {
+      Alert.alert('Ошибка', 'Не удалось открыть Google Календарь');
+    }
+  };
+  
+  // Создание .ics файла
   const createIcsFile = async () => {
     if (!currentNote) return;
     
@@ -111,23 +135,45 @@ END:VEVENT
 END:VCALENDAR`;
     
     const fileName = `FamNote_${Date.now()}.ics`;
-    const path = RNFS.DocumentDirectoryPath + '/' + fileName;
+    let savePath = null;
+    let saveLocation = '';
     
     try {
-      await RNFS.writeFile(path, icsContent, 'utf8');
+      if (RNFS.DownloadDirectoryPath) {
+        savePath = RNFS.DownloadDirectoryPath + '/' + fileName;
+        saveLocation = 'папку "Загрузки"';
+        await RNFS.writeFile(savePath, icsContent, 'utf8');
+      } else if (RNFS.ExternalDirectoryPath) {
+        savePath = RNFS.ExternalDirectoryPath + '/' + fileName;
+        saveLocation = 'внешнее хранилище';
+        await RNFS.writeFile(savePath, icsContent, 'utf8');
+      } else if (RNFS.ExternalStorageDirectoryPath) {
+        const downloadPath = RNFS.ExternalStorageDirectoryPath + '/Download';
+        const dirExists = await RNFS.exists(downloadPath);
+        if (!dirExists) {
+          await RNFS.mkdir(downloadPath);
+        }
+        savePath = downloadPath + '/' + fileName;
+        saveLocation = 'папку "Download"';
+        await RNFS.writeFile(savePath, icsContent, 'utf8');
+      } else {
+        savePath = RNFS.TemporaryDirectoryPath + '/' + fileName;
+        saveLocation = 'временную папку';
+        await RNFS.writeFile(savePath, icsContent, 'utf8');
+      }
       
       Alert.alert(
         '✅ Файл создан',
-        `Файл ${fileName} сохранен в папке приложения`,
+        `Файл ${fileName} сохранен в ${saveLocation}\n\nОткройте его через файловый менеджер и выберите "Импортировать в календарь"`,
         [
           { text: 'OK', style: 'cancel' },
           { 
-            text: 'Открыть', 
+            text: 'Поделиться', 
             onPress: async () => {
               try {
                 await Share.share({
                   title: title,
-                  url: `file://${path}`,
+                  url: `file://${savePath}`,
                 });
               } catch (e) {
                 Alert.alert('Ошибка', 'Не удалось открыть файл');
@@ -138,11 +184,11 @@ END:VCALENDAR`;
       );
     } catch (error) {
       console.error('Error creating ICS file:', error);
-      Alert.alert('Ошибка', 'Не удалось создать файл');
+      Alert.alert('❌ Ошибка', 'Не удалось создать файл. Проверьте разрешения на запись.');
     }
   };
   
-  // Копирование в буфер обмена в формате для календаря
+  // Копирование текста для календаря
   const copyToClipboard = async () => {
     if (!currentNote) return;
     
@@ -159,34 +205,7 @@ END:VCALENDAR`;
     
     await Clipboard.setString(calendarText);
     Alert.alert('✅ Скопировано', 'Текст скопирован в буфер обмена. Вставьте его при создании события в календаре');
-  };
-  
-  // Копирование в формате .ics для вставки
-  const copyIcsFormat = async () => {
-    if (!currentNote) return;
-    
-    const title = currentNote.title || 'Напоминание';
-    const content = currentNote.content || '';
-    
-    const now = new Date();
-    const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0);
-    
-    const formatDate = (date) => {
-      return date.toISOString().replace(/[-:]/g, '').split('.')[0];
-    };
-    
-    const icsText = `BEGIN:VCALENDAR
-VERSION:2.0
-BEGIN:VEVENT
-SUMMARY:${title}
-DESCRIPTION:${content}
-DTSTART:${formatDate(startDate)}
-DTEND:${formatDate(new Date(startDate.getTime() + 60 * 60 * 1000))}
-END:VEVENT
-END:VCALENDAR`;
-    
-    await Clipboard.setString(icsText);
-    Alert.alert('✅ Скопировано', 'ICS формат скопирован. Сохраните как файл с расширением .ics и откройте календарем');
+    onClose();
   };
   
   const getDaysList = () => {
@@ -330,41 +349,59 @@ END:VCALENDAR`;
                   </TouchableOpacity>
                 </View>
                 
-                {/* Кнопки для календаря */}
-                <View style={{ marginBottom: 16 }}>
-                  <TouchableOpacity 
-                    onPress={copyToClipboard} 
-                    style={{ 
-                      padding: 12, 
-                      alignItems: 'center', 
-                      flexDirection: 'row',
-                      justifyContent: 'center',
-                      backgroundColor: '#2196F3',
-                      borderRadius: 8,
-                      marginBottom: 8,
-                    }}>
-                    <Icon name="content-copy" size={20} color="white" />
-                    <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
-                      📋 Копировать для календаря
-                    </Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    onPress={createIcsFile} 
-                    style={{ 
-                      padding: 12, 
-                      alignItems: 'center', 
-                      flexDirection: 'row',
-                      justifyContent: 'center',
-                      backgroundColor: '#4CAF50',
-                      borderRadius: 8,
-                    }}>
-                    <Icon name="insert-drive-file" size={20} color="white" />
-                    <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
-                      📁 Создать .ics файл
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                {/* Кнопка Google Календарь */}
+                <TouchableOpacity 
+                  onPress={addToGoogleCalendar} 
+                  style={{ 
+                    padding: 12, 
+                    alignItems: 'center', 
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    backgroundColor: '#4285F4',
+                    borderRadius: 8,
+                    marginBottom: 8,
+                  }}>
+                  <Icon name="calendar-today" size={20} color="white" />
+                  <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
+                    📅 Google Календарь
+                  </Text>
+                </TouchableOpacity>
+                
+                {/* Кнопка .ics файл */}
+                <TouchableOpacity 
+                  onPress={createIcsFile} 
+                  style={{ 
+                    padding: 12, 
+                    alignItems: 'center', 
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    backgroundColor: '#4CAF50',
+                    borderRadius: 8,
+                    marginBottom: 8,
+                  }}>
+                  <Icon name="insert-drive-file" size={20} color="white" />
+                  <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
+                    📁 Создать .ics файл
+                  </Text>
+                </TouchableOpacity>
+                
+                {/* Кнопка копирования текста */}
+                <TouchableOpacity 
+                  onPress={copyToClipboard} 
+                  style={{ 
+                    padding: 12, 
+                    alignItems: 'center', 
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    backgroundColor: '#FF9800',
+                    borderRadius: 8,
+                    marginBottom: 8,
+                  }}>
+                  <Icon name="content-copy" size={20} color="white" />
+                  <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
+                    📋 Скопировать для календаря
+                  </Text>
+                </TouchableOpacity>
               </>
             )}
             
