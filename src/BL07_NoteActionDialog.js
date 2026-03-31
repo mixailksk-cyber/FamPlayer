@@ -102,7 +102,18 @@ const NoteActionDialog = ({
   
   const hasActiveReminder = reminderTime && reminderTime > Date.now();
   
-  // Добавление в Google Календарь как задача
+  // Форматирование даты для Google
+  const formatForGoogle = (date) => {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    return `${year}${month}${day}T${hours}${minutes}${seconds}`;
+  };
+  
+  // Добавление в Google Календарь как мероприятие
   const openCalendarDateTimePicker = () => {
     setCalendarDateTime('calendar');
     setShowDateTimePicker(true);
@@ -137,29 +148,44 @@ const NoteActionDialog = ({
       startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0);
     }
     
+    const endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
+    
     const encodedTitle = encodeURIComponent(title);
     const encodedDesc = encodeURIComponent(content);
+    const startStr = formatForGoogle(startDate);
+    const endStr = formatForGoogle(endDate);
+    const timezone = getTimezone();
     
-    // Формат даты для задачи: YYYY-MM-DD
-    const year = startDate.getFullYear();
-    const month = (startDate.getMonth() + 1).toString().padStart(2, '0');
-    const day = startDate.getDate().toString().padStart(2, '0');
-    const dateStr = `${year}-${month}-${day}`;
-    
-    // Формат времени для задачи: HH:MM
-    const hours = startDate.getHours().toString().padStart(2, '0');
-    const minutes = startDate.getMinutes().toString().padStart(2, '0');
-    const timeStr = `${hours}:${minutes}`;
-    
-    // URL для создания задачи в Google Календаре
-    const url = `https://calendar.google.com/calendar/u/0/r/tasks/new?text=${encodedTitle}&details=${encodedDesc}&date=${dateStr}&time=${timeStr}`;
+    // Проверенный рабочий URL для Google Календаря
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodedTitle}&details=${encodedDesc}&dates=${startStr}/${endStr}&ctz=${timezone}`;
     
     try {
       await Linking.openURL(url);
       setCalendarDateTime(null);
       onClose();
     } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось открыть Google Календарь');
+      console.error('Error opening calendar:', error);
+      Alert.alert('Ошибка', 'Не удалось открыть Google Календарь. Проверьте интернет-соединение.');
+    }
+  };
+  
+  // Добавление в Google Keep
+  const addToGoogleKeep = async () => {
+    if (!currentNote) return;
+    
+    const title = currentNote.title || 'Напоминание';
+    const content = currentNote.content || '';
+    
+    const encodedTitle = encodeURIComponent(title);
+    const encodedDesc = encodeURIComponent(content);
+    
+    const url = `https://keep.google.com/u/0/#NEW?title=${encodedTitle}&text=${encodedDesc}`;
+    
+    try {
+      await Linking.openURL(url);
+      onClose();
+    } catch (error) {
+      Alert.alert('Ошибка', 'Не удалось открыть Google Keep');
     }
   };
   
@@ -198,11 +224,9 @@ const NoteActionDialog = ({
       startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0);
     }
     
-    // Конец события - через 24 часа (сутки)
     const endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
     
     const formatForIcs = (date) => {
-      // Формат для ICS: YYYYMMDDTHHMMSS
       const year = date.getFullYear();
       const month = (date.getMonth() + 1).toString().padStart(2, '0');
       const day = date.getDate().toString().padStart(2, '0');
@@ -442,7 +466,7 @@ END:VCALENDAR`;
                   </TouchableOpacity>
                 </View>
                 
-                {/* Кнопка Google Задачи */}
+                {/* Кнопка Google Календарь */}
                 <TouchableOpacity 
                   onPress={addToGoogleCalendar} 
                   style={{ 
@@ -454,9 +478,27 @@ END:VCALENDAR`;
                     borderRadius: 8,
                     marginBottom: 8,
                   }}>
-                  <Icon name="assignment" size={20} color="white" />
+                  <Icon name="calendar-today" size={20} color="white" />
                   <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
-                    ✅ Google Задачи (с напоминанием)
+                    📅 Google Календарь
+                  </Text>
+                </TouchableOpacity>
+                
+                {/* Кнопка Google Keep */}
+                <TouchableOpacity 
+                  onPress={addToGoogleKeep} 
+                  style={{ 
+                    padding: 12, 
+                    alignItems: 'center', 
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    backgroundColor: '#F4B400',
+                    borderRadius: 8,
+                    marginBottom: 8,
+                  }}>
+                  <Icon name="note" size={20} color="white" />
+                  <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
+                    📝 Google Keep
                   </Text>
                 </TouchableOpacity>
                 
