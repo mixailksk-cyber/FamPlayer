@@ -1,12 +1,7 @@
 import PushNotification from 'react-native-push-notification';
 import { Platform, PermissionsAndroid, Alert } from 'react-native';
-import { addEventToCalendar, removeEventFromCalendar } from './CalendarBridge';
-
-// Хранилище ID событий календаря
-const calendarEventIds = {};
 
 export const configureNotifications = async () => {
-  // Запрос разрешения на уведомления для Android 13+
   if (Platform.OS === 'android') {
     if (Platform.Version >= 33) {
       try {
@@ -43,7 +38,6 @@ export const configureNotifications = async () => {
     requestPermissions: Platform.OS === 'ios',
   });
   
-  // Создаем канал уведомлений
   if (Platform.OS === 'android') {
     PushNotification.createChannel(
       {
@@ -83,7 +77,6 @@ const getNotificationTexts = (title, content) => {
   return { notificationTitle, notificationMessage };
 };
 
-// Отправка одного уведомления
 const sendNotification = (noteId, title, content) => {
   const { notificationTitle, notificationMessage } = getNotificationTexts(title, content);
   
@@ -104,8 +97,7 @@ const sendNotification = (noteId, title, content) => {
   });
 };
 
-// Планирование уведомления
-export const scheduleReminder = async (noteId, title, content, date, useCalendar = false, onCalendarEventSaved = null) => {
+export const scheduleReminder = (noteId, title, content, date, useCalendar = false) => {
   const notificationDate = new Date(date);
   const now = new Date();
   
@@ -116,69 +108,59 @@ export const scheduleReminder = async (noteId, title, content, date, useCalendar
   
   console.log('Scheduling reminder for:', notificationDate);
   
-  // Отменяем существующие напоминания
   cancelReminder(noteId);
   
-  // Добавляем в календарь если включено
-  if (useCalendar && Platform.OS === 'android') {
-    try {
-      const eventId = await addEventToCalendar(title, content, date);
-      if (eventId) {
-        calendarEventIds[noteId] = eventId;
-        if (onCalendarEventSaved) {
-          onCalendarEventSaved(noteId, eventId);
-        }
-        console.log('✅ Added to calendar, eventId:', eventId);
-      } else {
-        console.log('❌ Failed to add to calendar');
-      }
-    } catch (error) {
-      console.error('Calendar error:', error);
+  const delay = notificationDate.getTime() - now.getTime();
+  
+  const timeoutId = setTimeout(() => {
+    sendNotification(noteId, title, content);
+    
+    const intervalId = setInterval(() => {
+      sendNotification(noteId, title, content);
+    }, 10 * 60 * 1000);
+    
+    if (activeTimeouts[noteId]) {
+      clearTimeout(activeTimeouts[noteId]);
     }
+    activeTimeouts[noteId] = intervalId;
+  }, delay);
+  
+  if (activeTimeouts[noteId]) {
+    clearTimeout(activeTimeouts[noteId]);
   }
+  activeTimeouts[noteId] = timeoutId;
   
-  // Планируем уведомление (один раз)
-  PushNotification.localNotificationSchedule({
-    channelId: 'famnotes_channel',
-    title: getNotificationTexts(title, content).notificationTitle,
-    message: getNotificationTexts(title, content).notificationMessage,
-    date: notificationDate,
-    allowWhileIdle: true,
-    userInfo: { noteId: noteId },
-    vibrate: true,
-    vibration: 300,
-    playSound: true,
-    soundName: 'default',
-    importance: 'high',
-    priority: 'high',
-    visibility: 'public',
-    autoCancel: false,
-  });
-  
-  console.log('✅ Scheduled notification for:', notificationDate);
   return true;
 };
 
-// Отмена напоминания
+const activeTimeouts = {};
+
 export const cancelReminder = (noteId) => {
-  // Отменяем все запланированные уведомления для этой заметки
-  PushNotification.cancelLocalNotifications({ noteId: noteId });
-  
-  // Удаляем из календаря
-  if (calendarEventIds[noteId]) {
-    removeEventFromCalendar(calendarEventIds[noteId]);
-    delete calendarEventIds[noteId];
+  if (activeTimeouts[noteId]) {
+    if (typeof activeTimeouts[noteId] === 'number') {
+      clearTimeout(activeTimeouts[noteId]);
+      clearInterval(activeTimeouts[noteId]);
+    } else {
+      clearInterval(activeTimeouts[noteId]);
+    }
+    delete activeTimeouts[noteId];
   }
   
-  console.log('❌ Cancelled reminders for note:', noteId);
+  PushNotification.cancelLocalNotifications({ noteId: noteId });
 };
 
-// Отмена всех напоминаний
 export const cancelAllReminders = () => {
-  PushNotification.cancelAllLocalNotifications();
-  Object.keys(calendarEventIds).forEach(noteId => {
-    removeEventFromCalendar(calendarEventIds[noteId]);
-    delete calendarEventIds[noteId];
+  Object.keys(activeTimeouts).forEach(noteId => {
+    if (activeTimeouts[noteId]) {
+      if (typeof activeTimeouts[noteId] === 'number') {
+        clearTimeout(activeTimeouts[noteId]);
+        clearInterval(activeTimeouts[noteId]);
+      } else {
+        clearInterval(activeTimeouts[noteId]);
+      }
+    }
   });
-  console.log('❌ Cancelled all reminders');
+  Object.keys(activeTimeouts).forEach(key => delete activeTimeouts[key]);
+  
+  PushNotification.cancelAllLocalNotifications();
 };
