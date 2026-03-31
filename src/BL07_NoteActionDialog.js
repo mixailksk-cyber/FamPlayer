@@ -79,41 +79,82 @@ const NoteActionDialog = ({
   
   const hasActiveReminder = reminderTime && reminderTime > Date.now();
   
-  // Функция для отправки заметки в календарь через системное меню "Поделиться"
+  // Функция для отправки заметки в календарь
   const shareToCalendar = async () => {
     if (!currentNote) return;
-    
-    const now = new Date();
-    const defaultDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0); // сегодня 9:00
     
     const title = currentNote.title || 'Напоминание';
     const content = currentNote.content || '';
     
-    // Формируем текст для календаря в формате iCalendar
-    const startDate = defaultDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    const endDate = new Date(defaultDate.getTime() + 60 * 60 * 1000).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    // Формируем текст для календаря
+    const now = new Date();
+    const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0);
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
     
-    const calendarEvent = `BEGIN:VCALENDAR
+    // Форматируем даты для iCalendar
+    const formatDate = (date) => {
+      return date.toISOString().replace(/[-:]/g, '').split('.')[0];
+    };
+    
+    // Создаем .ics файл для календаря
+    const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//FamNotes//RU
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
 BEGIN:VEVENT
-SUMMARY:${title}
-DESCRIPTION:${content}
-DTSTART:${startDate}
-DTEND:${endDate}
+UID:${Date.now()}@famnotes
+DTSTAMP:${formatDate(new Date())}
+DTSTART:${formatDate(startDate)}
+DTEND:${formatDate(endDate)}
+SUMMARY:${title.replace(/[\\,;]/g, '')}
+DESCRIPTION:${content.replace(/[\\,;]/g, '').substring(0, 500)}
 END:VEVENT
 END:VCALENDAR`;
     
-    try {
+    // Для Android используем создание файла .ics и его отправку
+    if (Platform.OS === 'android') {
+      try {
+        // Пробуем отправить как текстовый файл с MIME типом календаря
+        await Share.share({
+          title: `📅 ${title}`,
+          message: content || title,
+          url: `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`,
+        });
+        Alert.alert('✅ Отправлено', 'Выберите календарь в меню "Поделиться"');
+      } catch (error) {
+        // Если не получилось, пробуем просто текст
+        await Share.share({
+          message: `${title}\n\n${content}\n\n---\nСоздано в FamNotes`,
+        });
+        Alert.alert('ℹ️ Подсказка', 'Если календарь не появился, скопируйте текст и вставьте вручную');
+      }
+    } else {
+      // iOS
       await Share.share({
-        title: `📅 ${title}`,
-        message: content || title,
-        // Для Android можно передать как текст
+        message: `${title}\n\n${content}\n\n---\nСоздано в FamNotes`,
       });
-      Alert.alert('✅ Отправлено', 'Выберите календарь в меню "Поделиться"');
-    } catch (error) {
-      console.error('Share error:', error);
     }
+  };
+  
+  // Альтернативный способ - создать напоминание с выбором даты
+  const shareWithDate = async () => {
+    if (!currentNote) return;
+    
+    const title = currentNote.title || 'Напоминание';
+    const content = currentNote.content || '';
+    
+    // Создаем текст с датой для быстрого добавления
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const dateStr = `${tomorrow.getDate().toString().padStart(2, '0')}.${(tomorrow.getMonth() + 1).toString().padStart(2, '0')}.${tomorrow.getFullYear()}`;
+    
+    await Share.share({
+      message: `${title}\n${content}\n\n📅 Добавьте в календарь на ${dateStr} в 09:00\n\nСоздано в FamNotes`,
+    });
+    Alert.alert('ℹ️ Подсказка', 'Скопируйте текст и создайте событие в календаре вручную');
   };
   
   const getDaysList = () => {
@@ -267,11 +308,26 @@ END:VCALENDAR`;
                     justifyContent: 'center',
                     backgroundColor: '#4CAF50',
                     borderRadius: 8,
-                    marginBottom: 16,
+                    marginBottom: 8,
                   }}>
                   <Icon name="event" size={20} color="white" />
                   <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
-                    📅 Поделиться в календарь
+                    📅 Добавить в календарь
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  onPress={shareWithDate} 
+                  style={{ 
+                    padding: 8, 
+                    alignItems: 'center', 
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    marginBottom: 16,
+                  }}>
+                  <Icon name="content-copy" size={16} color={brandColor} />
+                  <Text style={{ fontSize: 12, color: brandColor, marginLeft: 4 }}>
+                    Или скопировать текст с датой
                   </Text>
                 </TouchableOpacity>
               </>
