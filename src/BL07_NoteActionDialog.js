@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, Animated, Platform, Alert, ScrollView, Share } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, Animated, Platform, Alert, ScrollView, Share, Clipboard } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { width, getBrandColor } from './BL02_Constants';
+import RNFS from 'react-native-fs';
 
 const NoteActionDialog = ({ 
   visible, 
@@ -79,82 +80,113 @@ const NoteActionDialog = ({
   
   const hasActiveReminder = reminderTime && reminderTime > Date.now();
   
-  // Функция для отправки заметки в календарь
-  const shareToCalendar = async () => {
+  // Форматирование даты для календаря
+  const formatForCalendar = (date) => {
+    return date.toISOString().replace(/[-:]/g, '').split('.')[0];
+  };
+  
+  // Создание .ics файла для календаря
+  const createIcsFile = async () => {
     if (!currentNote) return;
     
     const title = currentNote.title || 'Напоминание';
     const content = currentNote.content || '';
     
-    // Формируем текст для календаря
     const now = new Date();
     const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0);
     const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
     
-    // Форматируем даты для iCalendar
-    const formatDate = (date) => {
-      return date.toISOString().replace(/[-:]/g, '').split('.')[0];
-    };
-    
-    // Создаем .ics файл для календаря
     const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//FamNotes//RU
 CALSCALE:GREGORIAN
-METHOD:PUBLISH
 BEGIN:VEVENT
 UID:${Date.now()}@famnotes
-DTSTAMP:${formatDate(new Date())}
-DTSTART:${formatDate(startDate)}
-DTEND:${formatDate(endDate)}
-SUMMARY:${title.replace(/[\\,;]/g, '')}
+DTSTAMP:${formatForCalendar(new Date())}
+DTSTART:${formatForCalendar(startDate)}
+DTEND:${formatForCalendar(endDate)}
+SUMMARY:${title.replace(/[\\,;]/g, '').substring(0, 100)}
 DESCRIPTION:${content.replace(/[\\,;]/g, '').substring(0, 500)}
 END:VEVENT
 END:VCALENDAR`;
     
-    // Для Android используем создание файла .ics и его отправку
-    if (Platform.OS === 'android') {
-      try {
-        // Пробуем отправить как текстовый файл с MIME типом календаря
-        await Share.share({
-          title: `📅 ${title}`,
-          message: content || title,
-          url: `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`,
-        });
-        Alert.alert('✅ Отправлено', 'Выберите календарь в меню "Поделиться"');
-      } catch (error) {
-        // Если не получилось, пробуем просто текст
-        await Share.share({
-          message: `${title}\n\n${content}\n\n---\nСоздано в FamNotes`,
-        });
-        Alert.alert('ℹ️ Подсказка', 'Если календарь не появился, скопируйте текст и вставьте вручную');
-      }
-    } else {
-      // iOS
-      await Share.share({
-        message: `${title}\n\n${content}\n\n---\nСоздано в FamNotes`,
-      });
+    const fileName = `FamNote_${Date.now()}.ics`;
+    const path = RNFS.DocumentDirectoryPath + '/' + fileName;
+    
+    try {
+      await RNFS.writeFile(path, icsContent, 'utf8');
+      
+      Alert.alert(
+        '✅ Файл создан',
+        `Файл ${fileName} сохранен в папке приложения`,
+        [
+          { text: 'OK', style: 'cancel' },
+          { 
+            text: 'Открыть', 
+            onPress: async () => {
+              try {
+                await Share.share({
+                  title: title,
+                  url: `file://${path}`,
+                });
+              } catch (e) {
+                Alert.alert('Ошибка', 'Не удалось открыть файл');
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error creating ICS file:', error);
+      Alert.alert('Ошибка', 'Не удалось создать файл');
     }
   };
   
-  // Альтернативный способ - создать напоминание с выбором даты
-  const shareWithDate = async () => {
+  // Копирование в буфер обмена в формате для календаря
+  const copyToClipboard = async () => {
     if (!currentNote) return;
     
     const title = currentNote.title || 'Напоминание';
     const content = currentNote.content || '';
-    
-    // Создаем текст с датой для быстрого добавления
     const now = new Date();
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
     
     const dateStr = `${tomorrow.getDate().toString().padStart(2, '0')}.${(tomorrow.getMonth() + 1).toString().padStart(2, '0')}.${tomorrow.getFullYear()}`;
+    const timeStr = '09:00';
     
-    await Share.share({
-      message: `${title}\n${content}\n\n📅 Добавьте в календарь на ${dateStr} в 09:00\n\nСоздано в FamNotes`,
-    });
-    Alert.alert('ℹ️ Подсказка', 'Скопируйте текст и создайте событие в календаре вручную');
+    const calendarText = `📅 СОБЫТИЕ В КАЛЕНДАРЬ\n\nНазвание: ${title}\nОписание: ${content}\nДата: ${dateStr}\nВремя: ${timeStr}\nПродолжительность: 1 час\n\n---\nСоздано в FamNotes`;
+    
+    await Clipboard.setString(calendarText);
+    Alert.alert('✅ Скопировано', 'Текст скопирован в буфер обмена. Вставьте его при создании события в календаре');
+  };
+  
+  // Копирование в формате .ics для вставки
+  const copyIcsFormat = async () => {
+    if (!currentNote) return;
+    
+    const title = currentNote.title || 'Напоминание';
+    const content = currentNote.content || '';
+    
+    const now = new Date();
+    const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0);
+    
+    const formatDate = (date) => {
+      return date.toISOString().replace(/[-:]/g, '').split('.')[0];
+    };
+    
+    const icsText = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+SUMMARY:${title}
+DESCRIPTION:${content}
+DTSTART:${formatDate(startDate)}
+DTEND:${formatDate(new Date(startDate.getTime() + 60 * 60 * 1000))}
+END:VEVENT
+END:VCALENDAR`;
+    
+    await Clipboard.setString(icsText);
+    Alert.alert('✅ Скопировано', 'ICS формат скопирован. Сохраните как файл с расширением .ics и откройте календарем');
   };
   
   const getDaysList = () => {
@@ -298,38 +330,41 @@ END:VCALENDAR`;
                   </TouchableOpacity>
                 </View>
                 
-                {/* Кнопка "Поделиться в календарь" */}
-                <TouchableOpacity 
-                  onPress={shareToCalendar} 
-                  style={{ 
-                    padding: 12, 
-                    alignItems: 'center', 
-                    flexDirection: 'row',
-                    justifyContent: 'center',
-                    backgroundColor: '#4CAF50',
-                    borderRadius: 8,
-                    marginBottom: 8,
-                  }}>
-                  <Icon name="event" size={20} color="white" />
-                  <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
-                    📅 Добавить в календарь
-                  </Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  onPress={shareWithDate} 
-                  style={{ 
-                    padding: 8, 
-                    alignItems: 'center', 
-                    flexDirection: 'row',
-                    justifyContent: 'center',
-                    marginBottom: 16,
-                  }}>
-                  <Icon name="content-copy" size={16} color={brandColor} />
-                  <Text style={{ fontSize: 12, color: brandColor, marginLeft: 4 }}>
-                    Или скопировать текст с датой
-                  </Text>
-                </TouchableOpacity>
+                {/* Кнопки для календаря */}
+                <View style={{ marginBottom: 16 }}>
+                  <TouchableOpacity 
+                    onPress={copyToClipboard} 
+                    style={{ 
+                      padding: 12, 
+                      alignItems: 'center', 
+                      flexDirection: 'row',
+                      justifyContent: 'center',
+                      backgroundColor: '#2196F3',
+                      borderRadius: 8,
+                      marginBottom: 8,
+                    }}>
+                    <Icon name="content-copy" size={20} color="white" />
+                    <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
+                      📋 Копировать для календаря
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    onPress={createIcsFile} 
+                    style={{ 
+                      padding: 12, 
+                      alignItems: 'center', 
+                      flexDirection: 'row',
+                      justifyContent: 'center',
+                      backgroundColor: '#4CAF50',
+                      borderRadius: 8,
+                    }}>
+                    <Icon name="insert-drive-file" size={20} color="white" />
+                    <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
+                      📁 Создать .ics файл
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </>
             )}
             
