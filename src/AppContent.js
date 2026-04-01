@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, FlatList, Text, TouchableOpacity, Alert, BackHandler, Platform, Linking, StatusBar, ActivityIndicator, NativeModules, NativeEventEmitter } from 'react-native';
+import { View, FlatList, Text, TouchableOpacity, Alert, BackHandler, Platform, Linking, StatusBar, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { getBrandColor } from './BL02_Constants';
@@ -11,6 +11,7 @@ import EditNoteScreen from './BL17_EditNoteScreen';
 import SearchScreen from './BL20_SearchScreen';
 import NoteActionDialog from './BL07_NoteActionDialog';
 import { useNotesData } from './BL12_DataHooks';
+import { NativeModules, NativeEventEmitter } from 'react-native';
 
 const AppContent = () => {
   const insets = useSafeAreaInsets();
@@ -24,8 +25,8 @@ const AppContent = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   
-  // Флаг для предотвращения повторного создания заметки
   const isCreatingNote = useRef(false);
+  const pendingCreateFromWidget = useRef(false);
   
   const { notes, folders, settings, saveNotes, saveFolders, saveSettings, loadData } = useNotesData();
 
@@ -47,7 +48,8 @@ const AppContent = () => {
       pinned: false,
       locked: false,
       isNew: true,
-      hasReminder: false
+      hasReminder: false,
+      reminderTime: null
     };
     setSelectedNote(newNote);
     setCurrentScreen('edit');
@@ -57,35 +59,59 @@ const AppContent = () => {
     }, 1000);
   }, [isSaving, currentFolder, settings]);
 
-  // Обработка события из виджета (создание заметки)
+  // Проверка истекших напоминаний
   useEffect(() => {
-    const eventEmitter = new NativeEventEmitter(NativeModules.DeviceEventManagerModule);
-    const subscription = eventEmitter.addListener('createNewNote', () => {
-      console.log('Received createNewNote event from widget');
-      // Ждем загрузки данных, если нужно
-      if (isDataLoaded) {
-        createNewNote();
-      } else {
-        // Если данные еще не загружены, ждем
-        const checkData = setInterval(() => {
-          if (isDataLoaded) {
-            clearInterval(checkData);
-            createNewNote();
-          }
-        }, 100);
+    if (!isDataLoaded) return;
+    
+    const now = Date.now();
+    let hasChanges = false;
+    
+    const updatedNotes = notes.map(note => {
+      if (note.hasReminder && note.reminderTime && note.reminderTime <= now) {
+        hasChanges = true;
+        return { ...note, hasReminder: false, reminderTime: null };
       }
+      return note;
     });
     
+    if (hasChanges) {
+      saveNotes(updatedNotes);
+    }
+  }, [notes, isDataLoaded, saveNotes]);
+
+  // Обработка события из виджета через NativeEventEmitter
+  useEffect(() => {
+    let eventEmitter = null;
+    let subscription = null;
+    
+    try {
+      const { DeviceEventManagerModule } = NativeModules;
+      if (DeviceEventManagerModule) {
+        eventEmitter = new NativeEventEmitter(DeviceEventManagerModule);
+        subscription = eventEmitter.addListener('createNewNote', () => {
+          console.log('Received createNewNote event from widget');
+          if (isDataLoaded) {
+            createNewNote();
+          } else {
+            pendingCreateFromWidget.current = true;
+          }
+        });
+      }
+    } catch (e) {
+      console.log('NativeEventEmitter error:', e);
+    }
+    
     return () => {
-      subscription.remove();
+      if (subscription) subscription.remove();
     };
   }, [isDataLoaded, createNewNote]);
 
-  // Обработка deep link для совместимости
+  // Обработка deep link для открытия заметки и создания через URL
   useEffect(() => {
     const handleDeepLink = (event) => {
       const url = event.url;
       console.log('Deep link received:', url);
+      
       if (url && url.includes('famnotes://note/')) {
         const noteId = url.split('famnotes://note/')[1];
         const note = notes.find(n => n.id === noteId);
@@ -93,17 +119,31 @@ const AppContent = () => {
           setSelectedNote(note);
           setCurrentScreen('edit');
         }
+      } else if (url && url.includes('famnotes://create')) {
+        if (isDataLoaded) {
+          createNewNote();
+        } else {
+          pendingCreateFromWidget.current = true;
+        }
       }
     };
     
     const getInitialUrl = async () => {
       const initialUrl = await Linking.getInitialURL();
-      if (initialUrl && initialUrl.includes('famnotes://note/')) {
-        const noteId = initialUrl.split('famnotes://note/')[1];
-        const note = notes.find(n => n.id === noteId);
-        if (note) {
-          setSelectedNote(note);
-          setCurrentScreen('edit');
+      if (initialUrl) {
+        if (initialUrl.includes('famnotes://note/')) {
+          const noteId = initialUrl.split('famnotes://note/')[1];
+          const note = notes.find(n => n.id === noteId);
+          if (note) {
+            setSelectedNote(note);
+            setCurrentScreen('edit');
+          }
+        } else if (initialUrl.includes('famnotes://create')) {
+          if (isDataLoaded) {
+            createNewNote();
+          } else {
+            pendingCreateFromWidget.current = true;
+          }
         }
       }
     };
@@ -115,7 +155,15 @@ const AppContent = () => {
     return () => {
       subscription.remove();
     };
-  }, [notes]);
+  }, [notes, isDataLoaded, createNewNote]);
+
+  // Обработка отложенного создания после загрузки данных
+  useEffect(() => {
+    if (isDataLoaded && pendingCreateFromWidget.current) {
+      pendingCreateFromWidget.current = false;
+      createNewNote();
+    }
+  }, [isDataLoaded, createNewNote]);
 
   // Загрузка данных
   useEffect(() => {
@@ -127,9 +175,9 @@ const AppContent = () => {
   }, [loadData]);
 
   // Установка напоминания
-  const handleSetReminder = (noteId) => {
+  const handleSetReminder = (noteId, reminderTime) => {
     const updatedNotes = notes.map(n => 
-      n.id === noteId ? { ...n, hasReminder: true, updatedAt: Date.now() } : n
+      n.id === noteId ? { ...n, hasReminder: true, reminderTime: reminderTime, updatedAt: Date.now() } : n
     );
     saveNotes(updatedNotes);
   };
@@ -137,7 +185,7 @@ const AppContent = () => {
   // Отмена напоминания
   const handleCancelReminder = (noteId) => {
     const updatedNotes = notes.map(n => 
-      n.id === noteId ? { ...n, hasReminder: false, updatedAt: Date.now() } : n
+      n.id === noteId ? { ...n, hasReminder: false, reminderTime: null, updatedAt: Date.now() } : n
     );
     saveNotes(updatedNotes);
     Alert.alert('✅ Напоминание отменено', 'Напоминание для этой заметки отменено');
@@ -365,7 +413,9 @@ const AppContent = () => {
     if (!selectedNoteForAction) return null;
     
     const isInTrashFolder = selectedNoteForAction.folder === 'Корзина' || selectedNoteForAction.deleted === true;
-    const hasReminder = selectedNoteForAction.hasReminder === true;
+    const hasActiveReminder = selectedNoteForAction.hasReminder === true && 
+                              selectedNoteForAction.reminderTime && 
+                              selectedNoteForAction.reminderTime > Date.now();
     
     return (
       <NoteActionDialog 
@@ -406,7 +456,7 @@ const AppContent = () => {
         settings={settings}
         onSetReminder={handleSetReminder}
         onCancelReminder={handleCancelReminder}
-        hasReminder={hasReminder}
+        hasReminder={hasActiveReminder}
       />
     );
   };
@@ -484,7 +534,6 @@ const AppContent = () => {
   
   const isSelectedNoteNew = selectedNote && selectedNote.isNew === true;
   
-  // Показываем индикатор загрузки, если данные еще не загружены и не на экране редактирования
   if (!isDataLoaded && currentScreen !== 'edit') {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'white' }}>
