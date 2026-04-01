@@ -46,7 +46,7 @@
       </activity>
       
       <receiver
-        android:name=".FamNotesWidgetProvider"
+        android:name=".FamPlayerWidgetProvider"
         android:exported="true">
         <intent-filter>
             <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -58,7 +58,7 @@
       </receiver>
       
       <service
-        android:name=".FamNotesWidgetService"
+        android:name=".FamPlayerWidgetService"
         android:exported="true"
         android:permission="android.permission.BIND_REMOTEVIEWS" />
       

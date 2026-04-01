@@ -23,7 +23,7 @@ public class MainApplication extends Application implements ReactApplication {
         protected List<ReactPackage> getPackages() {
           List<ReactPackage> packages = new PackageList(this).getPackages();
           // Добавляем пакет виджета
-          packages.add(new WidgetPackage());
+          packages.add(new FamPlayerWidgetPackage());
           return packages;
         }
 

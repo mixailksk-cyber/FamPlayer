@@ -13,19 +13,19 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.Promise;
 
-public class WidgetDataModule extends ReactContextBaseJavaModule {
+public class FamPlayerWidgetDataModule extends ReactContextBaseJavaModule {
     private static final String SHARED_PREFS_NAME = "FamPlayerWidgetPrefs";
     private static final String KEY_WIDGET_NOTES = "widget_notes";
     private final ReactApplicationContext reactContext;
 
-    public WidgetDataModule(ReactApplicationContext context) {
+    public FamPlayerWidgetDataModule(ReactApplicationContext context) {
         super(context);
         this.reactContext = context;
     }
 
     @Override
     public String getName() {
-        return "WidgetDataModule";
+        return "FamPlayerWidgetDataModule";
     }
 
     @ReactMethod
