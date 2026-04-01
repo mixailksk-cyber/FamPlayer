@@ -15,8 +15,6 @@ const NoteActionDialog = ({
   currentFolder, 
   settings,
   isInTrash,
-  onSetReminder,
-  reminderTime,
   currentNote
 }) => {
   const availableFolders = React.useMemo(() => {
@@ -99,7 +97,29 @@ const NoteActionDialog = ({
     return `${year}${month}${day}T${hours}${minutes}${seconds}`;
   };
   
-  // Добавление в Google Календарь как мероприятие
+  // Формирование текста для уведомления
+  const getNotificationText = () => {
+    if (!currentNote) return { title: 'Напоминание', description: '' };
+    
+    const title = currentNote.title || '';
+    const content = currentNote.content || '';
+    
+    let description = '';
+    if (title && content) {
+      description = `${title}\n\n${content}`;
+    } else if (title) {
+      description = title;
+    } else if (content) {
+      description = content;
+    }
+    
+    return {
+      title: 'Напоминание',
+      description: description
+    };
+  };
+  
+  // Добавление в Google Календарь
   const openDateTimePicker = () => {
     setShowDateTimePicker(true);
   };
@@ -107,8 +127,7 @@ const NoteActionDialog = ({
   const addToGoogleCalendar = async () => {
     if (!currentNote) return;
     
-    const title = currentNote.title || 'Напоминание';
-    const content = currentNote.content || '';
+    const { title: notificationTitle, description: notificationDesc } = getNotificationText();
     
     const now = new Date();
     let year = now.getFullYear();
@@ -122,10 +141,11 @@ const NoteActionDialog = ({
     }
     
     const startDate = new Date(year, month, day, selectedHour, selectedMinute);
-    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+    // Конец события - через 24 часа (сутки)
+    const endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
     
-    const encodedTitle = encodeURIComponent(title);
-    const encodedDesc = encodeURIComponent(content);
+    const encodedTitle = encodeURIComponent(notificationTitle);
+    const encodedDesc = encodeURIComponent(notificationDesc);
     const startStr = formatForGoogle(startDate);
     const endStr = formatForGoogle(endDate);
     const timezone = getTimezone();
@@ -229,9 +249,9 @@ const NoteActionDialog = ({
                     backgroundColor: brandColor,
                     borderRadius: 8,
                   }}>
-                  <Icon name="calendar-today" size={20} color="white" />
+                  <Icon name="alarm" size={20} color="white" />
                   <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
-                    📅 Напомнить
+                    Напомнить
                   </Text>
                 </TouchableOpacity>
               </View>
