@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, FlatList, Text, TouchableOpacity, Alert, BackHandler, Platform, Linking, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -22,38 +22,57 @@ const AppContent = () => {
   const [selectedNoteForAction, setSelectedNoteForAction] = React.useState(null);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isSaving, setIsSaving] = React.useState(false);
-  const [pendingAction, setPendingAction] = React.useState(null);
+  
+  // Флаг для отслеживания, был ли обработан deep link
+  const deepLinkProcessed = useRef(false);
   
   const { notes, folders, settings, saveNotes, saveFolders, saveSettings, loadData } = useNotesData();
 
   // Обработка открытия заметки из виджета и создания заметки из виджета
   useEffect(() => {
     const handleDeepLink = (event) => {
+      // Если deep link уже был обработан, игнорируем
+      if (deepLinkProcessed.current) {
+        console.log('Deep link already processed, ignoring');
+        return;
+      }
+      
       const url = event.url;
       console.log('Deep link received:', url);
       if (url && url.includes('famnotes://note/')) {
         const noteId = url.split('famnotes://note/')[1];
         const note = notes.find(n => n.id === noteId);
         if (note) {
+          deepLinkProcessed.current = true;
           setSelectedNote(note);
           setCurrentScreen('edit');
         }
       } else if (url && url.includes('famnotes://create')) {
+        deepLinkProcessed.current = true;
         handleAddNote();
       }
     };
     
     const getInitialUrl = async () => {
+      // Если deep link уже был обработан, не обрабатываем повторно
+      if (deepLinkProcessed.current) {
+        console.log('Deep link already processed, skipping initial URL');
+        return;
+      }
+      
       const initialUrl = await Linking.getInitialURL();
       if (initialUrl) {
+        console.log('Initial URL:', initialUrl);
         if (initialUrl.includes('famnotes://note/')) {
           const noteId = initialUrl.split('famnotes://note/')[1];
           const note = notes.find(n => n.id === noteId);
           if (note) {
+            deepLinkProcessed.current = true;
             setSelectedNote(note);
             setCurrentScreen('edit');
           }
         } else if (initialUrl.includes('famnotes://create')) {
+          deepLinkProcessed.current = true;
           handleAddNote();
         }
       }
@@ -67,6 +86,18 @@ const AppContent = () => {
       subscription.remove();
     };
   }, [notes]);
+
+  // Сброс флага deep link при возврате на главный экран
+  useEffect(() => {
+    if (currentScreen === 'notes') {
+      // Не сбрасываем сразу, чтобы не мешать навигации
+      // Сбрасываем через небольшую задержку, чтобы не перехватывать повторные вызовы
+      const timer = setTimeout(() => {
+        deepLinkProcessed.current = false;
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [currentScreen]);
 
   // Обработка кнопки "Назад" на Android
   useEffect(() => {
@@ -231,9 +262,6 @@ const AppContent = () => {
   };
   
   const handleQuickDelete = (note) => {
-    const noteId = note.id;
-    const wasInTrash = note.folder === 'Корзина';
-    
     if (note.folder === 'Корзина') {
       const updatedNotes = notes.filter(n => n.id !== note.id);
       saveNotes(updatedNotes);
@@ -244,20 +272,10 @@ const AppContent = () => {
       saveNotes(newNotes);
     }
     
-    // Сохраняем информацию о том, что нужно вернуться в режим просмотра списка
-    setPendingAction({ type: 'delete', noteId, wasInTrash });
+    // После удаления всегда возвращаемся на экран списка
+    setCurrentScreen('notes');
+    setSelectedNote(null);
   };
-  
-  // Эффект для обработки возврата после удаления
-  useEffect(() => {
-    if (pendingAction && pendingAction.type === 'delete') {
-      setPendingAction(null);
-      if (currentScreen !== 'notes') {
-        setCurrentScreen('notes');
-      }
-      setSelectedNote(null);
-    }
-  }, [pendingAction, currentScreen]);
   
   const handleEmptyTrash = () => {
     Alert.alert(
