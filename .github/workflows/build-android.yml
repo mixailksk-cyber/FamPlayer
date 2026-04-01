@@ -29,35 +29,19 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-      
-      - name: Cache npm dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          node-version: '20'
       
       - name: Install dependencies
-        run: npm install
+        run: npm install --prefer-offline --no-audit --no-fund
       
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('android/*.gradle*') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-      
-      - name: Build Android APK with verbose logs
+      - name: Build Android APK
         run: |
           cd android
           chmod +x gradlew
           if [ "${{ github.event.inputs.build_type }}" = "release" ]; then
-            ./gradlew assembleRelease --stacktrace --info
+            ./gradlew assembleRelease --quiet
           else
-            ./gradlew assembleDebug --stacktrace --info
+            ./gradlew assembleDebug --quiet
           fi
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
