@@ -1,5 +1,8 @@
 package com.famnotes;
 
+import android.content.Intent;
+import android.os.Bundle;
+
 import com.facebook.react.ReactActivity;
 import com.facebook.react.ReactActivityDelegate;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
@@ -7,29 +10,47 @@ import com.facebook.react.defaults.DefaultReactActivityDelegate;
 
 public class MainActivity extends ReactActivity {
 
-  /**
-   * Returns the name of the main component registered from JavaScript. This is used to schedule
-   * rendering of the component.
-   */
   @Override
   protected String getMainComponentName() {
     return "FamNotes";
   }
 
-  /**
-   * Returns the instance of the {@link ReactActivityDelegate}. Here we use a util class {@link
-   * DefaultReactActivityDelegate} which allows you to easily enable Fabric and Concurrent React
-   * (aka React 18) with two boolean flags.
-   */
   @Override
   protected ReactActivityDelegate createReactActivityDelegate() {
     return new DefaultReactActivityDelegate(
         this,
         getMainComponentName(),
-        // If you opted-in for the New Architecture, we enable the Fabric Renderer.
-        DefaultNewArchitectureEntryPoint.getFabricEnabled(), // fabricEnabled
-        // If you opted-in for the New Architecture, we enable Concurrent React (aka React 18).
-        DefaultNewArchitectureEntryPoint.getConcurrentReactEnabled() // concurrentRootEnabled
+        DefaultNewArchitectureEntryPoint.getFabricEnabled(),
+        DefaultNewArchitectureEntryPoint.getConcurrentReactEnabled()
         );
+  }
+
+  @Override
+  protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    handleIntent(getIntent());
+  }
+
+  @Override
+  protected void onNewIntent(Intent intent) {
+    super.onNewIntent(intent);
+    setIntent(intent);
+    handleIntent(intent);
+  }
+
+  private void handleIntent(Intent intent) {
+    if (intent != null && intent.getBooleanExtra("create_new_note", false)) {
+      // Передаем флаг в React Native через deep link
+      try {
+        // Отправляем событие в React Native
+        getReactNativeHost().getReactInstanceManager()
+            .getCurrentReactContext()
+            .getJSModule(com.facebook.react.bridge.ReactApplicationContext.class)
+            .getNativeModule(com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+            .emit("createNewNote", null);
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }
   }
 }
