@@ -22,7 +22,6 @@ public class MainApplication extends Application implements ReactApplication {
         @Override
         protected List<ReactPackage> getPackages() {
           List<ReactPackage> packages = new PackageList(this).getPackages();
-          // Добавляем пакет виджета
           return packages;
         }
 
@@ -54,7 +53,5 @@ public class MainApplication extends Application implements ReactApplication {
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       DefaultNewArchitectureEntryPoint.load();
     }
-    // Создаем канал уведомлений
-    NotificationHelper.createNotificationChannel(this);
   }
 }
