@@ -86,19 +86,10 @@ android {
 
 dependencies {
     implementation("com.facebook.react:react-android")
-    
-    // Libraries
     implementation project(':react-native-vector-icons')
-    implementation project(':react-native-push-notification')
     implementation project(':react-native-fs')
-    implementation project(':react-native-document-picker')
-    implementation project(':react-native-orientation-locker')
     implementation project(':react-native-safe-area-context')
-    implementation project(':react-native-share')
     implementation project(':react-native-async-storage_async-storage')
-    
-    // Google Play services for push notifications
-    implementation 'com.google.android.gms:play-services-gcm:17.0.0'
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
