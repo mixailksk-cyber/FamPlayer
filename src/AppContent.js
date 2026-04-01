@@ -307,42 +307,42 @@ const AppContent = () => {
     const isInTrashFolder = selectedNoteForAction.folder === 'Корзина' || selectedNoteForAction.deleted === true;
     
     return (
-      <NoteActionDialog 
-        visible={showNoteDialog} 
-        onClose={() => { 
-          setShowNoteDialog(false); 
-          setSelectedNoteForAction(null); 
-        }} 
-        folders={folders} 
-        currentFolder={selectedNoteForAction?.folder || currentFolder} 
-        onMove={(targetFolder) => {
-          if (isInTrashFolder) {
-            handleRestoreFromTrash(selectedNoteForAction);
-          } else {
-            handleMoveNote(selectedNoteForAction, targetFolder);
-          }
-          setShowNoteDialog(false);
-          setSelectedNoteForAction(null);
-        }} 
-        onDelete={() => {
-          if (!isInTrashFolder) {
-            handleQuickDelete(selectedNoteForAction);
-          }
-          setShowNoteDialog(false);
-          setSelectedNoteForAction(null);
-        }} 
-        onPermanentDelete={() => {
-          const updatedNotes = notes.filter(n => n.id !== selectedNoteForAction.id);
-          saveNotes(updatedNotes);
-          setShowNoteDialog(false);
-          setSelectedNoteForAction(null);
-        }} 
-        onTogglePin={() => handleTogglePin(selectedNoteForAction.id)}
-        isPinned={selectedNoteForAction?.pinned || false}
-        isInTrash={isInTrashFolder}
-        currentNote={selectedNoteForAction}
-        settings={settings}
-      />
+<NoteActionDialog 
+  visible={showNoteDialog} 
+  onClose={() => { 
+    setShowNoteDialog(false); 
+    setSelectedNoteForAction(null); 
+  }} 
+  folders={folders} 
+  currentFolder={selectedNoteForAction?.folder || currentFolder} 
+  onMove={(targetFolder) => {
+    if (isInTrashFolder) {
+      handleRestoreFromTrash(selectedNoteForAction);
+    } else {
+      handleMoveNote(selectedNoteForAction, targetFolder);
+    }
+    setShowNoteDialog(false);
+    setSelectedNoteForAction(null);
+  }} 
+  onDelete={() => {
+    if (!isInTrashFolder) {
+      handleQuickDelete(selectedNoteForAction);
+    }
+    setShowNoteDialog(false);
+    setSelectedNoteForAction(null);
+  }} 
+  onPermanentDelete={() => {
+    const updatedNotes = notes.filter(n => n.id !== selectedNoteForAction.id);
+    saveNotes(updatedNotes);
+    setShowNoteDialog(false);
+    setSelectedNoteForAction(null);
+  }} 
+  onTogglePin={() => handleTogglePin(selectedNoteForAction.id)}
+  isPinned={selectedNoteForAction?.pinned || false}
+  isInTrash={isInTrashFolder}
+  currentNote={selectedNoteForAction}
+  settings={settings}
+/>
     );
   };
   
