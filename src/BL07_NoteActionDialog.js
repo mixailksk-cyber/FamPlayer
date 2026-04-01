@@ -289,4 +289,170 @@ const NoteActionDialog = ({
                   }}>
                   <Icon name={hasReminder ? "cancel" : "alarm"} size={20} color="white" />
                   <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
-                    {hasReminder ? "От
+                    {hasReminder ? "Отменить" : "Напомнить"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            
+            {availableFolders.length > 0 && (
+              <>
+                <Text style={{ marginBottom: 8, color: '#666', marginTop: 8 }}>Переместить в папку:</Text>
+                <ScrollView style={{ maxHeight: 200 }}>
+                  {availableFolders.map((n, i) => (
+                    <TouchableOpacity 
+                      key={i} 
+                      onPress={() => { onMove(n); onClose(); }} 
+                      style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#E0E0E0', flexDirection: 'row', alignItems: 'center' }}>
+                      <Icon name="folder" size={20} color="#666" style={{ marginRight: 12 }} />
+                      <Text style={{ fontSize: 16, color: '#333' }}>{n}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </>
+            )}
+            
+            {!isInTrash && (
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+                <TouchableOpacity 
+                  onPress={() => { onPermanentDelete(); onClose(); }} 
+                  style={{ 
+                    flex: 1,
+                    padding: 12, 
+                    backgroundColor: '#FF4444', 
+                    borderRadius: 8, 
+                    alignItems: 'center', 
+                    flexDirection: 'row', 
+                    justifyContent: 'center' }}>
+                  <Icon name="delete-forever" size={20} color="white" style={{ marginRight: 6 }} />
+                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>Безвозвратно</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  onPress={() => { onDelete(); onClose(); }} 
+                  style={{ 
+                    flex: 1,
+                    padding: 12, 
+                    backgroundColor: '#F57C00', 
+                    borderRadius: 8, 
+                    alignItems: 'center', 
+                    flexDirection: 'row', 
+                    justifyContent: 'center' }}>
+                  <Icon name="delete" size={20} color="white" style={{ marginRight: 6 }} />
+                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>В корзину</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            
+            {isInTrash && (
+              <TouchableOpacity 
+                onPress={() => { onPermanentDelete(); onClose(); }} 
+                style={{ marginTop: 16, padding: 12, backgroundColor: '#FF4444', borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
+                <Icon name="delete-forever" size={24} color="white" style={{ marginRight: 8 }} />
+                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Удалить безвозвратно</Text>
+              </TouchableOpacity>
+            )}
+            
+            <TouchableOpacity onPress={onClose} style={{ marginTop: 16, padding: 12, alignItems: 'center' }}>
+              <Text style={{ color: brandColor, fontSize: 16 }}>Отмена</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.View>
+      </Modal>
+      
+      {/* Модальное окно выбора даты и времени */}
+      <Modal visible={showDateTimePicker} transparent animationType="fade" onRequestClose={() => setShowDateTimePicker(false)}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ 
+            backgroundColor: 'white', 
+            padding: 20, 
+            borderRadius: 8, 
+            width: width - 40,
+            borderWidth: 1,
+            borderColor: '#E0E0E0',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.25,
+            shadowRadius: 4,
+            elevation: 5
+          }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center', color: brandColor }}>
+              Выберите дату и время
+            </Text>
+            
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ marginBottom: 8, color: '#666' }}>День и месяц:</Text>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <ScrollView style={{ height: 120, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, backgroundColor: 'white' }}>
+                    {getDaysList().map(day => (
+                      <TouchableOpacity 
+                        key={day}
+                        onPress={() => setSelectedDay(day)}
+                        style={{ padding: 8, alignItems: 'center', backgroundColor: selectedDay === day ? brandColor : 'white' }}>
+                        <Text style={{ color: selectedDay === day ? 'white' : '#333', fontWeight: selectedDay === day ? 'bold' : 'normal' }}>{day}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ScrollView style={{ height: 120, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, backgroundColor: 'white' }}>
+                    {getMonthsList().map((month, index) => (
+                      <TouchableOpacity 
+                        key={index}
+                        onPress={() => setSelectedMonth(index)}
+                        style={{ padding: 8, alignItems: 'center', backgroundColor: selectedMonth === index ? brandColor : 'white' }}>
+                        <Text style={{ color: selectedMonth === index ? 'white' : '#333', fontWeight: selectedMonth === index ? 'bold' : 'normal' }}>{month}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+            </View>
+            
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ marginBottom: 8, color: '#666' }}>Время:</Text>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <ScrollView style={{ height: 120, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, backgroundColor: 'white' }}>
+                    {getHoursList().map(hour => (
+                      <TouchableOpacity 
+                        key={hour}
+                        onPress={() => setSelectedHour(parseInt(hour))}
+                        style={{ padding: 8, alignItems: 'center', backgroundColor: selectedHour === parseInt(hour) ? brandColor : 'white' }}>
+                        <Text style={{ color: selectedHour === parseInt(hour) ? 'white' : '#333', fontWeight: selectedHour === parseInt(hour) ? 'bold' : 'normal' }}>{hour}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ScrollView style={{ height: 120, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, backgroundColor: 'white' }}>
+                    {getMinutesList().map(minute => (
+                      <TouchableOpacity 
+                        key={minute}
+                        onPress={() => setSelectedMinute(parseInt(minute))}
+                        style={{ padding: 8, alignItems: 'center', backgroundColor: selectedMinute === parseInt(minute) ? brandColor : 'white' }}>
+                        <Text style={{ color: selectedMinute === parseInt(minute) ? 'white' : '#333', fontWeight: selectedMinute === parseInt(minute) ? 'bold' : 'normal' }}>{minute}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+            </View>
+            
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 16 }}>
+              <TouchableOpacity onPress={() => setShowDateTimePicker(false)} style={{ padding: 12 }}>
+                <Text style={{ color: '#999', fontSize: 16 }}>Отмена</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={addToGoogleCalendar} style={{ padding: 12 }}>
+                <Text style={{ color: brandColor, fontWeight: 'bold', fontSize: 16 }}>Добавить</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
+};
+
+export default NoteActionDialog;
