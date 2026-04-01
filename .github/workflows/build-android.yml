@@ -50,14 +50,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
       
-      - name: Build Android APK
+      - name: Build Android APK with verbose logs
         run: |
           cd android
           chmod +x gradlew
           if [ "${{ github.event.inputs.build_type }}" = "release" ]; then
-            ./gradlew assembleRelease
+            ./gradlew assembleRelease --stacktrace --info
           else
-            ./gradlew assembleDebug
+            ./gradlew assembleDebug --stacktrace --info
           fi
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
@@ -65,5 +65,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: famnotes-${{ github.event.inputs.build_type }}
+          name: famplayer-${{ github.event.inputs.build_type }}
           path: android/app/build/outputs/apk/${{ github.event.inputs.build_type }}/app-${{ github.event.inputs.build_type }}.apk
