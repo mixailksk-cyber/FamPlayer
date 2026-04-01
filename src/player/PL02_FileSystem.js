@@ -1,13 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MusicFiles from 'react-native-get-music-files';
 
-export const SCAN_MODES = {
-  MEDIA: 'media'
-};
-
-export const saveScanMode = async () => true;
-export const getScanMode = async () => SCAN_MODES.MEDIA;
-
 export const scanMusic = async () => {
   try {
     console.log('📱 Scanning music files...');
@@ -23,7 +16,6 @@ export const scanMusic = async () => {
     
     console.log(`📊 Found ${songs.length} audio files`);
     
-    // Группируем по альбомам
     const albumsMap = {};
     const allSongs = [];
     
@@ -60,15 +52,7 @@ export const scanMusic = async () => {
     
     console.log(`✅ Scan complete: ${folders.length} albums, ${allSongs.length} songs`);
     
-    return { 
-      folders, 
-      songs: allSongs,
-      stats: {
-        total: allSongs.length,
-        albums: folders.length,
-        foldersWithSongs: folders.length
-      }
-    };
+    return { folders, songs: allSongs };
   } catch (error) {
     console.error('❌ Error scanning music:', error);
     throw error;
@@ -115,14 +99,4 @@ export const getSongsList = async () => {
     console.error('Error loading songs:', error);
     return [];
   }
-};
-
-// Заглушки
-export const saveRootFolder = async () => true;
-export const getRootFolder = async () => null;
-export const pickFolder = async () => null;
-export const getFolderFiles = async (folderId) => {
-  const folders = await getFoldersList();
-  const folder = folders.find(f => f.id === folderId);
-  return folder?.songs || [];
 };

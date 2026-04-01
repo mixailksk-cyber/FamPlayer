@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Header, FolderItem } from './PL04_Components';
+import { Header } from './PL04_Components';
 import { getBrandColor, BRAND_COLOR } from './PL01_Core';
 import { scanMusic, saveFoldersList, saveSongsList, getFoldersList } from './PL02_FileSystem';
 
 export default function PlaylistsScreen({ navigation, route }) {
-  const [settings, setSettings] = useState({ brandColor: BRAND_COLOR });
   const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+  const settings = route?.params?.settings || { brandColor: BRAND_COLOR };
   const brandColor = getBrandColor(settings);
 
   useEffect(() => {
@@ -86,12 +84,13 @@ export default function PlaylistsScreen({ navigation, route }) {
           data={folders}
           keyExtractor={item => item.id}
           renderItem={({ item }) => (
-            <FolderItem 
-              folder={item}
-              onPress={() => openFolder(item)}
-              settings={settings}
-              songCount={item.count || 0}
-            />
+            <TouchableOpacity style={styles.folderItem} onPress={() => openFolder(item)}>
+              <View style={[styles.folderIcon, { backgroundColor: brandColor }]}>
+                <Text style={styles.folderCount}>{item.count || 0}</Text>
+              </View>
+              <Text style={styles.folderName}>{item.name}</Text>
+              <Icon name="chevron-right" size={24} color="#999" />
+            </TouchableOpacity>
           )}
           contentContainerStyle={styles.listContent}
         />
@@ -110,4 +109,8 @@ const styles = StyleSheet.create({
   scanButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8 },
   scanButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600', marginLeft: 8 },
   listContent: { paddingBottom: 20 },
+  folderItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  folderIcon: { width: 44, height: 44, borderRadius: 8, marginRight: 16, justifyContent: 'center', alignItems: 'center' },
+  folderCount: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+  folderName: { fontSize: 16, color: '#333', flex: 1 },
 });
