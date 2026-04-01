@@ -3,17 +3,9 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.READ_CALENDAR" />
-    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
-        android:maxSdkVersion="29" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
-        android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     
     <application
       android:name=".MainApplication"
@@ -36,48 +28,7 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
-        
-        <intent-filter>
-            <action android:name="android.intent.action.VIEW" />
-            <category android:name="android.intent.category.DEFAULT" />
-            <category android:name="android.intent.category.BROWSABLE" />
-            <data android:scheme="famnotes" />
-        </intent-filter>
       </activity>
-      
-      <receiver
-            android:name="android.appwidget.provider"
-            android:resource="@xml/widget_info" />
-      </receiver>
-      
-      <service
-        android:exported="true"
-        android:permission="android.permission.BIND_REMOTEVIEWS" />
-      
-      <receiver
-        android:name="com.dieam.reactnativepushnotification.modules.RNPushNotificationBootEventReceiver"
-        android:exported="true">
-        <intent-filter>
-            <action android:name="android.intent.action.BOOT_COMPLETED" />
-            <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-        </intent-filter>
-      </receiver>
-      
-      <receiver
-        android:name="com.dieam.reactnativepushnotification.modules.RNPushNotificationPublisher"
-        android:exported="true" />
-      
-      <receiver
-        android:name="com.dieam.reactnativepushnotification.modules.RNPushNotificationAlarm"
-        android:exported="true" />
-      
-      <service
-        android:name="com.dieam.reactnativepushnotification.modules.RNPushNotificationListenerService"
-        android:exported="false">
-        <intent-filter>
-            <action android:name="com.google.firebase.MESSAGING_EVENT" />
-        </intent-filter>
-      </service>
       
     </application>
 </manifest>
