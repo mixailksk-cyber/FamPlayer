@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
 export default function App() {
@@ -7,7 +7,7 @@ export default function App() {
     <View style={styles.container}>
       <Icon name="music-note" size={64} color="#20A0A0" />
       <Text style={styles.title}>FamPlayer</Text>
-      <Text style={styles.subtitle}>Загрузка...</Text>
+      <Text style={styles.subtitle}>Музыкальный плеер</Text>
     </View>
   );
 }
