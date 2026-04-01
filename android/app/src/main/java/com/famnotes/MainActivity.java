@@ -5,8 +5,11 @@ import android.os.Bundle;
 
 import com.facebook.react.ReactActivity;
 import com.facebook.react.ReactActivityDelegate;
+import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
 import com.facebook.react.defaults.DefaultReactActivityDelegate;
+import com.facebook.react.modules.core.DeviceEventManagerModule;
 
 public class MainActivity extends ReactActivity {
 
@@ -32,7 +35,7 @@ public class MainActivity extends ReactActivity {
   }
 
   @Override
-  protected void onNewIntent(Intent intent) {
+  public void onNewIntent(Intent intent) {
     super.onNewIntent(intent);
     setIntent(intent);
     handleIntent(intent);
@@ -40,14 +43,14 @@ public class MainActivity extends ReactActivity {
 
   private void handleIntent(Intent intent) {
     if (intent != null && intent.getBooleanExtra("create_new_note", false)) {
-      // Передаем флаг в React Native через deep link
+      // Передаем событие в React Native
       try {
-        // Отправляем событие в React Native
-        getReactNativeHost().getReactInstanceManager()
-            .getCurrentReactContext()
-            .getJSModule(com.facebook.react.bridge.ReactApplicationContext.class)
-            .getNativeModule(com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-            .emit("createNewNote", null);
+        if (getReactNativeHost().getReactInstanceManager().getCurrentReactContext() != null) {
+          getReactNativeHost().getReactInstanceManager()
+              .getCurrentReactContext()
+              .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+              .emit("createNewNote", null);
+        }
       } catch (Exception e) {
         e.printStackTrace();
       }
