@@ -26,11 +26,11 @@ public class FamNotesWidgetProvider extends AppWidgetProvider {
             views.setRemoteAdapter(R.id.widget_list, intent);
             views.setEmptyView(R.id.widget_list, android.R.id.empty);
             
-            // Настройка кнопки "Новая заметка" - используем PendingIntent.getActivity напрямую
+            // Кнопка "Новая заметка" - открывает приложение и передает флаг для создания заметки
             Intent createNoteIntent = new Intent(context, MainActivity.class);
-            createNoteIntent.setAction(Intent.ACTION_VIEW);
+            createNoteIntent.setAction(Intent.ACTION_MAIN);
+            createNoteIntent.addCategory(Intent.CATEGORY_LAUNCHER);
             createNoteIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            createNoteIntent.setData(Uri.parse("famnotes://create"));
             createNoteIntent.putExtra("create_new_note", true);
             
             PendingIntent createPendingIntent = PendingIntent.getActivity(
@@ -41,12 +41,11 @@ public class FamNotesWidgetProvider extends AppWidgetProvider {
             );
             views.setOnClickPendingIntent(R.id.widget_add_button, createPendingIntent);
             
-            // Настройка кнопки "Все заметки"
+            // Кнопка "Все заметки"
             Intent openAppIntent = new Intent(context, MainActivity.class);
             openAppIntent.setAction(Intent.ACTION_MAIN);
             openAppIntent.addCategory(Intent.CATEGORY_LAUNCHER);
             openAppIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            openAppIntent.setData(Uri.parse("famnotes://widget"));
             
             PendingIntent openPendingIntent = PendingIntent.getActivity(
                 context, 
