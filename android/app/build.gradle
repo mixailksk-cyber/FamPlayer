@@ -85,7 +85,6 @@ android {
 }
 
 dependencies {
-    // React Native
     implementation("com.facebook.react:react-android")
     
     // Libraries
@@ -106,12 +105,4 @@ dependencies {
     } else {
         implementation jscFlavor
     }
-}
-
-// Apply native modules if they exist (optional, skip if not found)
-try {
-    apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle")
-    applyNativeModulesAppBuildGradle(project)
-} catch (Exception e) {
-    println "native_modules.gradle not found, skipping"
 }
