@@ -11,8 +11,6 @@ import android.widget.RemoteViews;
 
 public class FamNotesWidgetProvider extends AppWidgetProvider {
 
-    public static final String ACTION_CREATE_NOTE = "CREATE_NOTE";
-
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
         for (int appWidgetId : appWidgetIds) {
@@ -26,22 +24,7 @@ public class FamNotesWidgetProvider extends AppWidgetProvider {
             views.setRemoteAdapter(R.id.widget_list, intent);
             views.setEmptyView(R.id.widget_list, android.R.id.empty);
             
-            // Кнопка "Новая заметка" - открывает приложение и передает флаг для создания заметки
-            Intent createNoteIntent = new Intent(context, MainActivity.class);
-            createNoteIntent.setAction(Intent.ACTION_MAIN);
-            createNoteIntent.addCategory(Intent.CATEGORY_LAUNCHER);
-            createNoteIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            createNoteIntent.putExtra("create_new_note", true);
-            
-            PendingIntent createPendingIntent = PendingIntent.getActivity(
-                context,
-                appWidgetId,
-                createNoteIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-            );
-            views.setOnClickPendingIntent(R.id.widget_add_button, createPendingIntent);
-            
-            // Кнопка "Все заметки"
+            // Кнопка "Все заметки" - открывает приложение
             Intent openAppIntent = new Intent(context, MainActivity.class);
             openAppIntent.setAction(Intent.ACTION_MAIN);
             openAppIntent.addCategory(Intent.CATEGORY_LAUNCHER);
