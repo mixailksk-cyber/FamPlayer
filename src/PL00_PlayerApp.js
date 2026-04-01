@@ -1,10 +1,13 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
-import PlaylistsScreen from './player/PL06_PlaylistsScreen';
-import { BRAND_COLOR } from './player/PL01_Core';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-const Stack = createStackNavigator();
+// Импортируем экраны
+import PlaylistsScreen from './player/PL06_PlaylistsScreen';
+import FolderScreen from './player/PL07_FolderScreen';
+import SettingsScreen from './player/PL05_SettingsScreen';
+
+const Stack = createNativeStackNavigator();
 
 export default function PlayerApp() {
   return (
@@ -14,8 +17,8 @@ export default function PlayerApp() {
         screenOptions={{ headerShown: false }}
       >
         <Stack.Screen name="Playlists" component={PlaylistsScreen} />
-        <Stack.Screen name="Folder" component={require('./player/PL07_FolderScreen').default} />
-        <Stack.Screen name="Settings" component={require('./player/PL05_SettingsScreen').default} />
+        <Stack.Screen name="Folder" component={FolderScreen} />
+        <Stack.Screen name="Settings" component={SettingsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
