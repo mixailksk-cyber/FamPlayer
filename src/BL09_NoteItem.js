@@ -7,8 +7,8 @@ const NoteItem = ({ item, onPress, onLongPress, settings, showPin }) => {
   const defaultColor = getBrandColor(settings);
   const { day, month } = formatDate(item.updatedAt || item.createdAt || Date.now());
   
-  // Проверяем, есть ли активное напоминание (событие в календаре)
-  const hasReminder = item.calendarEventId && item.calendarEventId !== null;
+  // Проверяем, есть ли активное напоминание
+  const hasReminder = item.hasReminder === true;
   
   return (
     <TouchableOpacity 
