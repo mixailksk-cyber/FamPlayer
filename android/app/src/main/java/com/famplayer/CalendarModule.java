@@ -1,4 +1,4 @@
-package com.famnotes;
+package com.famplayer;
 
 import android.content.ContentResolver;
 import android.content.ContentValues;

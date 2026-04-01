@@ -1,4 +1,4 @@
-package com.famnotes;
+package com.famplayer;
 
 import android.appwidget.AppWidgetManager;
 import android.content.ComponentName;

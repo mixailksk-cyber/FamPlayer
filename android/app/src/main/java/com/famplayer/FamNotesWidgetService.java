@@ -1,4 +1,4 @@
-package com.famnotes;
+package com.famplayer;
 
 import android.app.PendingIntent;
 import android.content.Context;

@@ -1,4 +1,4 @@
-package com.famnotes;
+package com.famplayer;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
