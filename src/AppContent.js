@@ -395,4 +395,133 @@ const AppContent = () => {
         {isInTrash && sortedNotes.length > 0 && (
           <TouchableOpacity onPress={handleEmptyTrash}>
             <Icon name="delete-sweep" size={24} color="white" />
-          </
+          </TouchableOpacity>
+        )}
+      </Header>
+      
+      <FlatList 
+        data={sortedNotes} 
+        keyExtractor={item => item.id} 
+        renderItem={({ item }) => (
+          <NoteItem 
+            item={item} 
+            onPress={() => handleNoteOpen(item)} 
+            onLongPress={() => handleLongPressOnNote(item)}
+            settings={settings} 
+            showPin={!isInTrash}
+          />
+        )} 
+        ListEmptyComponent={
+          <View style={{ padding: 32, alignItems: 'center' }}>
+            <Text style={{ color: '#999' }}>Нет заметок</Text>
+          </View>
+        } 
+        contentContainerStyle={{ paddingBottom: 100 }}
+      />
+      
+      {!isInTrash && (
+        <TouchableOpacity 
+          style={{ 
+            position: 'absolute', 
+            bottom: insets.bottom + 24, 
+            right: insets.right + 24, 
+            width: 70, 
+            height: 70, 
+            borderRadius: 35, 
+            backgroundColor: brandColor, 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            elevation: 5 
+          }} 
+          onPress={handleAddNote}>
+          <Icon name="add" size={36} color="white" />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+  
+  const isSelectedNoteNew = selectedNote && selectedNote.isNew === true;
+  
+  switch (currentScreen) {
+    case 'notes':
+      return (
+        <>
+          <NotesListScreen />
+          <ActionDialog />
+        </>
+      );
+    case 'settings':
+      return (
+        <SettingsScreen 
+          setCurrentScreen={setCurrentScreen}
+          settings={settings}
+          saveSettings={saveSettings}
+          notes={notes}
+          folders={folders}
+          onBrandColorChange={() => {}}
+          loadData={loadData}
+          setCurrentFolder={setCurrentFolder}
+        />
+      );
+    case 'folders':
+      return (
+        <FoldersScreen 
+          folders={folders}
+          currentFolder={currentFolder}
+          setCurrentFolder={setCurrentFolder}
+          setCurrentScreen={setCurrentScreen}
+          insets={insets}
+          saveFolders={saveFolders}
+          settings={settings}
+          notes={notes}
+          handleRenameFolder={handleRenameFolder}
+          handleDeleteFolder={handleDeleteFolder}
+          handleColorChange={handleColorChange}
+        />
+      );
+    case 'edit':
+      return (
+        <EditNoteScreen 
+          selectedNote={selectedNote}
+          currentFolder={currentFolder}
+          notes={notes}
+          settings={settings}
+          onSave={handleSaveNote}
+          setCurrentScreen={setCurrentScreen}
+          insets={insets}
+          onQuickDelete={handleQuickDelete}
+          isNewNote={isSelectedNoteNew}
+        />
+      );
+    case 'search':
+      return (
+        <SearchScreen 
+          notes={notes}
+          setCurrentScreen={setCurrentScreen}
+          setSelectedNote={setSelectedNote}
+          setSelectedNoteForAction={setSelectedNoteForAction}
+          setShowNoteDialog={setShowNoteDialog}
+          goBack={() => {
+            setCurrentScreen('notes');
+            setSearchQuery('');
+          }}
+          navigationStack={navigationStack}
+          setNavigationStack={setNavigationStack}
+          setSearchQuery={setSearchQuery}
+          searchQuery={searchQuery}
+          settings={settings}
+          onLongPressNote={handleLongPressOnNote}
+          onNoteOpen={handleNoteOpen}
+        />
+      );
+    default:
+      return (
+        <>
+          <NotesListScreen />
+          <ActionDialog />
+        </>
+      );
+  }
+};
+
+export default AppContent;
