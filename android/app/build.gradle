@@ -85,9 +85,20 @@ android {
 }
 
 dependencies {
+    // React Native
     implementation("com.facebook.react:react-android")
+    
+    // Libraries
     implementation project(':react-native-vector-icons')
     implementation project(':react-native-push-notification')
+    implementation project(':react-native-fs')
+    implementation project(':react-native-document-picker')
+    implementation project(':react-native-orientation-locker')
+    implementation project(':react-native-safe-area-context')
+    implementation project(':react-native-share')
+    implementation project(':react-native-async-storage_async-storage')
+    
+    // Google Play services for push notifications
     implementation 'com.google.android.gms:play-services-gcm:17.0.0'
 
     if (hermesEnabled.toBoolean()) {
@@ -95,4 +106,12 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+}
+
+// Apply native modules if they exist (optional, skip if not found)
+try {
+    apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle")
+    applyNativeModulesAppBuildGradle(project)
+} catch (Exception e) {
+    println "native_modules.gradle not found, skipping"
 }
