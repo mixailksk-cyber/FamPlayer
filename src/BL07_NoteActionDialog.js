@@ -100,7 +100,7 @@ const NoteActionDialog = ({
     return `${year}${month}${day}T${hours}${minutes}${seconds}`;
   };
   
-  // Формирование текста для напоминания
+  // Формирование текста для напоминания с обрезанием по словам
   const getReminderText = () => {
     if (!currentNote) return { title: '', description: '' };
     
@@ -117,10 +117,39 @@ const NoteActionDialog = ({
       fullText = content;
     }
     
-    // Первые 100 символов в заголовок
-    const titleForReminder = fullText.substring(0, 100);
-    // Остальное в описание
-    const descriptionForReminder = fullText.length > 100 ? fullText.substring(100) : '';
+    if (!fullText) {
+      return { title: 'Напоминание', description: '' };
+    }
+    
+    // Функция для обрезания текста по словам
+    const truncateByWords = (text, maxLength) => {
+      if (text.length <= maxLength) {
+        return { truncatedText: text, remainingText: '' };
+      }
+      
+      // Находим последний пробел в пределах maxLength
+      let lastSpaceIndex = text.lastIndexOf(' ', maxLength);
+      
+      // Если нет пробела в пределах лимита, обрезаем по лимиту
+      if (lastSpaceIndex === -1) {
+        lastSpaceIndex = maxLength;
+      }
+      
+      const truncatedText = text.substring(0, lastSpaceIndex).trim();
+      const remainingText = text.substring(lastSpaceIndex).trim();
+      
+      return { truncatedText, remainingText };
+    };
+    
+    // Целевая длина для заголовка - около 100 символов
+    const targetLength = 100;
+    
+    // Пробуем обрезать по словам
+    const { truncatedText, remainingText } = truncateByWords(fullText, targetLength);
+    
+    // Если обрезанный текст короче оригинала, добавляем "..."
+    const titleForReminder = truncatedText + (remainingText ? '...' : '');
+    const descriptionForReminder = remainingText;
     
     return {
       title: titleForReminder || 'Напоминание',
