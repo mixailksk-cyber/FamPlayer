@@ -7,8 +7,8 @@ const NoteItem = ({ item, onPress, onLongPress, settings, showPin }) => {
   const defaultColor = getBrandColor(settings);
   const { day, month } = formatDate(item.updatedAt || item.createdAt || Date.now());
   
-  // Проверяем, активно ли напоминание (есть время и оно в будущем)
-  const hasActiveReminder = item.reminder && item.reminder > Date.now();
+  // Проверяем, есть ли активное напоминание (событие в календаре)
+  const hasReminder = item.calendarEventId && item.calendarEventId !== null;
   
   return (
     <TouchableOpacity 
@@ -57,11 +57,10 @@ const NoteItem = ({ item, onPress, onLongPress, settings, showPin }) => {
       </View>
       
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        {/* Значок будильника остается пока активно напоминание */}
-        {hasActiveReminder && (
+        {hasReminder && (
           <Icon name="alarm" size={18} color={defaultColor} />
         )}
-        {showPin && item.pinned && !hasActiveReminder && (
+        {showPin && item.pinned && !hasReminder && (
           <Icon name="push-pin" size={18} color={defaultColor} />
         )}
       </View>
