@@ -1,17 +1,3 @@
-pluginManagement {
-    def reactNativeGradlePlugin = settings.plugins.find {
-        it.id.get() == "com.facebook.react"
-    }
-    if (reactNativeGradlePlugin != null) {
-        includeBuild(reactNativeGradlePlugin.get().getSettings())
-    }
-}
-
-plugins {
-    id("com.facebook.react.settings")
-}
-
 rootProject.name = 'FamPlayer'
-
 include ':app'
 includeBuild('../node_modules/@react-native/gradle-plugin')
