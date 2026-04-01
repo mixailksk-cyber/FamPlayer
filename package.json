@@ -8,22 +8,6 @@
   },
   "dependencies": {
     "react": "19.2.0",
-    "
-
-cd /workspaces/FamPlayer
-
-# 1. Обновляем package.json с React 19
-cat > package.json << 'EOF'
-{
-  "name": "famplayer",
-  "version": "0.0.1",
-  "private": true,
-  "scripts": {
-    "android": "react-native run-android",
-    "start": "react-native start"
-  },
-  "dependencies": {
-    "react": "19.2.0",
     "react-native": "0.83.0",
     "react-native-vector-icons": "^10.2.0",
     "react-native-safe-area-context": "^5.0.0",
