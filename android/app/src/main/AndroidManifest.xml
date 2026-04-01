@@ -46,19 +46,11 @@
       </activity>
       
       <receiver
-        android:name=".FamPlayerWidgetProvider"
-        android:exported="true">
-        <intent-filter>
-            <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            <action android:name="CREATE_NOTE" />
-        </intent-filter>
-        <meta-data
             android:name="android.appwidget.provider"
             android:resource="@xml/widget_info" />
       </receiver>
       
       <service
-        android:name=".FamPlayerWidgetService"
         android:exported="true"
         android:permission="android.permission.BIND_REMOTEVIEWS" />
       
