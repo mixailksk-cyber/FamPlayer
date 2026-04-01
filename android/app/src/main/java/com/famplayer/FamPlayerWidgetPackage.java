@@ -13,7 +13,7 @@ public class FamPlayerWidgetPackage implements ReactPackage {
     @Override
     public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
         List<NativeModule> modules = new ArrayList<>();
-        modules.add(new WidgetDataModule(reactContext));
+        modules.add(new FamPlayerFamPlayerWidgetDataModule(reactContext));
         return modules;
     }
 
