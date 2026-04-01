@@ -15,7 +15,8 @@ const NoteActionDialog = ({
   currentFolder, 
   settings,
   isInTrash,
-  currentNote
+  currentNote,
+  onCancelReminder
 }) => {
   const availableFolders = React.useMemo(() => {
     return folders
@@ -34,6 +35,9 @@ const NoteActionDialog = ({
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedHour, setSelectedHour] = useState(0);
   const [selectedMinute, setSelectedMinute] = useState(0);
+  
+  // Проверяем, есть ли активное напоминание
+  const hasActiveReminder = currentNote?.calendarEventId && currentNote?.calendarEventId !== null;
   
   // Получение часового пояса устройства
   const getTimezone = () => {
@@ -162,6 +166,14 @@ const NoteActionDialog = ({
     }
   };
   
+  // Отмена напоминания
+  const handleCancelReminder = () => {
+    if (onCancelReminder) {
+      onCancelReminder(currentNote.id);
+    }
+    onClose();
+  };
+  
   const getDaysList = () => {
     const days = [];
     for (let i = 1; i <= 31; i++) {
@@ -239,7 +251,7 @@ const NoteActionDialog = ({
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
-                  onPress={openDateTimePicker} 
+                  onPress={hasActiveReminder ? handleCancelReminder : openDateTimePicker} 
                   style={{ 
                     flex: 1,
                     padding: 12, 
@@ -249,9 +261,9 @@ const NoteActionDialog = ({
                     backgroundColor: brandColor,
                     borderRadius: 8,
                   }}>
-                  <Icon name="alarm" size={20} color="white" />
+                  <Icon name={hasActiveReminder ? "cancel" : "alarm"} size={20} color="white" />
                   <Text style={{ fontSize: 14, color: 'white', marginLeft: 6 }}>
-                    Напомнить
+                    {hasActiveReminder ? "Отменить" : "Напомнить"}
                   </Text>
                 </TouchableOpacity>
               </View>
