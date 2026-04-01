@@ -18,9 +18,9 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-public class FamNotesWidgetService extends RemoteViewsService {
+public class FamPlayerWidgetService extends RemoteViewsService {
 
-    private static final String SHARED_PREFS_NAME = "FamNotesWidgetPrefs";
+    private static final String SHARED_PREFS_NAME = "FamPlayerWidgetPrefs";
     private static final String KEY_WIDGET_NOTES = "widget_notes";
 
     public static void updateWidgetData(Context context, String notesJson) {

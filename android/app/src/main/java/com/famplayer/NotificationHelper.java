@@ -7,7 +7,7 @@ import android.os.Build;
 
 public class NotificationHelper {
     public static final String CHANNEL_ID = "famnotes_channel";
-    public static final String CHANNEL_NAME = "FamNotes Reminders";
+    public static final String CHANNEL_NAME = "FamPlayer Reminders";
     public static final String CHANNEL_DESCRIPTION = "Notifications for note reminders";
 
     public static void createNotificationChannel(Context context) {

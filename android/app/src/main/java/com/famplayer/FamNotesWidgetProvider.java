@@ -9,7 +9,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.widget.RemoteViews;
 
-public class FamNotesWidgetProvider extends AppWidgetProvider {
+public class FamPlayerWidgetProvider extends AppWidgetProvider {
 
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
@@ -17,7 +17,7 @@ public class FamNotesWidgetProvider extends AppWidgetProvider {
             RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_layout);
             
             // Настройка адаптера для ListView
-            Intent intent = new Intent(context, FamNotesWidgetService.class);
+            Intent intent = new Intent(context, FamPlayerWidgetService.class);
             intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
             intent.setData(Uri.parse(intent.toUri(Intent.URI_INTENT_SCHEME)));
             
@@ -49,7 +49,7 @@ public class FamNotesWidgetProvider extends AppWidgetProvider {
         
         if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
             AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
-            ComponentName componentName = new ComponentName(context, FamNotesWidgetProvider.class);
+            ComponentName componentName = new ComponentName(context, FamPlayerWidgetProvider.class);
             int[] appWidgetIds = appWidgetManager.getAppWidgetIds(componentName);
             if (appWidgetIds.length > 0) {
                 onUpdate(context, appWidgetManager, appWidgetIds);

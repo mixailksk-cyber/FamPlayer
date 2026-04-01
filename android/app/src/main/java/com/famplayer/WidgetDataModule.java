@@ -14,7 +14,7 @@ import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.Promise;
 
 public class WidgetDataModule extends ReactContextBaseJavaModule {
-    private static final String SHARED_PREFS_NAME = "FamNotesWidgetPrefs";
+    private static final String SHARED_PREFS_NAME = "FamPlayerWidgetPrefs";
     private static final String KEY_WIDGET_NOTES = "widget_notes";
     private final ReactApplicationContext reactContext;
 
@@ -35,11 +35,11 @@ public class WidgetDataModule extends ReactContextBaseJavaModule {
             prefs.edit().putString(KEY_WIDGET_NOTES, notesJson).apply();
 
             // Обновляем данные в сервисе
-            FamNotesWidgetService.updateWidgetData(reactContext, notesJson);
+            FamPlayerWidgetService.updateWidgetData(reactContext, notesJson);
 
             // Обновляем виджет
             AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(reactContext);
-            ComponentName componentName = new ComponentName(reactContext, FamNotesWidgetProvider.class);
+            ComponentName componentName = new ComponentName(reactContext, FamPlayerWidgetProvider.class);
             int[] appWidgetIds = appWidgetManager.getAppWidgetIds(componentName);
             
             if (appWidgetIds.length > 0) {
@@ -47,7 +47,7 @@ public class WidgetDataModule extends ReactContextBaseJavaModule {
                     RemoteViews views = new RemoteViews(reactContext.getPackageName(), R.layout.widget_layout);
                     
                     // Настройка адаптера для ListView
-                    Intent intent = new Intent(reactContext, FamNotesWidgetService.class);
+                    Intent intent = new Intent(reactContext, FamPlayerWidgetService.class);
                     intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
                     intent.setData(Uri.parse(intent.toUri(Intent.URI_INTENT_SCHEME)));
                     
