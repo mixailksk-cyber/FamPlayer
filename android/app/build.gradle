@@ -87,9 +87,6 @@ android {
 dependencies {
     implementation("com.facebook.react:react-android")
     implementation project(':react-native-vector-icons')
-    implementation project(':react-native-fs')
-    implementation project(':react-native-safe-area-context')
-    implementation project(':react-native-async-storage_async-storage')
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
@@ -97,3 +94,5 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
